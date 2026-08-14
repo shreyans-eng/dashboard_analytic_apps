@@ -1,0 +1,52 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Connect this Git repo, then New → Blueprint.
+# Set secret env vars in the Render dashboard (do not commit them).
+
+services:
+  - type: web
+    name: banknote-analytics
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/live
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: HOST
+        value: 0.0.0.0
+      - key: SQL_ROOT
+        value: /sql
+      - key: PRODUCTS
+        value: banknote,coinzy
+      - key: GCP_PROJECT
+        value: banknote-app-4f3fd
+      - key: BQ_DATASET
+        value: analytics_488476338
+      - key: BQ_SUMMARY_DATASET
+        value: analytics_summary
+      - key: USE_SUMMARY_TABLES
+        value: "true"
+      - key: COINZY_GCP_PROJECT
+        value: coinzy-26a4d
+      - key: COINZY_BQ_DATASET
+        value: analytics_487601380
+      - key: COINZY_BQ_SUMMARY_DATASET
+        value: analytics_summary
+      - key: COINZY_USE_SUMMARY_TABLES
+        value: "true"
+      - key: COINZY_PREFER_RAW
+        value: "false"
+      - key: DASHBOARD_AUTH_ENABLED
+        value: "true"
+      - key: DASHBOARD_USERNAME
+        sync: false
+      - key: DASHBOARD_PASSWORD
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
+      - key: COINZY_GOOGLE_CREDENTIALS_JSON
+        sync: false

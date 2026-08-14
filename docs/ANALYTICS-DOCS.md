@@ -1,0 +1,17 @@
+# Product analytics documentation index
+
+| # | Doc | Length | Purpose |
+|---|-----|--------|---------|
+| 1 | [`01-concise-mvp-overview.md`](./01-concise-mvp-overview.md) | Short | Journey + 10 KPIs + how to use |
+| 2 | [`02-concise-add-app.md`](./02-concise-add-app.md) | Short | Add a new app in 5 steps |
+| 3 | [`03-full-queries-and-events.md`](./03-full-queries-and-events.md) | Full | All queries, views, events, params |
+| 4 | [`04-full-remaining-work.md`](./04-full-remaining-work.md) | Full | What’s left so everything works |
+| 5 | [`05-discovery-report-summary-migration.md`](./05-discovery-report-summary-migration.md) | Full | Verified BQ discovery + ambiguities |
+| 6 | [`06-summary-architecture.md`](./06-summary-architecture.md) | Full | Raw → summary → dashboard architecture |
+| 7 | [`deploy.md`](./deploy.md) | Full | Docker image + Render / Vercel / Netlify |
+
+### Related (older / deeper)
+
+- `mvp-kpi-query-guide.md` — earlier long share guide (overlaps with `03`)
+- `adding-a-new-app.md` — longer add-app notes (overlaps with `02`)
+- `banknote-product-metrics.md` / `product-analytics-banknote-vs-coinzy.md` — product notes

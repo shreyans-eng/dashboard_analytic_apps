@@ -1,0 +1,15 @@
+.git
+.github
+**/.DS_Store
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/dist
+**/*.log
+secrets/*.json
+analytics-inventory
+CoinzyAndroid
+banknote-analytics-dashboard/node_modules
+banknote-analytics-dashboard/dist
+banknote-analytics-dashboard/.env
