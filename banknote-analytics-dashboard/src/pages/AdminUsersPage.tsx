@@ -1,11 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
   Loader2,
   Mail,
-  Shield,
+  Search,
   Trash2,
   UserPlus,
   Users,
@@ -31,6 +30,7 @@ import {
   sendMonthlyReportsNow,
   type ReportSettings,
 } from '@/lib/api';
+import { useToast } from '@/lib/toast';
 
 const PAGE_SIZE = 10;
 
@@ -58,12 +58,6 @@ const FALLBACK_META: AccessMeta = {
   ],
 };
 
-function appsText(user: AuthUser) {
-  if (user.isAdmin || user.permissions.products.includes('*')) return 'All apps';
-  if (!user.permissions.products.length) return 'None';
-  return user.permissions.products.map(productLabel).join(', ');
-}
-
 function pagesText(user: AuthUser) {
   if (user.isAdmin || user.permissions.pages.includes('*')) return 'All pages';
   const labels = user.permissions.pages.map(pageLabel);
@@ -74,6 +68,7 @@ function pagesText(user: AuthUser) {
 
 export default function AdminUsersPage() {
   const { user: me } = useAuth();
+  const toast = useToast();
   const [tab, setTab] = useState<'list' | 'edit' | 'reports'>('list');
   const [meta, setMeta] = useState<AccessMeta | null>(FALLBACK_META);
   const [users, setUsers] = useState<AuthUser[]>([]);
@@ -87,8 +82,7 @@ export default function AdminUsersPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [reportSettings, setReportSettings] = useState<ReportSettings | null>(null);
   const [reportPeriod, setReportPeriod] = useState('');
   const [extraRecipients, setExtraRecipients] = useState('');
@@ -108,7 +102,6 @@ export default function AdminUsersPage() {
 
   const loadUsers = async () => {
     setLoading(true);
-    setError('');
     try {
       const result = await listDashboardUsers({
         page,
@@ -122,7 +115,7 @@ export default function AdminUsersPage() {
     } catch (err) {
       setUsers([]);
       setTotal(0);
-      setError(err instanceof Error ? err.message : 'Failed to load users');
+      toast.error('Could not load users', err instanceof Error ? err.message : 'Try again');
     } finally {
       setLoading(false);
     }
@@ -157,8 +150,6 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (tab !== 'edit') return;
-    setError('');
-    setMessage('');
     if (isNew) {
       setForm(EMPTY_FORM);
       return;
@@ -221,8 +212,6 @@ export default function AdminUsersPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    setError('');
-    setMessage('');
     try {
       if (form.role === 'sub_admin' && form.products.length === 0) {
         throw new Error('Assign at least one app (Banknote and/or Coinzy)');
@@ -241,7 +230,7 @@ export default function AdminUsersPage() {
           role: form.role,
           permissions,
         });
-        setMessage(`Created ${user.username}`);
+        toast.success('Sub-admin created', `${user.username} can now sign in`);
         setSelectedId(user.id);
         setPage(1);
         await loadUsers();
@@ -255,12 +244,12 @@ export default function AdminUsersPage() {
           permissions,
           password: form.password || undefined,
         });
-        setMessage('Saved');
+        toast.success('Access saved', `Updated ${selected.username}`);
         setForm((f) => ({ ...f, password: '' }));
         await loadUsers();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed');
+      toast.error('Could not save', err instanceof Error ? err.message : 'Save failed');
     } finally {
       setBusy(false);
     }
@@ -268,17 +257,16 @@ export default function AdminUsersPage() {
 
   const onDelete = async () => {
     if (!selected) return;
-    if (!window.confirm(`Delete ${selected.username}? They will lose access immediately.`)) return;
     setBusy(true);
-    setError('');
     try {
       await deleteDashboardUser(selected.id);
       setSelectedId('new');
-      setMessage(`Deleted ${selected.username}`);
+      setConfirmDelete(false);
+      toast.success('Account deleted', `${selected.username} no longer has access`);
       await loadUsers();
       setTab('list');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Delete failed');
+      toast.error('Could not delete', err instanceof Error ? err.message : 'Delete failed');
     } finally {
       setBusy(false);
     }
@@ -286,8 +274,6 @@ export default function AdminUsersPage() {
 
   const saveReports = async () => {
     setBusy(true);
-    setError('');
-    setMessage('');
     try {
       const settings = await saveReportSettings({
         enabled: reportSettings?.enabled !== false,
@@ -295,9 +281,9 @@ export default function AdminUsersPage() {
         extraRecipients: extraRecipients.split(',').map((s) => s.trim()).filter(Boolean),
       });
       setReportSettings(settings);
-      setMessage('Report settings saved');
+      toast.success('Report settings saved');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed');
+      toast.error('Could not save settings', err instanceof Error ? err.message : 'Save failed');
     } finally {
       setBusy(false);
     }
@@ -305,21 +291,17 @@ export default function AdminUsersPage() {
 
   const sendNow = async () => {
     setBusy(true);
-    setError('');
-    setMessage('');
     try {
       const result = await sendMonthlyReportsNow();
       if (result.skipped) {
-        setMessage(result.reason === 'already-sent' ? 'Already sent for this month' : 'Skipped');
+        toast.info(result.reason === 'already-sent' ? 'Already sent for this month' : 'Send skipped');
       } else {
-        const parts = (result.sent || []).map((s) => (
-          s.skipped ? `${s.product}: ${s.reason}` : `${s.product} → ${(s.to || []).join(', ')}`
-        ));
-        setMessage(`Sent ${result.period?.label || ''} — ${parts.join('; ')}`);
+        const delivered = (result.sent || []).filter((s) => !s.skipped).length;
+        toast.success(`Reports sent`, `${result.period?.label || 'Last month'} · ${delivered} app email${delivered === 1 ? '' : 's'}`);
         await loadReports();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Send failed');
+      toast.error('Could not send reports', err instanceof Error ? err.message : 'Check SMTP settings');
     } finally {
       setBusy(false);
     }
@@ -362,17 +344,17 @@ export default function AdminUsersPage() {
           </button>
         </div>
 
-        {error && tab !== 'edit' && <div className="login-error" style={{ marginBottom: 12 }}>{error}</div>}
-        {message && tab !== 'edit' && <div className="admin-ok" style={{ marginBottom: 12 }}><Check size={14} /> {message}</div>}
-
         {tab === 'list' && (
           <div className="admin-table-card">
             <form className="admin-table-tools" onSubmit={onSearch}>
-              <input
-                value={queryInput}
-                onChange={(e) => setQueryInput(e.target.value)}
-                placeholder="Search name, username, email"
-              />
+              <div className="admin-search">
+                <Search size={14} />
+                <input
+                  value={queryInput}
+                  onChange={(e) => setQueryInput(e.target.value)}
+                  placeholder="Search name, username, email"
+                />
+              </div>
               <select
                 value={productFilter}
                 onChange={(e) => { setPage(1); setProductFilter(e.target.value); }}
@@ -402,25 +384,53 @@ export default function AdminUsersPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={6} className="admin-empty">Loading…</td></tr>
+                    <tr>
+                      <td colSpan={6} className="admin-empty">
+                        <Loader2 size={16} className="spin" /> Loading accounts…
+                      </td>
+                    </tr>
                   ) : users.length === 0 ? (
-                    <tr><td colSpan={6} className="admin-empty">No accounts match this filter.</td></tr>
+                    <tr>
+                      <td colSpan={6} className="admin-empty">
+                        No accounts match this filter.
+                      </td>
+                    </tr>
                   ) : users.map((u) => (
                     <tr key={u.id} onClick={() => openUser(u.id)}>
                       <td>
                         <strong>{u.displayName}</strong>
                         <div className="admin-muted">{u.username}</div>
                       </td>
-                      <td>{u.isAdmin ? 'Admin' : 'Sub-admin'}</td>
-                      <td>{appsText(u)}</td>
+                      <td>
+                        <span className={`pill ${u.isAdmin ? 'pill-accent' : 'pill-muted'}`}>
+                          {u.isAdmin ? 'Admin' : 'Sub-admin'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="chip-row">
+                          {(u.isAdmin || u.permissions.products.includes('*')
+                            ? ['banknote', 'coinzy']
+                            : u.permissions.products
+                          ).map((id) => (
+                            <span key={id} className="mini-chip">{productLabel(id)}</span>
+                          ))}
+                          {!u.isAdmin && !u.permissions.products.length ? <span className="admin-muted">None</span> : null}
+                        </div>
+                      </td>
                       <td title={u.isAdmin ? 'All pages' : u.permissions.pages.map(pageLabel).join(', ')}>
                         {pagesText(u)}
                       </td>
                       <td>
-                        {u.email || '—'}
-                        {u.email ? <div className="admin-muted">{u.receiveReports === false ? 'Reports off' : 'Reports on'}</div> : null}
+                        {u.email || <span className="admin-muted">No email</span>}
+                        {u.email ? (
+                          <div className="admin-muted">{u.receiveReports === false ? 'Reports off' : 'Reports on'}</div>
+                        ) : null}
                       </td>
-                      <td>{u.active ? 'Active' : 'Disabled'}</td>
+                      <td>
+                        <span className={`pill ${u.active ? 'pill-ok' : 'pill-warn'}`}>
+                          {u.active ? 'Active' : 'Disabled'}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -450,7 +460,7 @@ export default function AdminUsersPage() {
                 <p>{summary}</p>
               </div>
               {!isNew && selected && selected.id !== me?.id && (
-                <button type="button" className="admin-danger" onClick={onDelete} disabled={busy}>
+                <button type="button" className="admin-danger" onClick={() => setConfirmDelete(true)} disabled={busy}>
                   <Trash2 size={14} /> Delete
                 </button>
               )}
@@ -583,9 +593,6 @@ export default function AdminUsersPage() {
               })}
             </fieldset>
 
-            {error && <div className="login-error">{error}</div>}
-            {message && <div className="admin-ok"><Check size={14} /> {message}</div>}
-
             <div className="admin-actions">
               <button type="submit" disabled={busy}>
                 {busy ? <Loader2 size={16} className="spin" /> : null}
@@ -640,8 +647,6 @@ export default function AdminUsersPage() {
             {reportSettings?.lastSentAt && (
               <p className="admin-note">Last sent: {reportSettings.lastSentKey} ({new Date(reportSettings.lastSentAt).toLocaleString()})</p>
             )}
-            {error && <div className="login-error">{error}</div>}
-            {message && <div className="admin-ok"><Check size={14} /> {message}</div>}
             <div className="admin-actions" style={{ gap: 8 }}>
               <button type="button" className="admin-ghost" onClick={saveReports} disabled={busy}>Save settings</button>
               <button type="button" onClick={sendNow} disabled={busy || !reportSettings?.smtp?.configured}>
@@ -652,6 +657,30 @@ export default function AdminUsersPage() {
           </div>
         )}
       </div>
+
+      {confirmDelete && selected && (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-user-title"
+          onClick={() => { if (!busy) setConfirmDelete(false); }}
+        >
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3 id="delete-user-title">Delete {selected.username}?</h3>
+            <p>They will lose access immediately. This cannot be undone.</p>
+            <div className="admin-actions">
+              <button type="button" className="admin-ghost" onClick={() => setConfirmDelete(false)} disabled={busy}>
+                Cancel
+              </button>
+              <button type="button" className="admin-danger" onClick={onDelete} disabled={busy}>
+                {busy ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />}
+                Delete account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

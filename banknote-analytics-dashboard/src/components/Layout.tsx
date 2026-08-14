@@ -34,6 +34,7 @@ import { useTheme } from '@/lib/theme';
 import { useProduct, type ProductId } from '@/lib/product';
 import { useInvalidateDashboard } from '@/hooks/useAnalytics';
 import { useAuth } from '@/lib/auth';
+import { useToast } from '@/lib/toast';
 import { pageIdFromPath } from '@/lib/access';
 
 const NAV = [
@@ -79,6 +80,7 @@ export default function Layout() {
   const { theme, setTheme } = useTheme();
   const { product, productId, isCompare, canCompare, products, setProductId } = useProduct();
   const { user, logout, canAccessPage, firstPath } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const invalidate = useInvalidateDashboard();
@@ -117,7 +119,15 @@ export default function Layout() {
           <div className="login-card">
             <h1>No pages assigned</h1>
             <p>Ask an admin to grant you access to apps and pages, then sign in again.</p>
-            <button type="button" onClick={() => logout()}>Sign out</button>
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                toast.info('Signed out');
+              }}
+            >
+              Sign out
+            </button>
           </div>
         </div>
       );
@@ -233,7 +243,14 @@ export default function Layout() {
           <span style={{ opacity: 0.8 }}>
             Mode: {isCompare ? `Compare (${products.map((p) => p.shortName).join(', ')})` : product.shortName}
           </span>
-          <button type="button" className="logout-btn" onClick={() => logout()}>
+          <button
+            type="button"
+            className="logout-btn"
+            onClick={async () => {
+              await logout();
+              toast.info('Signed out', 'Come back anytime');
+            }}
+          >
             <LogOut size={13} />
             Sign out{user ? ` (${user.displayName || user.username})` : ''}
           </button>

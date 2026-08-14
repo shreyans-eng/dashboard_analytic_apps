@@ -7,19 +7,22 @@ import { queryClient } from './lib/query-client';
 import { ThemeProvider } from './lib/theme';
 import { ProductProvider } from './lib/product';
 import { AuthProvider } from './lib/auth';
+import { ToastProvider } from './lib/toast';
 import './styles/global.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AuthProvider>
-          <ProductProvider>
-            <BrowserRouter>
-              <App />
-            </BrowserRouter>
-          </ProductProvider>
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <ProductProvider>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </ProductProvider>
+          </AuthProvider>
+        </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,
