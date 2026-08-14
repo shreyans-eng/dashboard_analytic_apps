@@ -6,9 +6,9 @@ import {
   getFunnelSteps,
   buildFunnelSql,
   buildEventInventorySql,
+  buildEventInventoryFromSummarySql,
   buildEventDailySql,
   buildEventParamsSql,
-  buildEventRangeTotalsSql,
 } from './funnel-registry.js';
 import { daysAgo, today } from './sql-utils.js';
 import { cacheKey, cached } from '../../cache/index.js';
@@ -405,7 +405,7 @@ export class ProductAnalyticsFacade {
       end_date: end,
       status: mapped.status,
       message: mapped.message,
-      identity: 'resolved_user_id = COALESCE(user_id, event_params.user_id, user_pseudo_id)',
+      identity: 'resolved_user_id = COALESCE(user_id, user_pseudo_id)',
       source: 'raw',
     };
 
@@ -417,7 +417,7 @@ export class ProductAnalyticsFacade {
     const sql = buildFunnelSql(repo.project, repo.dataset, mapped.steps, start, end);
     const key = cacheKey(`${product}:funnel:${funnelId}`, { start, end });
 
-    return cached('events', key, async () => {
+    return cached('funnel', key, async () => {
       const { rows, bytesProcessed } = await runQuery(repo.bigquery, sql);
       return {
         ...meta,
@@ -445,10 +445,39 @@ export class ProductAnalyticsFacade {
     const end = params.end_date || today();
     const search = params.search || '';
     const repo = this.registry.getRepo(product);
-    const sql = buildEventInventorySql(repo.project, repo.dataset, start, end, search);
     const key = cacheKey(`${product}:event-inventory`, { start, end, search });
 
-    return cached('events', key, async () => {
+    return cached('inventory', key, async () => {
+      if (!repo.preferRaw && repo.useSummary) {
+        try {
+          const sql = buildEventInventoryFromSummarySql(
+            repo.project,
+            repo.summaryDataset,
+            start,
+            end,
+            search,
+          );
+          const { rows, bytesProcessed } = await runQuery(repo.bigquery, sql);
+          return {
+            product,
+            start_date: start,
+            end_date: end,
+            search,
+            source: 'summary',
+            unique_users_note:
+              'Summary unique_users is the peak daily distinct count in range (not range-distinct). Hits are exact.',
+            sql,
+            rows,
+            count: rows.length,
+            bytesProcessed,
+          };
+        } catch (e) {
+          const msg = String(e?.message || e).toLowerCase();
+          if (!msg.includes('not found') && !msg.includes('does not exist')) throw e;
+        }
+      }
+
+      const sql = buildEventInventorySql(repo.project, repo.dataset, start, end, search);
       const { rows, bytesProcessed } = await runQuery(repo.bigquery, sql);
       return {
         product,
@@ -474,37 +503,38 @@ export class ProductAnalyticsFacade {
     const start = params.start_date || daysAgo(params.days || 30);
     const end = params.end_date || today();
     const repo = this.registry.getRepo(product);
-    const dailySql = buildEventDailySql(repo.project, repo.dataset, eventName, start, end);
-    const paramsSql = buildEventParamsSql(repo.project, repo.dataset, eventName, start, end);
-    const totalsSql = buildEventRangeTotalsSql(repo.project, repo.dataset, eventName, start, end);
+    const key = cacheKey(`${product}:event-detail`, { eventName, start, end });
 
-    const [daily, parameters, totals] = await Promise.all([
-      runQuery(repo.bigquery, dailySql),
-      runQuery(repo.bigquery, paramsSql).catch(() => ({ rows: [], bytesProcessed: 0 })),
-      runQuery(repo.bigquery, totalsSql),
-    ]);
+    return cached('inventory', key, async () => {
+      const dailySql = buildEventDailySql(repo.project, repo.dataset, eventName, start, end);
+      const paramsSql = buildEventParamsSql(repo.project, repo.dataset, eventName, start, end);
 
-    const hits = Number(totals.rows?.[0]?.hits || 0);
-    const uniqueUsers = Number(totals.rows?.[0]?.unique_users || 0);
+      const [rolled, parameters] = await Promise.all([
+        runQuery(repo.bigquery, dailySql),
+        runQuery(repo.bigquery, paramsSql).catch(() => ({ rows: [], bytesProcessed: 0 })),
+      ]);
 
-    return {
-      product,
-      event_name: eventName,
-      start_date: start,
-      end_date: end,
-      source: 'raw',
-      hits,
-      unique_users: uniqueUsers,
-      hits_per_user: uniqueUsers ? hits / uniqueUsers : null,
-      unique_users_note:
-        'Range unique_users is DISTINCT resolved_user_id; daily unique_users are not additive across days',
-      daily: daily.rows,
-      parameters: parameters.rows,
-      bytesProcessed:
-        (daily.bytesProcessed || 0) +
-        (parameters.bytesProcessed || 0) +
-        (totals.bytesProcessed || 0),
-      sql: { daily: dailySql, parameters: paramsSql, totals: totalsSql },
-    };
+      const totalRow = (rolled.rows || []).find((r) => r.event_date == null);
+      const daily = (rolled.rows || []).filter((r) => r.event_date != null);
+      const hits = Number(totalRow?.hits || daily.reduce((s, r) => s + Number(r.hits || 0), 0));
+      const uniqueUsers = Number(totalRow?.unique_users || 0);
+
+      return {
+        product,
+        event_name: eventName,
+        start_date: start,
+        end_date: end,
+        source: 'raw',
+        hits,
+        unique_users: uniqueUsers,
+        hits_per_user: uniqueUsers ? hits / uniqueUsers : null,
+        unique_users_note:
+          'Range unique_users is DISTINCT COALESCE(user_id, user_pseudo_id); daily unique_users are not additive across days',
+        daily,
+        parameters: parameters.rows,
+        bytesProcessed: (rolled.bytesProcessed || 0) + (parameters.bytesProcessed || 0),
+        sql: { daily: dailySql, parameters: paramsSql },
+      };
+    });
   }
 }

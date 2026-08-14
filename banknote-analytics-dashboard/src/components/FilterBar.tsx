@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { QueryParams } from '@/lib/api';
 import { useDashboardMetric } from '@/hooks/useAnalytics';
 
@@ -9,6 +9,7 @@ interface Props {
 }
 
 export default function FilterBar({ params, onChange, onApply }: Props) {
+  const [loadCountries, setLoadCountries] = useState(false);
   // Load country options from the same date range (no country/platform filter).
   const listParams = useMemo(
     () => ({
@@ -17,7 +18,7 @@ export default function FilterBar({ params, onChange, onApply }: Props) {
     }),
     [params.start_date, params.end_date],
   );
-  const countriesQ = useDashboardMetric('countries', listParams);
+  const countriesQ = useDashboardMetric('countries', listParams, loadCountries || Boolean(params.country));
 
   const countries = useMemo(() => {
     const fromApi = (countriesQ.data ?? [])
@@ -52,7 +53,8 @@ export default function FilterBar({ params, onChange, onApply }: Props) {
         <select
           value={params.country || ''}
           onChange={(e) => onChange({ ...params, country: e.target.value || undefined })}
-          disabled={countriesQ.isLoading && countries.length === 0}
+          onFocus={() => setLoadCountries(true)}
+          disabled={countriesQ.isLoading && countries.length === 0 && loadCountries}
         >
           <option value="">All countries</option>
           {countries.map((c) => (

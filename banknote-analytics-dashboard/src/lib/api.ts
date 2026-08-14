@@ -130,6 +130,7 @@ export interface EventInventoryResult {
   end_date: string;
   search?: string;
   source?: string;
+  unique_users_note?: string;
   rows: EventInventoryRow[];
   count: number;
   bytesProcessed?: number;

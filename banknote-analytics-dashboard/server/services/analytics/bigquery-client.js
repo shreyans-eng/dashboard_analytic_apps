@@ -22,7 +22,13 @@ function normalizeRow(row) {
 }
 
 export async function runQuery(bigquery, sql) {
-  const [job] = await bigquery.createQueryJob({ query: sql, location: 'US' });
+  const maxBytes = Number(process.env.BQ_MAX_BYTES_BILLED || 20 * 1024 * 1024 * 1024);
+  const [job] = await bigquery.createQueryJob({
+    query: sql,
+    location: 'US',
+    useQueryCache: true,
+    maximumBytesBilled: String(Math.max(1, maxBytes)),
+  });
   const [rows] = await job.getQueryResults();
   const [metadata] = await job.getMetadata();
   const bytesProcessed = Number(metadata.statistics?.query?.totalBytesProcessed || 0);

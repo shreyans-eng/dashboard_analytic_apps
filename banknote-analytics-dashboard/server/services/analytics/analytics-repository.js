@@ -252,12 +252,7 @@ export class AnalyticsRepository {
   async getProductDailySignals(params) {
     const key = cacheKey(`${this.productId}:daily-signals`, params);
     return cached('compare', key, async () => {
-      // Coinzy summary was built with Banknote event aliases (Subs_confirm,
-      // Marketplace_open, …). Until that table is rebuilt, read raw events
-      // with the verified Coinzy names so Compare + MVP fallbacks are correct.
-      const skipStaleSummary = this.productId === 'coinzy';
-
-      if (!this.preferRaw && this.useSummary && !skipStaleSummary) {
+      if (!this.preferRaw && this.useSummary) {
         try {
           return await this._executeSql(
             'dashboard/summary/16_product_daily_signals.sql',
@@ -476,7 +471,7 @@ export class AnalyticsRepository {
     ];
 
     const freshness = {};
-    for (const table of tables) {
+    await Promise.all(tables.map(async (table) => {
       try {
         const sql = `
           SELECT MAX(refreshed_at) AS last_refresh
@@ -487,7 +482,7 @@ export class AnalyticsRepository {
       } catch {
         freshness[table] = null;
       }
-    }
+    }));
 
     const timestamps = Object.values(freshness).filter(Boolean);
     const lastRefresh = timestamps.length
@@ -542,7 +537,8 @@ export class AnalyticsRepository {
 
   /**
    * Run one of the 10 MVP product KPIs.
-   * Views path when available; raw daily signals (or retention) when preferRaw / missing views.
+   * Prefer summary product_daily_signals (one cheap table, shared cache).
+   * Product-folder / view SQL only when there is no signal column (time-to-first-scan).
    */
   async getMvpMetric(name, params) {
     const spec = MVP_KPI_MAP[name];
@@ -554,13 +550,15 @@ export class AnalyticsRepository {
         return this.getRetention(params);
       }
 
-      const productSql = this._resolveProductSql(spec.productSql);
-
-      // Product-folder SQL is already raw/event-correct — run it even when preferRaw.
-      if (this.preferRaw && spec.signalKey && productSql === spec.productSql) {
-        return this._mvpFromSignals(spec, params);
+      if (spec.signalKey && !this.preferRaw) {
+        try {
+          return await this._mvpFromSignals(spec, params);
+        } catch (e) {
+          console.warn(`[${this.productId}] MVP ${name} signals failed, trying product SQL: ${e.message}`);
+        }
       }
 
+      const productSql = this._resolveProductSql(spec.productSql);
       if (productSql) {
         try {
           const source = productSql === spec.productSql ? 'view' : 'product';
@@ -575,9 +573,8 @@ export class AnalyticsRepository {
         return this._mvpFromSignals(spec, params);
       }
 
-      // Last resort: empty series (e.g. time-to-first-scan without views)
       return {
-        sql: `-- ${name}: no raw fallback; deploy product views or use Banknote dataset`,
+        sql: `-- ${name}: no raw fallback; deploy product views or refresh summaries`,
         rows: [],
         count: 0,
         bytesProcessed: 0,

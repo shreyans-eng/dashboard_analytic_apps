@@ -621,17 +621,29 @@ export function sqlStringLiteral(s) {
 }
 
 /**
- * Build raw BigQuery SQL for a funnel given product mapping.
- * Uses DISTINCT users per step (canonical resolved_user_id).
+ * Cheap identity for interactive raw scans.
+ * Skips UNNEST(event_params) so BigQuery does not bill the fat nested column.
+ * Logged-in users still resolve via top-level user_id; everyone has user_pseudo_id.
+ */
+const CHEAP_USER = 'COALESCE(user_id, user_pseudo_id)';
+const EVENT_BASE = `REGEXP_REPLACE(event_name, r'_(android|ios)$', '')`;
+
+/**
+ * One events_* scan (event_name + user_id + user_pseudo_id only).
+ * Aggregates every step in a single SELECT so BigQuery cannot inline N copies of the CTE.
  */
 export function buildFunnelSql(project, dataset, steps, startDate, endDate) {
   const startS = startDate.replace(/-/g, '');
   const endS = endDate.replace(/-/g, '');
 
-  const unions = steps
-    .map((step, i) => {
-      const evList = step.events.map(sqlStringLiteral).join(', ');
-      return `
+  const aggCols = steps.map((step, i) => {
+    const evList = step.events.map(sqlStringLiteral).join(', ');
+    return `
+    COUNT(DISTINCT IF(${EVENT_BASE} IN (${evList}), ${CHEAP_USER}, NULL)) AS users_${i},
+    COUNTIF(${EVENT_BASE} IN (${evList})) AS hits_${i}`;
+  }).join(',');
+
+  const unpack = steps.map((step, i) => `
   SELECT
     ${i + 1} AS step_order,
     ${sqlStringLiteral(step.id)} AS step_id,
@@ -639,30 +651,22 @@ export function buildFunnelSql(project, dataset, steps, startDate, endDate) {
     ${sqlStringLiteral(step.events.join(', '))} AS event_names,
     ${step.core ? 'TRUE' : 'FALSE'} AS is_core,
     ${step.isDrop ? 'TRUE' : 'FALSE'} AS is_drop,
-    COUNT(DISTINCT CASE WHEN event_name_base IN (${evList}) THEN resolved_user_id END) AS users,
-    COUNTIF(event_name_base IN (${evList})) AS hits
-  FROM base`;
-    })
-    .join('\n  UNION ALL\n');
+    users_${i} AS users,
+    hits_${i} AS hits,
+    dau
+  FROM agg`).join('\n  UNION ALL\n');
 
   return `
-WITH base AS (
+WITH agg AS (
   SELECT
-    COALESCE(
-      user_id,
-      (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-      user_pseudo_id
-    ) AS resolved_user_id,
-    REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base
+    COUNT(DISTINCT ${CHEAP_USER}) AS dau,
+    ${aggCols.trim()}
   FROM \`${project}.${dataset}.events_*\`
   WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
     AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\\d{8}$')
 ),
-dau AS (
-  SELECT COUNT(DISTINCT resolved_user_id) AS dau FROM base
-),
 steps AS (
-${unions}
+${unpack}
 ),
 core_chain AS (
   SELECT
@@ -681,8 +685,8 @@ SELECT
   s.is_drop,
   s.users,
   s.hits,
-  d.dau,
-  SAFE_DIVIDE(s.users, d.dau) AS pct_of_dau,
+  s.dau,
+  SAFE_DIVIDE(s.users, s.dau) AS pct_of_dau,
   SAFE_DIVIDE(s.hits, NULLIF(s.users, 0)) AS hits_per_user,
   c.prev_users,
   SAFE_DIVIDE(s.users, c.prev_users) AS pct_of_previous,
@@ -695,42 +699,25 @@ SELECT
     ELSE 1 - SAFE_DIVIDE(s.users, c.prev_users)
   END AS drop_off_rate
 FROM steps s
-CROSS JOIN dau d
 LEFT JOIN core_chain c ON c.step_id = s.step_id
 ORDER BY s.step_order
 `.trim();
 }
 
-export function buildEventInventorySql(project, dataset, startDate, endDate, search = '') {
-  const startS = startDate.replace(/-/g, '');
-  const endS = endDate.replace(/-/g, '');
+export function buildEventInventoryFromSummarySql(project, summaryDataset, startDate, endDate, search = '') {
   const searchFilter = search
     ? `AND LOWER(event_name_base) LIKE LOWER('%${String(search).replace(/'/g, "''")}%')`
     : '';
-
   return `
-WITH base AS (
-  SELECT
-    REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base,
-    COALESCE(
-      user_id,
-      (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-      user_pseudo_id
-    ) AS resolved_user_id,
-    PARSE_DATE('%Y%m%d', event_date) AS event_date
-  FROM \`${project}.${dataset}.events_*\`
-  WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
-    AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\\d{8}$')
-)
 SELECT
   event_name_base AS event_name,
-  COUNT(*) AS hits,
-  COUNT(DISTINCT resolved_user_id) AS unique_users,
+  SUM(event_count) AS hits,
+  MAX(unique_users) AS unique_users,
   MIN(event_date) AS first_seen,
   MAX(event_date) AS last_seen,
-  SAFE_DIVIDE(COUNT(*), COUNT(DISTINCT resolved_user_id)) AS hits_per_user
-FROM base
-WHERE TRUE
+  SAFE_DIVIDE(SUM(event_count), MAX(unique_users)) AS hits_per_user
+FROM \`${project}.${summaryDataset}.top_events\`
+WHERE event_date BETWEEN DATE '${startDate}' AND DATE '${endDate}'
   ${searchFilter}
 GROUP BY event_name_base
 ORDER BY hits DESC
@@ -738,60 +725,53 @@ LIMIT 500
 `.trim();
 }
 
-export function buildEventRangeTotalsSql(project, dataset, eventName, startDate, endDate) {
+export function buildEventInventorySql(project, dataset, startDate, endDate, search = '') {
   const startS = startDate.replace(/-/g, '');
   const endS = endDate.replace(/-/g, '');
-  const ev = sqlStringLiteral(eventName);
+  const searchFilter = search
+    ? `AND LOWER(${EVENT_BASE}) LIKE LOWER('%${String(search).replace(/'/g, "''")}%')`
+    : '';
 
   return `
-WITH base AS (
-  SELECT
-    REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base,
-    COALESCE(
-      user_id,
-      (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-      user_pseudo_id
-    ) AS resolved_user_id
-  FROM \`${project}.${dataset}.events_*\`
-  WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
-    AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\\d{8}$')
-)
 SELECT
+  ${EVENT_BASE} AS event_name,
   COUNT(*) AS hits,
-  COUNT(DISTINCT resolved_user_id) AS unique_users
-FROM base
-WHERE event_name_base = ${ev}
+  COUNT(DISTINCT ${CHEAP_USER}) AS unique_users,
+  MIN(PARSE_DATE('%Y%m%d', event_date)) AS first_seen,
+  MAX(PARSE_DATE('%Y%m%d', event_date)) AS last_seen,
+  SAFE_DIVIDE(COUNT(*), COUNT(DISTINCT ${CHEAP_USER})) AS hits_per_user
+FROM \`${project}.${dataset}.events_*\`
+WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
+  AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\\d{8}$')
+  ${searchFilter}
+GROUP BY event_name
+ORDER BY hits DESC
+LIMIT 500
 `.trim();
 }
 
+/** Daily + range totals in one scan (ROLLUP). event_date IS NULL = range totals. */
 export function buildEventDailySql(project, dataset, eventName, startDate, endDate) {
   const startS = startDate.replace(/-/g, '');
   const endS = endDate.replace(/-/g, '');
   const ev = sqlStringLiteral(eventName);
 
   return `
-WITH base AS (
-  SELECT
-    PARSE_DATE('%Y%m%d', event_date) AS event_date,
-    REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base,
-    COALESCE(
-      user_id,
-      (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-      user_pseudo_id
-    ) AS resolved_user_id
-  FROM \`${project}.${dataset}.events_*\`
-  WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
-    AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\\d{8}$')
-)
 SELECT
-  event_date,
+  PARSE_DATE('%Y%m%d', event_date) AS event_date,
   COUNT(*) AS hits,
-  COUNT(DISTINCT resolved_user_id) AS unique_users
-FROM base
-WHERE event_name_base = ${ev}
-GROUP BY event_date
+  COUNT(DISTINCT ${CHEAP_USER}) AS unique_users
+FROM \`${project}.${dataset}.events_*\`
+WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
+  AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\\d{8}$')
+  AND ${EVENT_BASE} = ${ev}
+GROUP BY ROLLUP(event_date)
 ORDER BY event_date
 `.trim();
+}
+
+export function buildEventRangeTotalsSql(project, dataset, eventName, startDate, endDate) {
+  return buildEventDailySql(project, dataset, eventName, startDate, endDate);
 }
 
 export function buildEventParamsSql(project, dataset, eventName, startDate, endDate) {

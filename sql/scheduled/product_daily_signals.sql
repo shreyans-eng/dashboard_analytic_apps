@@ -34,11 +34,7 @@ INSERT INTO `{PROJECT}.{SUMMARY_DATASET}.product_daily_signals`
 WITH base AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
-    COALESCE(
-      user_id,
-      (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-      user_pseudo_id
-    ) AS resolved_user_id,
+    COALESCE(user_id, user_pseudo_id) AS resolved_user_id,
     REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base
   FROM `{PROJECT}.{DATASET}.events_*`
   WHERE _TABLE_SUFFIX BETWEEN '{START_SUFFIX}' AND '{END_SUFFIX}'

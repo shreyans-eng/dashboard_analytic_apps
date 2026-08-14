@@ -96,7 +96,7 @@ export function useFunnel(funnelId: string, params: QueryParams, enabled = true)
   return useQuery({
     queryKey: queryKey(`funnel:${funnelId}`, p),
     queryFn: () => fetchFunnel(funnelId, p),
-    staleTime: STALE_TIME.EVENTS,
+    staleTime: STALE_TIME.DAILY,
     enabled: enabled && productId !== 'compare',
   });
 }
@@ -110,7 +110,7 @@ export function useEventInventory(
   return useQuery({
     queryKey: queryKey('event-inventory', p),
     queryFn: () => fetchEventInventory(p),
-    staleTime: STALE_TIME.EVENTS,
+    staleTime: STALE_TIME.DAILY,
     enabled: enabled && productId !== 'compare',
   });
 }

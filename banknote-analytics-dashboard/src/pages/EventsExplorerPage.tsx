@@ -49,6 +49,9 @@ export default function EventsExplorerPage({ params, setParams, applyFilters }: 
       </div>
 
       <div className="page-content">
+        {inventory.data?.unique_users_note && !isCompare && (
+          <p className="muted small" style={{ marginBottom: 12 }}>{inventory.data.unique_users_note}</p>
+        )}
         {isCompare && (
           <div className="empty-state">
             Select <strong>Banknote</strong> or <strong>Coinzy</strong> to inspect events.
