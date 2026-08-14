@@ -1467,6 +1467,17 @@ p.muted.small {
   margin-bottom: 8px;
 }
 
+.login-link {
+  width: 100%;
+  margin-top: 10px !important;
+  background: transparent !important;
+  color: var(--accent) !important;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .admin-layout {
   display: grid;
   grid-template-columns: minmax(240px, 300px) 1fr;

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { mongoConfigured } from './db.js';
-import { authenticateUser, findUserById, findUserByUsername } from './users.js';
+import { authenticateUser, findUserById, findUserByUsername, resetPasswordWithEmail } from './users.js';
 import {
   canAccessPage,
   canAccessProduct,
@@ -117,7 +117,8 @@ function publicApiPath(req) {
     p === '/api/live' ||
     p === '/api/auth/login' ||
     p === '/api/auth/me' ||
-    p === '/api/auth/logout'
+    p === '/api/auth/logout' ||
+    p === '/api/auth/forgot-password'
   );
 }
 
@@ -231,6 +232,42 @@ export function mountAuth(app) {
   app.post('/api/auth/logout', (_req, res) => {
     clearSessionCookie(res);
     res.json({ ok: true });
+  });
+
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    if (!authEnabled()) {
+      return res.status(400).json({ error: 'Auth is disabled' });
+    }
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    if (tooManyAttempts(ip)) {
+      return res.status(429).json({ error: 'Too many attempts. Try again later.' });
+    }
+    const username = String(req.body?.username || '');
+    const email = String(req.body?.email || '');
+    const password = String(req.body?.password || '');
+    const confirm = String(req.body?.confirmPassword || req.body?.passwordConfirm || '');
+    if (confirm && confirm !== password) {
+      return res.status(400).json({ error: 'Passwords do not match' });
+    }
+    try {
+      const result = await resetPasswordWithEmail({ username, email, password });
+      try {
+        const { smtpConfigured, sendMail } = await import('./mailer.js');
+        if (smtpConfigured()) {
+          await sendMail({
+            to: result.email,
+            subject: 'Your analytics dashboard password was changed',
+            text: `The password for ${result.username} was changed. If this was not you, contact an admin.`,
+            html: `<p>The password for <strong>${result.username}</strong> was changed.</p><p>If this was not you, contact an admin immediately.</p>`,
+          });
+        }
+      } catch (mailErr) {
+        console.warn('password-change email skipped:', mailErr.message);
+      }
+      res.json({ ok: true, message: 'Password updated. You can sign in now.' });
+    } catch (err) {
+      res.status(400).json({ error: err.message || 'Could not reset password' });
+    }
   });
 
   app.use(async (req, res, next) => {

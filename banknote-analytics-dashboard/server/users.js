@@ -237,13 +237,46 @@ export async function deleteUser(id, { actor }) {
   return { ok: true };
 }
 
+export async function resetPasswordWithEmail({ username, email, password }) {
+  const uname = normalizeUsername(username);
+  const submitted = normalizeEmail(email);
+  if (!password || String(password).length < 8) {
+    throw new Error('Password must be at least 8 characters');
+  }
+
+  const user = await findUserByUsername(uname);
+  const stored = String(user?.email || '').trim().toLowerCase();
+  const envAdminEmail = String(process.env.DASHBOARD_EMAIL || '').trim().toLowerCase();
+  const expected = stored || (user?.role === 'admin' ? envAdminEmail : '');
+
+  if (!user || user.active === false || !expected || submitted !== expected) {
+    throw new Error('Username and email do not match');
+  }
+
+  const col = await readyUsers();
+  const next = {
+    passwordHash: hashPassword(password),
+    updatedAt: new Date(),
+    updatedBy: 'forgot-password',
+  };
+  if (!stored) next.email = submitted;
+  await col.updateOne({ _id: user._id }, { $set: next });
+  return { username: user.username, email: submitted };
+}
+
 export async function seedAdmin() {
   if (!mongoConfigured()) return { skipped: true, reason: 'no-mongo' };
 
   const username = normalizeUsername(process.env.DASHBOARD_USERNAME || 'admin');
   const password = process.env.DASHBOARD_PASSWORD;
+  const email = String(process.env.DASHBOARD_EMAIL || '').trim();
   const existing = await findUserByUsername(username);
   if (existing) {
+    if (email && !existing.email) {
+      const col = await readyUsers();
+      await col.updateOne({ _id: existing._id }, { $set: { email: normalizeEmail(email), updatedAt: new Date() } });
+      console.log(`  MongoDB: set admin email for "${username}"`);
+    }
     return { skipped: true, reason: 'exists', username };
   }
   if (!password) {
@@ -255,6 +288,7 @@ export async function seedAdmin() {
     username,
     password,
     displayName: 'Admin',
+    email,
     role: 'admin',
     permissions: { products: ['*'], pages: ['*'] },
     createdBy: 'seed',

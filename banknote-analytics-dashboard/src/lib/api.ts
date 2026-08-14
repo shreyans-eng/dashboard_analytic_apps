@@ -199,6 +199,23 @@ export async function login(username: string, password: string): Promise<{ ok: b
   return data;
 }
 
+export async function resetPassword(body: {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}): Promise<{ ok: boolean; message?: string }> {
+  const r = await fetch(`${API}/auth/forgot-password`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Could not reset password');
+  return data;
+}
+
 function asAuthUser(user: AuthUser | string | undefined, fallbackUsername?: string): AuthUser | null {
   if (!user) {
     return fallbackUsername
