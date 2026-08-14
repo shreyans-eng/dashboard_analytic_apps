@@ -1,3 +1,5 @@
+import type { AccessMeta, AuthUser } from '@/lib/access';
+
 export interface QueryParams {
   start_date?: string;
   end_date?: string;
@@ -178,14 +180,14 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export async function fetchAuthMe(): Promise<{
   authenticated: boolean;
-  user?: string;
+  user?: AuthUser | string;
   authDisabled?: boolean;
 }> {
   const r = await fetch(`${API}/auth/me`, { credentials: 'include' });
   return r.json();
 }
 
-export async function login(username: string, password: string): Promise<{ ok: boolean; user?: string }> {
+export async function login(username: string, password: string): Promise<{ ok: boolean; user?: AuthUser | string }> {
   const r = await fetch(`${API}/auth/login`, {
     method: 'POST',
     credentials: 'include',
@@ -195,6 +197,77 @@ export async function login(username: string, password: string): Promise<{ ok: b
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || 'Login failed');
   return data;
+}
+
+function asAuthUser(user: AuthUser | string | undefined, fallbackUsername?: string): AuthUser | null {
+  if (!user) {
+    return fallbackUsername
+      ? {
+          id: fallbackUsername,
+          username: fallbackUsername,
+          displayName: fallbackUsername,
+          role: 'admin',
+          active: true,
+          isAdmin: true,
+          permissions: { products: ['*'], pages: ['*'] },
+        }
+      : null;
+  }
+  if (typeof user === 'string') {
+    return {
+      id: user,
+      username: user,
+      displayName: user,
+      role: 'admin',
+      active: true,
+      isAdmin: true,
+      permissions: { products: ['*'], pages: ['*'] },
+    };
+  }
+  return user;
+}
+
+export { asAuthUser };
+
+export async function fetchAccessMeta(): Promise<AccessMeta> {
+  return request('/admin/meta');
+}
+
+export async function listDashboardUsers(): Promise<AuthUser[]> {
+  const data = await request<{ users: AuthUser[] }>('/admin/users');
+  return data.users;
+}
+
+export async function createDashboardUser(body: {
+  username: string;
+  password: string;
+  displayName?: string;
+  role?: 'admin' | 'sub_admin';
+  permissions?: { products: string[]; pages: string[] };
+}): Promise<AuthUser> {
+  const data = await post<{ user: AuthUser }>('/admin/users', body);
+  return data.user;
+}
+
+export async function updateDashboardUser(
+  id: string,
+  body: {
+    displayName?: string;
+    role?: 'admin' | 'sub_admin';
+    active?: boolean;
+    permissions?: { products: string[]; pages: string[] };
+    password?: string;
+  },
+): Promise<AuthUser> {
+  return request<{ user: AuthUser }>(`/admin/users/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then((data) => data.user);
+}
+
+export async function deleteDashboardUser(id: string): Promise<void> {
+  await request(`/admin/users/${id}`, { method: 'DELETE' });
 }
 
 export async function logout(): Promise<void> {

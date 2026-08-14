@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import LastUpdated from '@/components/LastUpdated';
 import {
   Home,
@@ -26,6 +26,7 @@ import {
   Menu,
   X,
   LogOut,
+  Shield,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchConfig, AppConfig } from '@/lib/api';
@@ -33,48 +34,51 @@ import { useTheme } from '@/lib/theme';
 import { useProduct, type ProductId } from '@/lib/product';
 import { useInvalidateDashboard } from '@/hooks/useAnalytics';
 import { useAuth } from '@/lib/auth';
+import { pageIdFromPath } from '@/lib/access';
 
 const NAV = [
   { section: 'Overview' },
-  { to: '/', label: 'Home', icon: Home },
-  { to: '/product', label: 'Product Analytics', icon: Sparkles },
-  { to: '/compare', label: 'Compare Apps', icon: GitCompareArrows },
+  { to: '/', pageId: 'home', label: 'Home', icon: Home },
+  { to: '/product', pageId: 'product', label: 'Product Analytics', icon: Sparkles },
+  { to: '/compare', pageId: 'compare', label: 'Compare Apps', icon: GitCompareArrows },
   { section: 'Funnels' },
-  { to: '/funnels/identify', label: 'Identify', icon: ScanLine },
-  { to: '/funnels/catalogue', label: 'Catalogue', icon: BookOpen },
-  { to: '/funnels/marketplace', label: 'Marketplace', icon: ShoppingBag },
-  { to: '/funnels/paywall', label: 'Paywall', icon: PiggyBank },
-  { to: '/events-explorer', label: 'Event inventory', icon: ListTree },
+  { to: '/funnels/identify', pageId: 'funnels.identify', label: 'Identify', icon: ScanLine },
+  { to: '/funnels/catalogue', pageId: 'funnels.catalogue', label: 'Catalogue', icon: BookOpen },
+  { to: '/funnels/marketplace', pageId: 'funnels.marketplace', label: 'Marketplace', icon: ShoppingBag },
+  { to: '/funnels/paywall', pageId: 'funnels.paywall', label: 'Paywall', icon: PiggyBank },
+  { to: '/events-explorer', pageId: 'events-explorer', label: 'Event inventory', icon: ListTree },
   { section: 'MVP KPIs (10)' },
-  { to: '/mvp/dau', label: '1. DAU', icon: Activity },
-  { to: '/mvp/time-to-first-scan', label: '2. Time to first scan', icon: Timer },
-  { to: '/mvp/identify-success', label: '3. Identify success', icon: ScanLine },
-  { to: '/mvp/quota-hit', label: '4. Quota hit', icon: Target },
-  { to: '/mvp/paywall', label: '5. Paywall → purchase', icon: PiggyBank },
-  { to: '/mvp/retention', label: '6. D1 / D7 retention', icon: TrendingUp },
-  { to: '/mvp/scans-per-user', label: '7. Scans / user', icon: Activity },
-  { to: '/mvp/identify-funnel', label: '8. Identify funnel', icon: Filter },
-  { to: '/mvp/catalogue', label: '9. Catalogue', icon: BookOpen },
-  { to: '/mvp/marketplace', label: '10. Marketplace', icon: ShoppingBag },
+  { to: '/mvp/dau', pageId: 'mvp.dau', label: '1. DAU', icon: Activity },
+  { to: '/mvp/time-to-first-scan', pageId: 'mvp.time-to-first-scan', label: '2. Time to first scan', icon: Timer },
+  { to: '/mvp/identify-success', pageId: 'mvp.identify-success', label: '3. Identify success', icon: ScanLine },
+  { to: '/mvp/quota-hit', pageId: 'mvp.quota-hit', label: '4. Quota hit', icon: Target },
+  { to: '/mvp/paywall', pageId: 'mvp.paywall', label: '5. Paywall → purchase', icon: PiggyBank },
+  { to: '/mvp/retention', pageId: 'mvp.retention', label: '6. D1 / D7 retention', icon: TrendingUp },
+  { to: '/mvp/scans-per-user', pageId: 'mvp.scans-per-user', label: '7. Scans / user', icon: Activity },
+  { to: '/mvp/identify-funnel', pageId: 'mvp.identify-funnel', label: '8. Identify funnel', icon: Filter },
+  { to: '/mvp/catalogue', pageId: 'mvp.catalogue', label: '9. Catalogue', icon: BookOpen },
+  { to: '/mvp/marketplace', pageId: 'mvp.marketplace', label: '10. Marketplace', icon: ShoppingBag },
   { section: 'Explorer' },
-  { to: '/dau', label: 'Daily Active Users', icon: Activity },
-  { to: '/mau', label: 'Monthly Active Users', icon: Calendar },
-  { to: '/new-users', label: 'New Users', icon: UserPlus },
-  { to: '/d1-retention', label: 'D1 Retention', icon: TrendingUp },
-  { to: '/d7-retention', label: 'D7 Retention', icon: TrendingUp },
-  { to: '/countries', label: 'Top Countries', icon: Globe },
-  { to: '/platform', label: 'Platform', icon: Smartphone },
-  { to: '/events', label: 'Top Events', icon: BarChart3 },
+  { to: '/dau', pageId: 'explorer.dau', label: 'Daily Active Users', icon: Activity },
+  { to: '/mau', pageId: 'explorer.mau', label: 'Monthly Active Users', icon: Calendar },
+  { to: '/new-users', pageId: 'explorer.new-users', label: 'New Users', icon: UserPlus },
+  { to: '/d1-retention', pageId: 'explorer.d1', label: 'D1 Retention', icon: TrendingUp },
+  { to: '/d7-retention', pageId: 'explorer.d7', label: 'D7 Retention', icon: TrendingUp },
+  { to: '/countries', pageId: 'explorer.countries', label: 'Top Countries', icon: Globe },
+  { to: '/platform', pageId: 'explorer.platform', label: 'Platform', icon: Smartphone },
+  { to: '/events', pageId: 'explorer.events', label: 'Top Events', icon: BarChart3 },
   { section: 'Tools' },
-  { to: '/sql', label: 'SQL Editor', icon: Code2 },
+  { to: '/sql', pageId: 'sql', label: 'SQL Editor', icon: Code2 },
+  { section: 'Admin' },
+  { to: '/admin/users', pageId: 'admin.users', label: 'Users & access', icon: Shield },
 ];
 
 export default function Layout() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [navOpen, setNavOpen] = useState(false);
   const { theme, setTheme } = useTheme();
-  const { product, productId, isCompare, products, setProductId } = useProduct();
-  const { user, logout } = useAuth();
+  const { product, productId, isCompare, canCompare, products, setProductId } = useProduct();
+  const { user, logout, canAccessPage, firstPath } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const invalidate = useInvalidateDashboard();
@@ -104,6 +108,37 @@ export default function Layout() {
   const footerDataset = isCompare
     ? `${products.length} apps · side-by-side`
     : `${activeProductMeta?.project || config?.project || '…'}.${activeProductMeta?.dataset || config?.dataset || ''}`;
+
+  const pageId = pageIdFromPath(location.pathname);
+  if (pageId && !canAccessPage(pageId)) {
+    if (firstPath === location.pathname) {
+      return (
+        <div className="login-screen">
+          <div className="login-card">
+            <h1>No pages assigned</h1>
+            <p>Ask an admin to grant you access to apps and pages, then sign in again.</p>
+            <button type="button" onClick={() => logout()}>Sign out</button>
+          </div>
+        </div>
+      );
+    }
+    return <Navigate to={firstPath} replace />;
+  }
+
+  const navItems: Array<(typeof NAV)[number]> = [];
+  let pendingSection: (typeof NAV)[number] | null = null;
+  for (const item of NAV) {
+    if (item.section) {
+      pendingSection = item;
+      continue;
+    }
+    if (item.pageId && !canAccessPage(item.pageId)) continue;
+    if (pendingSection) {
+      navItems.push(pendingSection);
+      pendingSection = null;
+    }
+    navItems.push(item);
+  }
 
   return (
     <div className={`app-shell${navOpen ? ' nav-open' : ''}`}>
@@ -142,13 +177,15 @@ export default function Layout() {
                 {p.shortName}
               </button>
             ))}
-            <button
-              type="button"
-              className={productId === 'compare' ? 'active' : ''}
-              onClick={() => onSelectProduct('compare')}
-            >
-              Compare
-            </button>
+            {canCompare && (
+              <button
+                type="button"
+                className={productId === 'compare' ? 'active' : ''}
+                onClick={() => onSelectProduct('compare')}
+              >
+                Compare
+              </button>
+            )}
           </div>
           <div className="theme-switch" role="group" aria-label="Theme">
             <button
@@ -171,7 +208,7 @@ export default function Layout() {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV.map((item, i) => {
+          {navItems.map((item, i) => {
             if (item.section) {
               return <div key={i} className="nav-section">{item.section}</div>;
             }
@@ -198,7 +235,7 @@ export default function Layout() {
           </span>
           <button type="button" className="logout-btn" onClick={() => logout()}>
             <LogOut size={13} />
-            Sign out{user ? ` (${user})` : ''}
+            Sign out{user ? ` (${user.displayName || user.username})` : ''}
           </button>
         </div>
       </aside>

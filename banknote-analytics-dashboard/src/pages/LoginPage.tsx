@@ -25,7 +25,7 @@ export default function LoginPage() {
     <div className="login-screen">
       <form className="login-card" onSubmit={onSubmit}>
         <h1>Product Analytics</h1>
-        <p>Sign in to view Banknote and Coinzy dashboards.</p>
+        <p>Sign in with your dashboard account.</p>
         <label>
           Username
           <input

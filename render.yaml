@@ -46,6 +46,10 @@ services:
         sync: false
       - key: AUTH_SECRET
         sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: analytics_dashboard
       - key: GOOGLE_CREDENTIALS_JSON
         sync: false
       - key: COINZY_GOOGLE_CREDENTIALS_JSON

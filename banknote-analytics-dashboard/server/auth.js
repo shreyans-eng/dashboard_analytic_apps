@@ -1,4 +1,14 @@
 import crypto from 'crypto';
+import { mongoConfigured } from './db.js';
+import { authenticateUser, findUserById, findUserByUsername } from './users.js';
+import {
+  canAccessPage,
+  canAccessProduct,
+  isAdmin,
+  isAdminOnlyApi,
+  pageIdForApiPath,
+  toPublicUser,
+} from './access.js';
 
 const COOKIE = 'dashboard_session';
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -7,6 +17,7 @@ const loginAttempts = new Map();
 function authEnabled() {
   const flag = String(process.env.DASHBOARD_AUTH_ENABLED || 'true').toLowerCase();
   if (flag === 'false' || flag === '0' || flag === 'off') return false;
+  if (mongoConfigured()) return true;
   return Boolean(process.env.DASHBOARD_USERNAME && process.env.DASHBOARD_PASSWORD);
 }
 
@@ -72,8 +83,8 @@ function cookieFlags(maxAge) {
   ].filter(Boolean).join('; ');
 }
 
-function setSessionCookie(res, username) {
-  const token = sign({ u: username, exp: Date.now() + MAX_AGE_MS });
+function setSessionCookie(res, { username, userId }) {
+  const token = sign({ u: username, uid: userId || null, exp: Date.now() + MAX_AGE_MS });
   res.setHeader(
     'Set-Cookie',
     `${COOKIE}=${encodeURIComponent(token)}; ${cookieFlags(Math.floor(MAX_AGE_MS / 1000))}`,
@@ -110,27 +121,95 @@ function publicApiPath(req) {
   );
 }
 
+function envAdminUser() {
+  return {
+    id: 'env-admin',
+    username: process.env.DASHBOARD_USERNAME || 'admin',
+    displayName: 'Admin',
+    role: 'admin',
+    active: true,
+    isAdmin: true,
+    permissions: { products: ['*'], pages: ['*'] },
+  };
+}
+
+async function resolveSessionUser(session) {
+  if (!session?.u) return null;
+  if (mongoConfigured()) {
+    const doc = session.uid
+      ? await findUserById(session.uid)
+      : await findUserByUsername(session.u);
+    if (!doc || doc.active === false) return null;
+    return toPublicUser(doc);
+  }
+  if (session.u === process.env.DASHBOARD_USERNAME) return envAdminUser();
+  return null;
+}
+
+async function loginWithMongoOrEnv(username, password) {
+  if (mongoConfigured()) {
+    const result = await authenticateUser(username, password);
+    if (result?.disabled) return { error: 'This account is disabled', status: 403 };
+    if (!result?.user) return { error: 'Invalid username or password', status: 401 };
+    return { user: toPublicUser(result.user), userId: String(result.user._id) };
+  }
+  const okUser = safeEqual(username, process.env.DASHBOARD_USERNAME);
+  const okPass = safeEqual(password, process.env.DASHBOARD_PASSWORD);
+  if (!okUser || !okPass) return { error: 'Invalid username or password', status: 401 };
+  return { user: envAdminUser(), userId: 'env-admin' };
+}
+
+function deny(res, status, error) {
+  return res.status(status).json({ error });
+}
+
+function assertApiAccess(req, res) {
+  const user = req.auth;
+  const p = req.path || '';
+
+  if (isAdminOnlyApi(p) && !isAdmin(user)) {
+    deny(res, 403, 'Admin access required');
+    return false;
+  }
+
+  const pageId = pageIdForApiPath(p);
+  if (pageId && !canAccessPage(user, pageId)) {
+    deny(res, 403, 'You do not have access to this page');
+    return false;
+  }
+
+  const product = req.body?.product ?? req.query?.product;
+  if (product && !canAccessProduct(user, String(product))) {
+    deny(res, 403, 'You do not have access to this app');
+    return false;
+  }
+  return true;
+}
+
 export function authStatus() {
   return {
     enabled: authEnabled(),
+    mongo: mongoConfigured(),
     usernameConfigured: Boolean(process.env.DASHBOARD_USERNAME),
   };
 }
 
 export function mountAuth(app) {
-  app.get('/api/auth/me', (req, res) => {
+  app.get('/api/auth/me', async (req, res) => {
     if (!authEnabled()) {
-      return res.json({ authenticated: true, authDisabled: true, user: 'local' });
+      return res.json({ authenticated: true, authDisabled: true, user: envAdminUser() });
     }
     const cookies = parseCookies(req.headers.cookie);
     const session = verify(cookies[COOKIE]);
     if (!session) return res.json({ authenticated: false });
-    return res.json({ authenticated: true, user: session.u });
+    const user = await resolveSessionUser(session);
+    if (!user) return res.json({ authenticated: false });
+    return res.json({ authenticated: true, user });
   });
 
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', async (req, res) => {
     if (!authEnabled()) {
-      return res.json({ ok: true, authDisabled: true });
+      return res.json({ ok: true, authDisabled: true, user: envAdminUser() });
     }
     const ip = req.ip || req.socket?.remoteAddress || 'unknown';
     if (tooManyAttempts(ip)) {
@@ -138,13 +217,15 @@ export function mountAuth(app) {
     }
     const username = String(req.body?.username || '');
     const password = String(req.body?.password || '');
-    const okUser = safeEqual(username, process.env.DASHBOARD_USERNAME);
-    const okPass = safeEqual(password, process.env.DASHBOARD_PASSWORD);
-    if (!okUser || !okPass) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+    try {
+      const result = await loginWithMongoOrEnv(username, password);
+      if (result.error) return res.status(result.status).json({ error: result.error });
+      setSessionCookie(res, { username: result.user.username, userId: result.userId });
+      res.json({ ok: true, user: result.user });
+    } catch (err) {
+      console.error('login failed', err);
+      res.status(500).json({ error: 'Login failed. Try again.' });
     }
-    setSessionCookie(res, username);
-    res.json({ ok: true, user: username });
   });
 
   app.post('/api/auth/logout', (_req, res) => {
@@ -152,16 +233,29 @@ export function mountAuth(app) {
     res.json({ ok: true });
   });
 
-  app.use((req, res, next) => {
+  app.use(async (req, res, next) => {
     if (!req.path.startsWith('/api')) return next();
     if (publicApiPath(req)) return next();
-    if (!authEnabled()) return next();
+    if (!authEnabled()) {
+      req.auth = envAdminUser();
+      req.user = req.auth.username;
+      return next();
+    }
     const cookies = parseCookies(req.headers.cookie);
     const session = verify(cookies[COOKIE]);
     if (!session) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    req.user = session.u;
-    next();
+    try {
+      const user = await resolveSessionUser(session);
+      if (!user) return res.status(401).json({ error: 'Authentication required' });
+      req.auth = user;
+      req.user = user.username;
+      if (!assertApiAccess(req, res)) return;
+      next();
+    } catch (err) {
+      console.error('auth middleware', err);
+      res.status(500).json({ error: 'Authentication failed' });
+    }
   });
 }

@@ -16,6 +16,10 @@ import { mountHealthRoutes } from './routes/health.js';
 import { mountFunnelRoutes } from './routes/funnels.js';
 import { mountAuth, authStatus } from './auth.js';
 import { materializeCredentials } from './credentials.js';
+import { connectDb, mongoConfigured } from './db.js';
+import { seedAdmin } from './users.js';
+import { mountAdminUserRoutes } from './routes/admin-users.js';
+import { isAdmin } from './access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -142,7 +146,10 @@ app.post('/api/query/run', async (req, res) => {
   }
 });
 
-app.post('/api/admin/refresh-summaries', async (_req, res) => {
+app.post('/api/admin/refresh-summaries', async (req, res) => {
+  if (!isAdmin(req.auth)) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
   try {
     await cacheClear();
     const script = path.join(ROOT, 'scripts', 'refresh-summaries.js');
@@ -162,6 +169,8 @@ app.post('/api/admin/refresh-summaries', async (_req, res) => {
   }
 });
 
+mountAdminUserRoutes(app);
+
 app.get('*', (_req, res) => {
   const index = path.join(distPath, 'index.html');
   if (fs.existsSync(index)) res.sendFile(index);
@@ -170,6 +179,16 @@ app.get('*', (_req, res) => {
 
 async function start() {
   await initCache();
+  if (mongoConfigured()) {
+    try {
+      await connectDb();
+      await seedAdmin();
+    } catch (err) {
+      console.error('MongoDB connection failed:', err.message);
+      console.error('  Check MONGODB_URI and Atlas Network Access (allow this host / 0.0.0.0/0).');
+      process.exit(1);
+    }
+  }
   await Promise.all(
     registry.productIds.map((id) => registry.repos[id].init()),
   );
@@ -180,8 +199,8 @@ async function start() {
     console.log(`  SQL_ROOT=${SQL_ROOT}`);
     console.log(
       auth.enabled
-        ? '  Auth: enabled (login required)'
-        : '  Auth: DISABLED — set DASHBOARD_USERNAME and DASHBOARD_PASSWORD in .env',
+        ? `  Auth: enabled (${auth.mongo ? 'MongoDB users' : 'env login'})`
+        : '  Auth: DISABLED — set MONGODB_URI or DASHBOARD_USERNAME / DASHBOARD_PASSWORD in .env',
     );
     for (const p of registry.list()) {
       console.log(

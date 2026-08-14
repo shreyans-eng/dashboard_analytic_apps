@@ -1,10 +1,12 @@
 import { Router } from 'express';
+import { canAccessPage } from '../access.js';
 
 export function mountFunnelRoutes(app, facade) {
   const router = Router();
 
-  router.get('/', (_req, res) => {
-    res.json({ funnels: facade.listFunnels() });
+  router.get('/', (req, res) => {
+    const funnels = facade.listFunnels().filter((f) => canAccessPage(req.auth, `funnels.${f.id}`));
+    res.json({ funnels });
   });
 
   router.post('/:funnelId', async (req, res) => {

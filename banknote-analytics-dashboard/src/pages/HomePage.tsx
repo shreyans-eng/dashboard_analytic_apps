@@ -12,6 +12,8 @@ import {
   GitCompareArrows,
 } from 'lucide-react';
 import { useProduct } from '@/lib/product';
+import { useAuth } from '@/lib/auth';
+import { pageIdFromPath } from '@/lib/access';
 
 const METRICS = [
   {
@@ -78,6 +80,11 @@ const METRICS = [
 
 export default function HomePage() {
   const { product } = useProduct();
+  const { canAccessPage } = useAuth();
+  const cards = METRICS.filter((m) => {
+    const pageId = pageIdFromPath(m.to);
+    return !pageId || canAccessPage(pageId);
+  });
 
   return (
     <>
@@ -105,7 +112,7 @@ export default function HomePage() {
         </div>
 
         <div className="landing-grid">
-          {METRICS.map(({ to, icon: Icon, title, description }) => (
+          {cards.map(({ to, icon: Icon, title, description }) => (
             <NavLink key={to} to={to} className="landing-card">
               <Icon size={20} aria-hidden />
               <div>

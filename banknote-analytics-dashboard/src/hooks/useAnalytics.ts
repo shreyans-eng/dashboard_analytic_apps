@@ -11,6 +11,7 @@ import {
   QueryParams,
 } from '@/lib/api';
 import { queryKey, STALE_TIME, REFETCH_INTERVAL_INTRADAY } from '@/lib/query-client';
+import { useAuth } from '@/lib/auth';
 import { useProduct } from '@/lib/product';
 
 function withProduct(params: QueryParams, productId: string): QueryParams {
@@ -18,10 +19,12 @@ function withProduct(params: QueryParams, productId: string): QueryParams {
 }
 
 export function useAppConfig() {
+  const { authenticated, loading } = useAuth();
   return useQuery({
     queryKey: ['config'],
     queryFn: fetchConfig,
     staleTime: STALE_TIME.STATUS,
+    enabled: authenticated && !loading,
   });
 }
 

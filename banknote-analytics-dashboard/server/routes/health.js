@@ -3,6 +3,7 @@ import { cacheStats, cacheClear, cacheBackend } from '../cache/index.js';
 import { getMetrics } from '../services/analytics/metrics-tracker.js';
 import { getIntradayStatus } from '../services/analytics/intraday.js';
 import { TTL } from '../cache/ttl.js';
+import { allowedProducts, isAdmin } from '../access.js';
 
 export function createHealthRoutes({ facade, registry, credentialsPath, project, dataset, summaryDataset }) {
   const router = Router();
@@ -36,8 +37,14 @@ export function createHealthRoutes({ facade, registry, credentialsPath, project,
     });
   });
 
-  router.get('/config', (_req, res) => {
+  router.get('/config', (req, res) => {
     const primary = registry.configs[registry.primaryId] || {};
+    const listed = registry.list();
+    const allowedIds = new Set(allowedProducts(req.auth, listed.map((p) => p.id)));
+    const products = listed.filter((p) => allowedIds.has(p.id));
+    const primaryProduct = products.some((p) => p.id === registry.primaryId)
+      ? registry.primaryId
+      : products[0]?.id || registry.primaryId;
     res.json({
       project: primary.project || project,
       dataset: primary.dataset || dataset,
@@ -50,8 +57,8 @@ export function createHealthRoutes({ facade, registry, credentialsPath, project,
         topEvents: TTL.TOP_EVENTS,
       },
       intraday: getIntradayStatus(),
-      products: registry.list(),
-      primaryProduct: registry.primaryId,
+      products,
+      primaryProduct,
     });
   });
 
@@ -59,7 +66,10 @@ export function createHealthRoutes({ facade, registry, credentialsPath, project,
     res.json({ ...cacheStats(), metrics: getMetrics() });
   });
 
-  router.post('/cache/clear', async (_req, res) => {
+  router.post('/cache/clear', async (req, res) => {
+    if (!isAdmin(req.auth)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
     await cacheClear();
     res.json({ cleared: true });
   });

@@ -9,6 +9,7 @@ import SqlEditorPage from '@/pages/SqlEditorPage';
 import FunnelPage from '@/pages/FunnelPage';
 import EventsExplorerPage from '@/pages/EventsExplorerPage';
 import LoginPage from '@/pages/LoginPage';
+import AdminUsersPage from '@/pages/AdminUsersPage';
 import { defaultDateRange, QueryParams } from '@/lib/api';
 import { useInvalidateDashboard } from '@/hooks/useAnalytics';
 import { useAuth } from '@/lib/auth';
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="platform" element={<MetricRoute metricKey="platform" {...shared} />} />
         <Route path="events" element={<MetricRoute metricKey="events" {...shared} />} />
         <Route path="sql" element={<SqlEditorPage params={params} />} />
+        <Route path="admin/users" element={<AdminUsersPage />} />
       </Route>
     </Routes>
   );

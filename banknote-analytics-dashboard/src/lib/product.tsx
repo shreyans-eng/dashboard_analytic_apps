@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 import { useAppConfig } from '@/hooks/useAnalytics';
+import { useAuth } from '@/lib/auth';
+import { canAccessPage } from '@/lib/access';
 
 export type ProductId = string; // app id or 'compare'
 
@@ -89,6 +91,7 @@ interface ProductContextValue {
   productId: ProductId;
   product: ProductMeta;
   isCompare: boolean;
+  canCompare: boolean;
   products: ProductMeta[];
   setProductId: (id: ProductId) => void;
 }
@@ -107,14 +110,23 @@ function readStoredProduct(validIds: string[]): ProductId {
 
 export function ProductProvider({ children }: { children: ReactNode }) {
   const { data: config } = useAppConfig();
+  const { user } = useAuth();
   const apiProducts = config?.products ?? [];
 
-  const products = useMemo(
-    () =>
-      apiProducts.length
-        ? apiProducts.map((p) => buildProductMeta(p.id, { label: p.label, color: p.color }))
-        : [buildProductMeta('banknote'), buildProductMeta('coinzy')],
-    [apiProducts],
+  const products = useMemo(() => {
+    if (apiProducts.length) {
+      return apiProducts.map((p) => buildProductMeta(p.id, { label: p.label, color: p.color }));
+    }
+    if (!user || user.isAdmin) {
+      return [buildProductMeta('banknote'), buildProductMeta('coinzy')];
+    }
+    return user.permissions.products
+      .filter((id) => id !== '*')
+      .map((id) => buildProductMeta(id));
+  }, [apiProducts, user]);
+
+  const canCompare = Boolean(
+    products.length >= 2 && canAccessPage(user, 'compare'),
   );
 
   const validIds = useMemo(() => products.map((p) => p.id), [products]);
@@ -125,10 +137,14 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!validIds.length) return;
+    if (productId === 'compare' && !canCompare) {
+      setProductIdState(validIds[0]);
+      return;
+    }
     if (productId !== 'compare' && !validIds.includes(productId)) {
       setProductIdState(validIds[0]);
     }
-  }, [validIds, productId]);
+  }, [validIds, productId, canCompare]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-product', productId);
@@ -139,21 +155,26 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     }
   }, [productId]);
 
-  const setProductId = useCallback((id: ProductId) => setProductIdState(id), []);
+  const setProductId = useCallback((id: ProductId) => {
+    if (id === 'compare' && !canCompare) return;
+    if (id !== 'compare' && validIds.length && !validIds.includes(id)) return;
+    setProductIdState(id);
+  }, [canCompare, validIds]);
 
   const value = useMemo(() => {
-    const isCompare = productId === 'compare';
+    const isCompare = productId === 'compare' && canCompare;
     const product = isCompare
       ? products[0] || buildProductMeta('banknote')
       : products.find((p) => p.id === productId) || buildProductMeta(String(productId));
     return {
-      productId,
+      productId: isCompare ? 'compare' : product.id,
       product,
       isCompare,
+      canCompare,
       products,
       setProductId,
     };
-  }, [productId, products, setProductId]);
+  }, [productId, products, setProductId, canCompare]);
 
   return <ProductContext.Provider value={value}>{children}</ProductContext.Provider>;
 }
