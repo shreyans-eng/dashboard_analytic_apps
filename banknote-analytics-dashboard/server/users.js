@@ -79,13 +79,56 @@ export async function authenticateUser(username, password) {
   return { user: doc };
 }
 
+function normalizeEmail(raw) {
+  const email = String(raw || '').trim().toLowerCase();
+  if (!email) return '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address');
+  return email;
+}
+
 export async function listUsers() {
   const col = await readyUsers();
   const docs = await col.find({}).sort({ role: 1, username: 1 }).toArray();
   return docs.map(toPublicUser);
 }
 
-export async function createUser({ username, password, displayName, role, permissions, createdBy }) {
+export async function listUsersPaged({ page = 1, limit = 10, q = '', product = '' } = {}) {
+  const col = await readyUsers();
+  const clauses = [];
+  const query = String(q || '').trim();
+  if (query) {
+    const rx = { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+    clauses.push({ $or: [{ username: rx }, { displayName: rx }, { email: rx }] });
+  }
+  if (product) {
+    clauses.push({
+      $or: [
+        { role: 'admin' },
+        { 'permissions.products': product },
+        { 'permissions.products': '*' },
+      ],
+    });
+  }
+  const filter = clauses.length ? { $and: clauses } : {};
+  const pageNum = Math.max(1, Number(page) || 1);
+  const pageSize = Math.min(50, Math.max(5, Number(limit) || 10));
+  const total = await col.countDocuments(filter);
+  const docs = await col
+    .find(filter)
+    .sort({ role: 1, username: 1 })
+    .skip((pageNum - 1) * pageSize)
+    .limit(pageSize)
+    .toArray();
+  return {
+    users: docs.map(toPublicUser),
+    total,
+    page: pageNum,
+    limit: pageSize,
+    pages: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+export async function createUser({ username, password, displayName, role, permissions, createdBy, email, receiveReports }) {
   const uname = normalizeUsername(username);
   if (!uname || uname.length < 2) throw new Error('Username must be at least 2 characters');
   if (!/^[a-z0-9._-]+$/.test(uname)) throw new Error('Username may only contain letters, numbers, dot, dash, underscore');
@@ -102,6 +145,8 @@ export async function createUser({ username, password, displayName, role, permis
   const doc = {
     username: uname,
     displayName: String(displayName || uname).trim() || uname,
+    email: normalizeEmail(email),
+    receiveReports: receiveReports !== false,
     role: nextRole,
     active: true,
     passwordHash: hashPassword(password),
@@ -129,6 +174,12 @@ export async function updateUser(id, patch, { actor }) {
   const next = {};
   if (patch.displayName != null) {
     next.displayName = String(patch.displayName).trim() || existing.username;
+  }
+  if (patch.email != null) {
+    next.email = normalizeEmail(patch.email);
+  }
+  if (patch.receiveReports != null) {
+    next.receiveReports = Boolean(patch.receiveReports);
   }
   if (patch.role != null) {
     const nextRole = patch.role === 'admin' ? 'admin' : 'sub_admin';

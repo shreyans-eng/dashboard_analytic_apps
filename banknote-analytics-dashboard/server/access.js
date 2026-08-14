@@ -47,6 +47,18 @@ export const PRODUCT_OPTIONS = [
   { id: 'coinzy', label: 'Coinzy' },
 ];
 
+export function pageLabel(id) {
+  for (const section of PAGE_CATALOG) {
+    const item = section.items.find((i) => i.id === id);
+    if (item) return item.label;
+  }
+  return id;
+}
+
+export function productLabel(id) {
+  return PRODUCT_OPTIONS.find((p) => p.id === id)?.label || id;
+}
+
 export function isAdmin(user) {
   return Boolean(user && user.role === 'admin');
 }
@@ -94,6 +106,8 @@ export function toPublicUser(doc) {
     },
     createdAt: doc.createdAt || null,
     updatedAt: doc.updatedAt || null,
+    email: doc.email || '',
+    receiveReports: doc.receiveReports !== false,
   };
 }
 

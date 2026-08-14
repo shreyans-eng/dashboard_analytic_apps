@@ -19,6 +19,7 @@ import { materializeCredentials } from './credentials.js';
 import { connectDb, mongoConfigured } from './db.js';
 import { seedAdmin } from './users.js';
 import { mountAdminUserRoutes } from './routes/admin-users.js';
+import { startReportScheduler } from './reports.js';
 import { isAdmin } from './access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -169,7 +170,7 @@ app.post('/api/admin/refresh-summaries', async (req, res) => {
   }
 });
 
-mountAdminUserRoutes(app);
+mountAdminUserRoutes(app, facade);
 
 app.get('*', (_req, res) => {
   const index = path.join(distPath, 'index.html');
@@ -208,6 +209,7 @@ async function start() {
         `  ${p.label}: ${p.project}.${p.dataset} (creds: ${p.credentialsConfigured}, raw=${p.preferRaw})`,
       );
     }
+    startReportScheduler(facade);
   });
 }
 

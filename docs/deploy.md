@@ -156,6 +156,22 @@ The live site will show **MongoDB is not connected** until these exist on the **
 
 After deploy, logs should include `MongoDB: connected (analytics_dashboard)`. Then **Users & access** can create sub-admins.
 
+### Monthly email reports
+
+On the same Render service add:
+
+| Key | Example |
+|-----|---------|
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USER` | your mailbox |
+| `SMTP_PASS` | Gmail **App Password** (not the login password) |
+| `SMTP_FROM` | `Product Analytics <you@gmail.com>` |
+| `REPORT_EMAIL` | extra inbox that always gets both app reports |
+| `DASHBOARD_PUBLIC_URL` | `https://dashboard-analytic-apps.onrender.com` |
+
+Then in the dashboard: **Users & access → Monthly reports → Save settings**. Use **Send now** to test. Automatic send is the 1st of each month at 08:00 UTC. Keep the Render instance on **Starter** so it does not sleep through that window.
+
 Share **that URL** with the team (plus the login).
 
 ---

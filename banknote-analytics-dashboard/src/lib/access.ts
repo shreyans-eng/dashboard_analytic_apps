@@ -54,6 +54,8 @@ export interface AuthUser {
   role: 'admin' | 'sub_admin';
   active: boolean;
   isAdmin: boolean;
+  email?: string;
+  receiveReports?: boolean;
   permissions: {
     products: string[];
     pages: string[];
@@ -135,6 +137,18 @@ export function firstAllowedPath(user: AuthUser | null | undefined): string {
     }
   }
   return '/';
+}
+
+export function pageLabel(id: string): string {
+  for (const section of PAGE_CATALOG) {
+    const item = section.items.find((i) => i.id === id);
+    if (item) return item.label;
+  }
+  return id;
+}
+
+export function productLabel(id: string): string {
+  return PRODUCT_OPTIONS.find((p) => p.id === id)?.label || id;
 }
 
 export function allAssignablePageIds(): string[] {

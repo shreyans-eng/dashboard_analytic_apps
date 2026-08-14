@@ -233,15 +233,27 @@ export async function fetchAccessMeta(): Promise<AccessMeta> {
   return request('/admin/meta');
 }
 
-export async function listDashboardUsers(): Promise<AuthUser[]> {
-  const data = await request<{ users: AuthUser[] }>('/admin/users');
-  return data.users;
+export async function listDashboardUsers(params?: {
+  page?: number;
+  limit?: number;
+  q?: string;
+  product?: string;
+}): Promise<{ users: AuthUser[]; total: number; page: number; limit: number; pages: number }> {
+  const qs = new URLSearchParams();
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.q) qs.set('q', params.q);
+  if (params?.product) qs.set('product', params.product);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return request(`/admin/users${suffix}`);
 }
 
 export async function createDashboardUser(body: {
   username: string;
   password: string;
   displayName?: string;
+  email?: string;
+  receiveReports?: boolean;
   role?: 'admin' | 'sub_admin';
   permissions?: { products: string[]; pages: string[] };
 }): Promise<AuthUser> {
@@ -253,6 +265,8 @@ export async function updateDashboardUser(
   id: string,
   body: {
     displayName?: string;
+    email?: string;
+    receiveReports?: boolean;
     role?: 'admin' | 'sub_admin';
     active?: boolean;
     permissions?: { products: string[]; pages: string[] };
@@ -268,6 +282,42 @@ export async function updateDashboardUser(
 
 export async function deleteDashboardUser(id: string): Promise<void> {
   await request(`/admin/users/${id}`, { method: 'DELETE' });
+}
+
+export interface ReportSettings {
+  enabled: boolean;
+  sendToUsers: boolean;
+  extraRecipients: string[];
+  lastSentKey: string | null;
+  lastSentAt: string | null;
+  smtp: { configured: boolean; host: string; from: string };
+}
+
+export async function fetchReportSettings(): Promise<{ settings: ReportSettings; period: { start_date: string; end_date: string; key: string; label: string } }> {
+  return request('/admin/reports');
+}
+
+export async function saveReportSettings(body: {
+  enabled?: boolean;
+  sendToUsers?: boolean;
+  extraRecipients?: string[];
+}): Promise<ReportSettings> {
+  const data = await request<{ settings: ReportSettings }>('/admin/reports', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return data.settings;
+}
+
+export async function sendMonthlyReportsNow(): Promise<{
+  ok?: boolean;
+  skipped?: boolean;
+  reason?: string;
+  period?: { key: string; label: string };
+  sent?: { product: string; to?: string[]; skipped?: boolean; reason?: string }[];
+}> {
+  return post('/admin/reports/send', {});
 }
 
 export async function logout(): Promise<void> {
