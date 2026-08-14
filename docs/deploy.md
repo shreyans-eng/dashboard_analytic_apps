@@ -140,6 +140,22 @@ https://banknote-analytics.onrender.com
 3. Open **Users & access** in the sidebar to create sub-admins and choose which apps/pages they can see.
 4. Switch **Banknote / Coinzy / Compare** (sub-admins only see what you assigned).
 
+### MongoDB on Render (required for Users & access)
+
+The live site will show **MongoDB is not connected** until these exist on the **same** Render service (`dashboard-analytic-apps`):
+
+1. [MongoDB Atlas](https://cloud.mongodb.com) → **Network Access** → **Add IP Address** → **Allow Access from Anywhere** (`0.0.0.0/0`) → Confirm.
+2. Render → your web service → **Environment** → **Add Environment Variable**:
+
+| Key | Value |
+|-----|--------|
+| `MONGODB_URI` | `mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/?appName=Cluster0` (from Atlas) |
+| `MONGODB_DB` | `analytics_dashboard` |
+
+3. **Save Changes** → **Manual Deploy** → **Deploy latest commit**.
+
+After deploy, logs should include `MongoDB: connected (analytics_dashboard)`. Then **Users & access** can create sub-admins.
+
 Share **that URL** with the team (plus the login).
 
 ---

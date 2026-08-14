@@ -4,6 +4,7 @@ import { getMetrics } from '../services/analytics/metrics-tracker.js';
 import { getIntradayStatus } from '../services/analytics/intraday.js';
 import { TTL } from '../cache/ttl.js';
 import { allowedProducts, isAdmin } from '../access.js';
+import { mongoStatus } from '../db.js';
 
 export function createHealthRoutes({ facade, registry, credentialsPath, project, dataset, summaryDataset }) {
   const router = Router();
@@ -31,6 +32,7 @@ export function createHealthRoutes({ facade, registry, credentialsPath, project,
       summaryDataset,
       credentials: credentialsPath ? credentialsPath.split('/').pop() : null,
       products,
+      mongo: mongoStatus(),
       cache: cacheStats(),
       intraday: getIntradayStatus(),
       metrics: getMetrics(),

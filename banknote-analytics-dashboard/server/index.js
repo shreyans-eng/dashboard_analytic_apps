@@ -185,9 +185,10 @@ async function start() {
       await seedAdmin();
     } catch (err) {
       console.error('MongoDB connection failed:', err.message);
-      console.error('  Check MONGODB_URI and Atlas Network Access (allow this host / 0.0.0.0/0).');
-      process.exit(1);
+      console.error('  Check MONGODB_URI and Atlas Network Access (allow 0.0.0.0/0).');
     }
+  } else {
+    console.warn('  MongoDB: MONGODB_URI is not set — Users & access will not save until you add it on Render.');
   }
   await Promise.all(
     registry.productIds.map((id) => registry.repos[id].init()),

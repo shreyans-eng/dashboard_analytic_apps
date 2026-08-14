@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { ObjectId } from 'mongodb';
-import { getDb, mongoConfigured } from './db.js';
+import { getDb, mongoConfigured, ensureDb } from './db.js';
 import { ASSIGNABLE_PAGE_IDS, PRODUCT_OPTIONS, toPublicUser } from './access.js';
 
 const KEYLEN = 64;
@@ -30,6 +30,11 @@ function usersCol() {
   return getDb().collection('users');
 }
 
+async function readyUsers() {
+  await ensureDb();
+  return usersCol();
+}
+
 function normalizeUsername(raw) {
   return String(raw || '').trim().toLowerCase();
 }
@@ -50,7 +55,8 @@ export async function findUserByUsername(username) {
   if (!mongoConfigured()) return null;
   const uname = normalizeUsername(username);
   if (!uname) return null;
-  return usersCol().findOne({ username: uname });
+  const col = await readyUsers();
+  return col.findOne({ username: uname });
 }
 
 export async function findUserById(id) {
@@ -61,7 +67,8 @@ export async function findUserById(id) {
   } catch {
     return null;
   }
-  return usersCol().findOne({ _id: oid });
+  const col = await readyUsers();
+  return col.findOne({ _id: oid });
 }
 
 export async function authenticateUser(username, password) {
@@ -73,7 +80,8 @@ export async function authenticateUser(username, password) {
 }
 
 export async function listUsers() {
-  const docs = await usersCol().find({}).sort({ role: 1, username: 1 }).toArray();
+  const col = await readyUsers();
+  const docs = await col.find({}).sort({ role: 1, username: 1 }).toArray();
   return docs.map(toPublicUser);
 }
 
@@ -84,6 +92,12 @@ export async function createUser({ username, password, displayName, role, permis
   if (!password || String(password).length < 8) throw new Error('Password must be at least 8 characters');
 
   const nextRole = role === 'admin' ? 'admin' : 'sub_admin';
+  const cleaned = cleanPermissions(permissions, { isAdminRole: nextRole === 'admin' });
+  if (nextRole !== 'admin') {
+    if (!cleaned.products.length) throw new Error('Assign at least one app (Banknote and/or Coinzy)');
+    if (!cleaned.pages.length) throw new Error('Assign at least one page this person can open');
+  }
+
   const now = new Date();
   const doc = {
     username: uname,
@@ -91,14 +105,15 @@ export async function createUser({ username, password, displayName, role, permis
     role: nextRole,
     active: true,
     passwordHash: hashPassword(password),
-    permissions: cleanPermissions(permissions, { isAdminRole: nextRole === 'admin' }),
+    permissions: cleaned,
     createdAt: now,
     updatedAt: now,
     createdBy: createdBy || 'system',
   };
 
   try {
-    const result = await usersCol().insertOne(doc);
+    const col = await readyUsers();
+    const result = await col.insertOne(doc);
     return toPublicUser({ ...doc, _id: result.insertedId });
   } catch (err) {
     if (err?.code === 11000) throw new Error('That username is already taken');
@@ -109,6 +124,7 @@ export async function createUser({ username, password, displayName, role, permis
 export async function updateUser(id, patch, { actor }) {
   const existing = await findUserById(id);
   if (!existing) throw new Error('User not found');
+  const col = await readyUsers();
 
   const next = {};
   if (patch.displayName != null) {
@@ -117,7 +133,7 @@ export async function updateUser(id, patch, { actor }) {
   if (patch.role != null) {
     const nextRole = patch.role === 'admin' ? 'admin' : 'sub_admin';
     if (existing.role === 'admin' && nextRole !== 'admin') {
-      const admins = await usersCol().countDocuments({ role: 'admin', active: { $ne: false } });
+      const admins = await col.countDocuments({ role: 'admin', active: { $ne: false } });
       if (admins <= 1) throw new Error('Cannot demote the last admin');
     }
     next.role = nextRole;
@@ -125,7 +141,7 @@ export async function updateUser(id, patch, { actor }) {
   if (patch.active != null) {
     const active = Boolean(patch.active);
     if (existing.role === 'admin' && !active) {
-      const admins = await usersCol().countDocuments({ role: 'admin', active: { $ne: false } });
+      const admins = await col.countDocuments({ role: 'admin', active: { $ne: false } });
       if (admins <= 1) throw new Error('Cannot deactivate the last admin');
     }
     if (actor && String(existing._id) === String(actor.id) && !active) {
@@ -135,7 +151,12 @@ export async function updateUser(id, patch, { actor }) {
   }
   if (patch.permissions != null) {
     const role = next.role || existing.role;
-    next.permissions = cleanPermissions(patch.permissions, { isAdminRole: role === 'admin' });
+    const cleaned = cleanPermissions(patch.permissions, { isAdminRole: role === 'admin' });
+    if (role !== 'admin') {
+      if (!cleaned.products.length) throw new Error('Assign at least one app (Banknote and/or Coinzy)');
+      if (!cleaned.pages.length) throw new Error('Assign at least one page this person can open');
+    }
+    next.permissions = cleaned;
   }
   if (patch.password) {
     if (String(patch.password).length < 8) throw new Error('Password must be at least 8 characters');
@@ -146,21 +167,22 @@ export async function updateUser(id, patch, { actor }) {
 
   next.updatedAt = new Date();
   next.updatedBy = actor?.username || 'system';
-  await usersCol().updateOne({ _id: existing._id }, { $set: next });
+  await col.updateOne({ _id: existing._id }, { $set: next });
   return toPublicUser({ ...existing, ...next });
 }
 
 export async function deleteUser(id, { actor }) {
   const existing = await findUserById(id);
   if (!existing) throw new Error('User not found');
+  const col = await readyUsers();
   if (actor && String(existing._id) === String(actor.id)) {
     throw new Error('You cannot delete your own account');
   }
   if (existing.role === 'admin') {
-    const admins = await usersCol().countDocuments({ role: 'admin', active: { $ne: false } });
+    const admins = await col.countDocuments({ role: 'admin', active: { $ne: false } });
     if (admins <= 1) throw new Error('Cannot delete the last admin');
   }
-  await usersCol().deleteOne({ _id: existing._id });
+  await col.deleteOne({ _id: existing._id });
   return { ok: true };
 }
 

@@ -40,6 +40,11 @@ export const PAGE_CATALOG = [
   ]},
 ] as const;
 
+export const PRODUCT_OPTIONS = [
+  { id: 'banknote', label: 'Banknote' },
+  { id: 'coinzy', label: 'Coinzy' },
+];
+
 export type PageId = (typeof PAGE_CATALOG)[number]['items'][number]['id'] | 'admin.users';
 
 export interface AuthUser {
@@ -61,6 +66,7 @@ export interface AccessMeta {
   pages: { section: string; items: { id: string; label: string; path: string }[] }[];
   products: { id: string; label: string }[];
   roles: { id: string; label: string }[];
+  mongo?: { configured: boolean; connected: boolean; db?: string };
 }
 
 const PATH_TO_PAGE: Record<string, PageId> = {

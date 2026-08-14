@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { PAGE_CATALOG, PRODUCT_OPTIONS, isAdmin } from '../access.js';
+import { mongoStatus } from '../db.js';
 import { createUser, deleteUser, listUsers, updateUser } from '../users.js';
 
 export function mountAdminUserRoutes(app) {
@@ -20,6 +21,7 @@ export function mountAdminUserRoutes(app) {
         { id: 'sub_admin', label: 'Sub-admin' },
         { id: 'admin', label: 'Admin' },
       ],
+      mongo: mongoStatus(),
     });
   });
 
@@ -38,7 +40,10 @@ export function mountAdminUserRoutes(app) {
         password: req.body?.password,
         displayName: req.body?.displayName,
         role: req.body?.role === 'admin' ? 'admin' : 'sub_admin',
-        permissions: req.body?.permissions,
+        permissions: req.body?.permissions || {
+          products: req.body?.products,
+          pages: req.body?.pages,
+        },
         createdBy: req.auth?.username,
       });
       res.status(201).json({ user });
@@ -53,7 +58,10 @@ export function mountAdminUserRoutes(app) {
         displayName: req.body?.displayName,
         role: req.body?.role,
         active: req.body?.active,
-        permissions: req.body?.permissions,
+        permissions: req.body?.permissions || {
+          products: req.body?.products,
+          pages: req.body?.pages,
+        },
         password: req.body?.password,
       }, { actor: req.auth });
       res.json({ user });

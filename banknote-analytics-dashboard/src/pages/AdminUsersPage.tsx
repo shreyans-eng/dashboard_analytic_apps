@@ -8,7 +8,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { AccessMeta, AuthUser, allAssignablePageIds } from '@/lib/access';
+import { AccessMeta, AuthUser, PAGE_CATALOG, PRODUCT_OPTIONS, allAssignablePageIds } from '@/lib/access';
 import {
   fetchAccessMeta,
   createDashboardUser,
@@ -27,13 +27,25 @@ const EMPTY_FORM = {
   active: true,
 };
 
+const FALLBACK_META: AccessMeta = {
+  pages: PAGE_CATALOG.map((section) => ({
+    section: section.section,
+    items: section.items.map((item) => ({ id: item.id, label: item.label, path: item.path })),
+  })),
+  products: PRODUCT_OPTIONS,
+  roles: [
+    { id: 'sub_admin', label: 'Sub-admin' },
+    { id: 'admin', label: 'Admin' },
+  ],
+};
+
 function productLabel(meta: AccessMeta | null, id: string) {
   return meta?.products.find((p) => p.id === id)?.label || id;
 }
 
 export default function AdminUsersPage() {
   const { user: me } = useAuth();
-  const [meta, setMeta] = useState<AccessMeta | null>(null);
+  const [meta, setMeta] = useState<AccessMeta | null>(FALLBACK_META);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [selectedId, setSelectedId] = useState<string | 'new'>('new');
   const [form, setForm] = useState(EMPTY_FORM);
@@ -47,12 +59,21 @@ export default function AdminUsersPage() {
 
   const load = async () => {
     setLoading(true);
+    setError('');
     try {
-      const [m, list] = await Promise.all([fetchAccessMeta(), listDashboardUsers()]);
-      setMeta(m);
-      setUsers(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load users');
+      const m = await fetchAccessMeta().catch(() => FALLBACK_META);
+      setMeta({
+        ...FALLBACK_META,
+        ...m,
+        pages: m.pages?.length ? m.pages : FALLBACK_META.pages,
+        products: m.products?.length ? m.products : FALLBACK_META.products,
+      });
+      try {
+        setUsers(await listDashboardUsers());
+      } catch (err) {
+        setUsers([]);
+        setError(err instanceof Error ? err.message : 'Failed to load users');
+      }
     } finally {
       setLoading(false);
     }
@@ -116,6 +137,12 @@ export default function AdminUsersPage() {
     setError('');
     setMessage('');
     try {
+      if (form.role === 'sub_admin' && form.products.length === 0) {
+        throw new Error('Assign at least one app (Banknote and/or Coinzy)');
+      }
+      if (form.role === 'sub_admin' && form.pages.length === 0) {
+        throw new Error('Assign at least one page this person can open');
+      }
       const permissions = { products: form.products, pages: form.pages };
       if (isNew) {
         const user = await createDashboardUser({
@@ -180,6 +207,13 @@ export default function AdminUsersPage() {
       </div>
 
       <div className="page-content">
+        {meta?.mongo && !meta.mongo.connected && (
+          <div className="page-hint" style={{ borderColor: 'var(--danger)', color: 'var(--danger)', marginBottom: 16 }}>
+            MongoDB is not connected on this host. In Render → Environment add
+            {' '}<code>MONGODB_URI</code> and <code>MONGODB_DB=analytics_dashboard</code>,
+            then in Atlas → Network Access allow <code>0.0.0.0/0</code>, then Manual Deploy.
+          </div>
+        )}
         {loading ? (
           <div className="page-hint">Loading users…</div>
         ) : (
