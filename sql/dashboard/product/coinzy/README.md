@@ -46,4 +46,4 @@ Feed: `feed_bottom_nav` → `Feed_screen` → like/comment/post
 - App suffixes `_android` / `_ios` are stripped in SQL.
 - Paywall confirm is **`subs_confirm`** (lowercase), not `Subs_confirm`.
 - Details events are `Coin_details_*`, not `banknote_details_*`.
-- Compare skips Coinzy summary `product_daily_signals` (stale aliases) and reads raw `16_product_daily_signals.sql` instead.
+- Compare uses Coinzy `product/coinzy/16_product_daily_signals.sql` when the summary table has no catalogue engagement (stale `Collection_open` aliases). Otherwise it reads `analytics_summary.product_daily_signals`.

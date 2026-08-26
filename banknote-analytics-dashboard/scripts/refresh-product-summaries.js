@@ -49,7 +49,11 @@ const CORE_FILES = [
   'platform_metrics.sql',
   'top_events.sql',
   'product_daily_signals.sql',
+  'cohort_ltv.sql',
 ];
+
+/** LTV-180 needs cohorts ≥ 180 days old and a re-refresh until that window closes. */
+const LTV_LOOKBACK_DAYS = Number(process.env.LTV_DAYS || 210);
 
 function resolveCred(rel) {
   if (!rel) return null;
@@ -202,12 +206,29 @@ async function refreshProduct(productId, opts) {
       continue;
     }
     const raw = fs.readFileSync(full, 'utf8');
+    let fileStartSuffix = startSuffix;
+    let fileEndSuffix = endSuffix;
+    if (file === 'cohort_ltv.sql' && !opts.start) {
+      const endD = parseDate(end);
+      const ltvStartD = new Date(endD);
+      ltvStartD.setUTCDate(ltvStartD.getUTCDate() - (LTV_LOOKBACK_DAYS - 1));
+      const earliestD = parseDate(bounds.earliest);
+      const windowStartD = parseDate(start);
+      const earlier = ltvStartD < windowStartD ? ltvStartD : windowStartD;
+      const clamped = earlier < earliestD ? earliestD : earlier;
+      fileStartSuffix = clamped.toISOString().slice(0, 10).replace(/-/g, '');
+      if (fileStartSuffix !== startSuffix) {
+        console.log(
+          `  ${file}: expanding cohort lookback ${fileStartSuffix} → ${endSuffix} (LTV_DAYS=${LTV_LOOKBACK_DAYS})`,
+        );
+      }
+    }
     const sql = substituteSql(raw, {
       project: cfg.project,
       dataset: cfg.dataset,
       summaryDataset: cfg.summaryDataset,
-      startSuffix,
-      endSuffix,
+      startSuffix: fileStartSuffix,
+      endSuffix: fileEndSuffix,
       days: opts.days,
     });
     try {

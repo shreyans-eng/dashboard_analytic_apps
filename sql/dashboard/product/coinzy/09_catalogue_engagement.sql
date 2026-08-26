@@ -28,7 +28,9 @@ flags AS (
   SELECT
     event_date,
     resolved_user_id,
-    MAX(IF(event_name_base IN ('Collection_screen', 'Global_catalogue_screen'), 1, 0)) AS opened,
+    MAX(IF(event_name_base IN (
+      'Collection_screen', 'Global_catalogue_screen', 'collection_bottom_nav'
+    ), 1, 0)) AS opened,
     MAX(IF(event_name_base IN (
       'Coin_details', 'Coin_details_collection', 'Coin_details_global',
       'Coin_details_identification', 'identification_details_screen'

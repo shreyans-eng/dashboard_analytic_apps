@@ -298,8 +298,23 @@ export class ProductAnalyticsFacade {
     const results = await Promise.all(
       this.registry.productIds.map(async (id) => {
         const cfg = this.registry.configs[id];
-        const result = await this.registry.repos[id].getProductDailySignals(params);
-        return { id, label: cfg.label, color: cfg.color, result };
+        try {
+          const result = await this.registry.repos[id].getProductDailySignals(params);
+          return { id, label: cfg.label, color: cfg.color, result };
+        } catch (e) {
+          const msg = String(e?.message || e);
+          console.error(`[compare] ${id} product_daily_signals failed: ${msg}`);
+          return {
+            id,
+            label: cfg.label,
+            color: cfg.color,
+            result: {
+              rows: [],
+              sql: `-- ${cfg.label} failed: ${msg.replace(/\n/g, ' ')}`,
+              bytesProcessed: 0,
+            },
+          };
+        }
       }),
     );
 

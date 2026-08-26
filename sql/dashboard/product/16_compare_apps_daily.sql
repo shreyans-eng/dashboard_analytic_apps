@@ -61,24 +61,27 @@ daily AS (
       ) THEN resolved_user_id END) AS users_attempted_scan,
     COUNT(DISTINCT CASE
       WHEN event_name_base IN (
-        'Collection_screen', 'Global_catalogue_screen',
+        'Collection_screen', 'Global_catalogue_screen', 'collection_bottom_nav',
         'Collection_open', 'collection_open', 'Collection', 'My_collection'
       ) THEN resolved_user_id END) AS users_catalogue,
     COUNT(DISTINCT CASE
       WHEN event_name_base IN (
         'marketplace_screen', 'Marketplace_bottom_nav', 'marketplace_bottom_nav',
-        'market_item_expolre', 'Feed_screen',
+        'market_item_expolre', 'Feed_screen', 'feed_bottom_nav',
         'Marketplace_open', 'marketplace_open', 'Market_open',
         'Listing_view', 'listing_view'
       ) THEN resolved_user_id END) AS users_marketplace,
     COUNTIF(event_name_base IN (
-      'Subs_page', 'Subs_page_discount', 'Subscription_screen', 'Subs_page_onboarding'
+      'Subs_page', 'Subs_page_discount', 'Subscription_screen',
+      'Subs_page_onboarding', 'subscription_shown'
     )) AS paywall_impressions,
     COUNTIF(event_name_base IN (
-      'Subs_confirm', 'subs_confirm', 'subs_confirm_discount', 'paid_purchase'
+      'Subs_confirm', 'subs_confirm', 'subs_confirm_discount',
+      'paid_purchase', 'trial_purchase'
     )) AS purchase_confirms,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Subs_confirm', 'subs_confirm', 'subs_confirm_discount', 'paid_purchase'
+      'Subs_confirm', 'subs_confirm', 'subs_confirm_discount',
+      'paid_purchase', 'trial_purchase'
     ) THEN resolved_user_id END) AS paying_users
   FROM labeled
   WHERE product IN ('Banknote', 'Coinzy')

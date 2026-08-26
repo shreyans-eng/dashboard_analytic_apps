@@ -26,31 +26,39 @@ base AS (
 SELECT
   event_date,
   COUNTIF(event_name_base IN (
-    'Subs_page', 'Subs_page_discount', 'Subscription_screen', 'Subs_page_onboarding'
+    'Subs_page', 'Subs_page_discount', 'Subscription_screen',
+    'Subs_page_onboarding', 'subscription_shown'
   )) AS paywall_impressions,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'Subs_page', 'Subs_page_discount', 'Subscription_screen', 'Subs_page_onboarding'
+    'Subs_page', 'Subs_page_discount', 'Subscription_screen',
+    'Subs_page_onboarding', 'subscription_shown'
   ) THEN resolved_user_id END) AS users_saw_paywall,
   COUNTIF(event_name_base IN (
-    'subs_confirm', 'subs_confirm_discount', 'Subs_confirm', 'paid_purchase'
+    'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
+    'paid_purchase', 'trial_purchase'
   )) AS purchase_confirms,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'subs_confirm', 'subs_confirm_discount', 'Subs_confirm', 'paid_purchase'
+    'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
+    'paid_purchase', 'trial_purchase'
   ) THEN resolved_user_id END) AS paying_users,
   SAFE_DIVIDE(
     COUNTIF(event_name_base IN (
-      'subs_confirm', 'subs_confirm_discount', 'Subs_confirm', 'paid_purchase'
+      'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
+      'paid_purchase', 'trial_purchase'
     )),
     COUNTIF(event_name_base IN (
-      'Subs_page', 'Subs_page_discount', 'Subscription_screen', 'Subs_page_onboarding'
+      'Subs_page', 'Subs_page_discount', 'Subscription_screen',
+      'Subs_page_onboarding', 'subscription_shown'
     ))
   ) AS paywall_to_confirm_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'subs_confirm', 'subs_confirm_discount', 'Subs_confirm', 'paid_purchase'
+      'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
+      'paid_purchase', 'trial_purchase'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Subs_page', 'Subs_page_discount', 'Subscription_screen', 'Subs_page_onboarding'
+      'Subs_page', 'Subs_page_discount', 'Subscription_screen',
+      'Subs_page_onboarding', 'subscription_shown'
     ) THEN resolved_user_id END)
   ) AS user_paywall_conversion_rate
 FROM base

@@ -28,6 +28,10 @@ export function prepareSql(rawSql, params = {}, config = {}) {
   const endDate = params.end_date || today();
   const country = params.country || '';
   const platform = params.platform || '';
+  const allowedChannels = ['Organic', 'Paid', 'Direct'];
+  const installChannel = allowedChannels.includes(String(params.install_channel || ''))
+    ? String(params.install_channel)
+    : '';
 
   sql = sql
     .replace(/\{PROJECT\}/g, project)
@@ -62,6 +66,11 @@ export function prepareSql(rawSql, params = {}, config = {}) {
   for (const [pattern, replacement] of platformPatterns) {
     sql = sql.replace(pattern, platform ? replacement : '');
   }
+
+  sql = sql.replace(
+    /\[\[AND install_channel = \{\{install_channel\}\}\]\]/g,
+    installChannel ? `AND install_channel = '${escapeSql(installChannel)}'` : '',
+  );
 
   return sql.trim();
 }

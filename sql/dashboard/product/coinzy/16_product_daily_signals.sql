@@ -1,46 +1,24 @@
 -- =============================================================================
--- Scheduled / refresh: product_daily_signals
--- Common KPI daily grain for MVP + Compare (one row per event_date)
--- Source: raw Firebase events_* (never mutates raw)
--- Idempotent: DELETE window then INSERT
--- Placeholders: {PROJECT} {DATASET} {SUMMARY_DATASET} {START_SUFFIX} {END_SUFFIX}
+-- Coinzy daily product signals (raw events) — Compare + MVP rollup
+-- Verified from CoinzyAndroid: Collection_screen / collection_bottom_nav,
+-- marketplace_screen / marketplace_bottom_nav, Subs_page / subs_confirm.
+-- Cheap identity: COALESCE(user_id, user_pseudo_id) — no event_params UNNEST.
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS `{PROJECT}.{SUMMARY_DATASET}.product_daily_signals` (
-  event_date                     DATE      NOT NULL,
-  dau                            INT64     NOT NULL,
-  installs                       INT64     NOT NULL,
-  success_scans                  INT64     NOT NULL,
-  failure_scans                  INT64     NOT NULL,
-  identification_success_rate    FLOAT64,
-  scans_per_dau                  FLOAT64,
-  free_quota_hit_rate            FLOAT64,
-  paywall_to_confirm_rate        FLOAT64,
-  open_to_success_rate           FLOAT64,
-  catalogue_open_rate            FLOAT64,
-  marketplace_engagement_rate    FLOAT64,
-  paying_users                   INT64     NOT NULL,
-  paywall_impressions            INT64     NOT NULL,
-  purchase_confirms              INT64     NOT NULL,
-  refreshed_at                   TIMESTAMP NOT NULL
-)
-PARTITION BY event_date;
-
-DELETE FROM `{PROJECT}.{SUMMARY_DATASET}.product_daily_signals`
-WHERE event_date BETWEEN PARSE_DATE('%Y%m%d', '{START_SUFFIX}')
-                     AND PARSE_DATE('%Y%m%d', '{END_SUFFIX}');
-
-INSERT INTO `{PROJECT}.{SUMMARY_DATASET}.product_daily_signals`
 WITH base AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
     COALESCE(user_id, user_pseudo_id) AS resolved_user_id,
     REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base
   FROM `{PROJECT}.{DATASET}.events_*`
-  WHERE _TABLE_SUFFIX BETWEEN '{START_SUFFIX}' AND '{END_SUFFIX}'
+  WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', {{start_date}})
+                          AND FORMAT_DATE('%Y%m%d', {{end_date}})
     AND _TABLE_SUFFIX NOT LIKE 'intraday_%'
     AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\d{8}$')
+    [[AND event_country = {{country}}]]
+    [[AND event_platform = {{platform}}]]
 )
+
 SELECT
   event_date,
   COUNT(DISTINCT resolved_user_id) AS dau,
@@ -51,13 +29,15 @@ SELECT
     'identification_done_success', 'Identification_done_success'
   )) AS success_scans,
   COUNTIF(event_name_base IN (
-    'identification_done_failure', 'Identification_done_failure'
+    'identification_done_failure', 'Identification_done_failure',
+    'Identification_failed', 'Identification_unsuccessful'
   )) AS failure_scans,
   SAFE_DIVIDE(
     COUNTIF(event_name_base IN ('identification_done_success', 'Identification_done_success')),
     COUNTIF(event_name_base IN (
       'identification_done_success', 'Identification_done_success',
-      'identification_done_failure', 'Identification_done_failure'
+      'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful'
     ))
   ) AS identification_success_rate,
   SAFE_DIVIDE(
@@ -70,7 +50,8 @@ SELECT
       'scan_quota_exhausted', 'limit_exceeded',
       'free_scan_limit_exceeded', 'free_scan_blocked',
       'free_scan_success_quota_exhausted',
-      'Identification_unsuccessful_limit_reached'
+      'Identification_unsuccessful_limit_reached',
+      'Collection_limit_Reached'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'identification_done_success', 'Identification_done_success',
@@ -80,7 +61,7 @@ SELECT
   ) AS free_quota_hit_rate,
   SAFE_DIVIDE(
     COUNTIF(event_name_base IN (
-      'Subs_confirm', 'subs_confirm', 'subs_confirm_discount',
+      'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
       'paid_purchase', 'trial_purchase'
     )),
     COUNTIF(event_name_base IN (
@@ -99,18 +80,14 @@ SELECT
   ) AS open_to_success_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      -- Banknote-verified screen opens (primary)
-      'Collection_screen', 'Global_catalogue_screen',
-      -- Coinzy bottom nav (route "collection")
-      'collection_bottom_nav',
-      -- Legacy / preferred aliases
+      'Collection_screen', 'Global_catalogue_screen', 'collection_bottom_nav',
       'Collection_open', 'collection_open', 'Collection', 'My_collection'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT resolved_user_id)
   ) AS catalogue_open_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'marketplace_screen', 'Marketplace_bottom_nav', 'marketplace_bottom_nav',
+      'marketplace_screen', 'marketplace_bottom_nav', 'Marketplace_bottom_nav',
       'market_item_expolre', 'Feed_screen', 'feed_bottom_nav',
       'Marketplace_open', 'marketplace_open', 'Market_open',
       'Listing_view', 'listing_view'
@@ -118,7 +95,7 @@ SELECT
     COUNT(DISTINCT resolved_user_id)
   ) AS marketplace_engagement_rate,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'Subs_confirm', 'subs_confirm', 'subs_confirm_discount',
+    'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
     'paid_purchase', 'trial_purchase'
   ) THEN resolved_user_id END) AS paying_users,
   COUNTIF(event_name_base IN (
@@ -126,9 +103,9 @@ SELECT
     'Subs_page_onboarding', 'subscription_shown'
   )) AS paywall_impressions,
   COUNTIF(event_name_base IN (
-    'Subs_confirm', 'subs_confirm', 'subs_confirm_discount',
+    'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
     'paid_purchase', 'trial_purchase'
-  )) AS purchase_confirms,
-  CURRENT_TIMESTAMP() AS refreshed_at
+  )) AS purchase_confirms
 FROM base
-GROUP BY event_date;
+GROUP BY event_date
+ORDER BY event_date;

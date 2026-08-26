@@ -55,7 +55,7 @@ const AREAS = [
     icon: PiggyBank,
     to: '/mvp/paywall',
     why: 'Separates traffic from conversion. Pack mix and fails/cancels diagnose pricing vs store friction.',
-    metrics: 'Paywall → purchase · Pack mix · Subs_fail / Subs_cancel',
+    metrics: 'Paywall → purchase · Pack mix · Cohort LTV-30/90/180',
   },
   {
     id: 'retention',
@@ -228,6 +228,11 @@ export default function ProductAnalyticsPage() {
               </NavLink>
             ))}
           </div>
+          <p style={{ marginTop: 12 }}>
+            Cohort LTV-30 / 90 / 180 by country and organic / paid / direct is under Explorer:{' '}
+            <NavLink to="/ltv" style={{ color: 'var(--accent)' }}>Cohort LTV</NavLink>.
+            Date filters there are install dates, not calendar revenue.
+          </p>
         </div>
 
         <div className="section-card">

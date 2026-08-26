@@ -37,6 +37,7 @@ Views (v_*) → raw SQL → clear error
 | `platform_metrics` | date × platform | Platform |
 | `top_events` | date × event_name_base × … | Top events |
 | `product_daily_signals` | date | MVP KPIs + Compare |
+| `cohort_ltv` | cohort_date × country × install_channel × platform | Explorer Cohort LTV |
 | `event_inventory_daily` | date × event_name | Discovery only (optional) |
 
 SQL builders: `sql/scheduled/*.sql`  
@@ -89,6 +90,8 @@ PRODUCT=coinzy FULL=1 npm run discover-events   # all-time (more $)
 
 # Refresh summaries (discovers date bounds; default window = DAYS or full range)
 PRODUCT=coinzy DAYS=90 npm run refresh-summaries:product
+# Cohort LTV auto-expands lookback to LTV_DAYS (default 210) unless START= is set
+PRODUCT=coinzy DAYS=30 LTV_DAYS=210 npm run refresh-summaries:product
 PRODUCT=coinzy START=2025-06-21 END=2026-08-11 npm run refresh-summaries:product
 PRODUCT=banknote DAYS=90 npm run refresh-summaries:product
 

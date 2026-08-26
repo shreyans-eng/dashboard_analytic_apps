@@ -26,6 +26,7 @@ export const PAGE_CATALOG = [
     { id: 'mvp.marketplace', label: '10. Marketplace', path: '/mvp/marketplace' },
   ]},
   { section: 'Explorer', items: [
+    { id: 'explorer.ltv', label: 'Cohort LTV', path: '/ltv' },
     { id: 'explorer.dau', label: 'Daily Active Users', path: '/dau' },
     { id: 'explorer.mau', label: 'Monthly Active Users', path: '/mau' },
     { id: 'explorer.new-users', label: 'New Users', path: '/new-users' },

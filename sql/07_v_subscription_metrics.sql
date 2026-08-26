@@ -62,7 +62,8 @@ daily AS (
       THEN resolved_user_id END) AS users_saw_paywall,
 
     COUNTIF(event_name_base IN (
-      'Subs_page', 'Subs_page_discount', 'Subscription_screen', 'Subs_page_onboarding'
+      'Subs_page', 'Subs_page_discount', 'Subscription_screen',
+      'Subs_page_onboarding', 'subscription_shown'
     )) AS paywall_impressions,
     COUNTIF(event_name_base = 'Subs_page')                          AS paywall_standard_impressions,
     COUNTIF(event_name_base = 'Subs_page_discount')                 AS paywall_discount_impressions,
@@ -75,7 +76,8 @@ daily AS (
 
     -- Outcomes (Banknote Subs_confirm; Coinzy subs_confirm)
     COUNTIF(event_name_base IN (
-      'Subs_confirm', 'subs_confirm', 'subs_confirm_discount', 'paid_purchase'
+      'Subs_confirm', 'subs_confirm', 'subs_confirm_discount',
+      'paid_purchase', 'trial_purchase'
     )) AS purchase_confirms,
     COUNTIF(event_name_base = 'subscription')                       AS direct_subscription_events,
     COUNTIF(event_name_base = 'life_time_access')                   AS lifetime_purchases,
@@ -85,7 +87,7 @@ daily AS (
 
     COUNT(DISTINCT CASE
       WHEN event_name_base IN (
-        'Subs_confirm', 'subs_confirm', 'subs_confirm_discount', 'paid_purchase'
+        'Subs_confirm', 'subs_confirm', 'subs_confirm_discount', 'paid_purchase', 'trial_purchase'
       ) THEN resolved_user_id END) AS paying_users,
 
     -- Entry points

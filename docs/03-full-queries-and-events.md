@@ -112,8 +112,11 @@ GCP_PROJECT=… BQ_DATASET=… GOOGLE_APPLICATION_CREDENTIALS=… \
 | `sql/dashboard/product/16`–`17` | Legacy compare (shared dataset) |
 | `sql/dashboard/product/coinzy/*` | Coinzy-shaped view SQL (when views exist) |
 | `sql/dashboard/raw/*` | Coinzy + Compare + explorer fallbacks |
+| `sql/dashboard/summary/*` | Summary tables (Banknote + Coinzy) |
+| `sql/scheduled/cohort_ltv.sql` | Materialize `analytics_summary.cohort_ltv` |
 | `sql/dashboard/01`–`08` | Executive explorer tabs |
-| `sql/dashboard/summary/*` | Summary tables (Banknote optional) |
+
+Explorer LTV: `summary/10_cohort_ltv.sql` ← `analytics_summary.cohort_ltv` ← `scheduled/cohort_ltv.sql`; raw fallback `raw/10_cohort_ltv.sql`. See `docs/09-cohort-ltv.md`.
 
 ---
 

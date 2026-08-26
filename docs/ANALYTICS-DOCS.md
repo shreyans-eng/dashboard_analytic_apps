@@ -8,7 +8,10 @@
 | 4 | [`04-full-remaining-work.md`](./04-full-remaining-work.md) | Full | What’s left so everything works |
 | 5 | [`05-discovery-report-summary-migration.md`](./05-discovery-report-summary-migration.md) | Full | Verified BQ discovery + ambiguities |
 | 6 | [`06-summary-architecture.md`](./06-summary-architecture.md) | Full | Raw → summary → dashboard architecture |
-| 7 | [`deploy.md`](./deploy.md) | Full | Docker image + Render / Vercel / Netlify |
+| 7 | [`07-dashboard-tabs-and-calculations.md`](./07-dashboard-tabs-and-calculations.md) | Full | Every tab, chart, and formula |
+| 8 | [`08-bigquery-cost.md`](./08-bigquery-cost.md) | Full | Query cost notes |
+| 9 | [`09-cohort-ltv.md`](./09-cohort-ltv.md) | Short | LTV-30/90/180, channel mapping, revenue |
+| 10 | [`deploy.md`](./deploy.md) | Full | Docker image + Render / Vercel / Netlify |
 
 ### Related (older / deeper)
 

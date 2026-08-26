@@ -5,6 +5,7 @@ export interface QueryParams {
   end_date?: string;
   country?: string;
   platform?: string;
+  install_channel?: string;
   days?: number;
   /** banknote | coinzy | compare */
   product?: string;
@@ -421,6 +422,13 @@ export function fmtNumber(n: number): string {
 
 export function fmtPercent(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
+}
+
+export function fmtUsd(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(Number(n))) return '—';
+  const v = Number(n);
+  if (Math.abs(v) >= 1000) return `$${fmtNumber(v)}`;
+  return `$${v.toFixed(2)}`;
 }
 
 export function fmtDateTime(iso: string | null): string {

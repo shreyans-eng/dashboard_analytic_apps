@@ -72,6 +72,12 @@ const QUERY_MAP = {
     raw: 'dashboard/raw/16_product_daily_signals.sql',
     metric: 'compare',
   },
+  ltv: {
+    summary: 'dashboard/summary/10_cohort_ltv.sql',
+    legacy: null,
+    raw: 'dashboard/raw/10_cohort_ltv.sql',
+    metric: 'ltv',
+  },
 };
 
 /**
@@ -180,6 +186,7 @@ export class AnalyticsRepository {
   /**
    * Prefer product-verified SQL when present:
    * dashboard/product/08_….sql → dashboard/product/coinzy/08_….sql
+   * dashboard/raw/16_….sql → dashboard/product/coinzy/16_….sql
    */
   _resolveProductSql(sharedPath) {
     if (!sharedPath) return sharedPath;
@@ -187,6 +194,28 @@ export class AnalyticsRepository {
     const override = `dashboard/product/${this.productId}/${filename}`;
     if (this._sqlExists(override)) return override;
     return sharedPath;
+  }
+
+  _sumColumn(rows, key) {
+    return (rows || []).reduce((s, r) => s + Number(r?.[key] || 0), 0);
+  }
+
+  /**
+   * Coinzy summary was historically built with Banknote aliases
+   * (Collection_open / Marketplace_open / Subs_confirm), so catalogue,
+   * marketplace, and paywall rates stay 0 even though DAU is fine.
+   * Collection_screen is high-volume on Coinzy — all-zero catalogue with
+   * active DAU means the summary is stale and we must read raw.
+   */
+  _signalsMissingEngagement(rows) {
+    if (this.productId !== 'coinzy') return false;
+    if (!rows?.length) return true;
+    const dau = this._sumColumn(rows, 'dau');
+    if (dau <= 0) return false;
+    const catalogue = this._sumColumn(rows, 'catalogue_open_rate');
+    // Collection_screen is high-volume on Coinzy. All-zero catalogue with
+    // active DAU means the summary still uses Collection_open / Marketplace_open.
+    return catalogue === 0;
   }
 
   _prepare(relativePath, params) {
@@ -250,21 +279,30 @@ export class AnalyticsRepository {
   }
 
   async getProductDailySignals(params) {
-    const key = cacheKey(`${this.productId}:daily-signals`, params);
+    const key = cacheKey(`${this.productId}:daily-signals:v3`, params);
     return cached('compare', key, async () => {
+      const rawPath = this._resolveProductSql('dashboard/raw/16_product_daily_signals.sql');
+      const rawSource = rawPath === 'dashboard/raw/16_product_daily_signals.sql' ? 'raw' : 'product';
+
       if (!this.preferRaw && this.useSummary) {
         try {
-          return await this._executeSql(
+          const summary = await this._executeSql(
             'dashboard/summary/16_product_daily_signals.sql',
             params,
             'summary',
           );
+          if (!this._signalsMissingEngagement(summary.rows)) {
+            return summary;
+          }
+          console.warn(
+            `[${this.productId}] product_daily_signals summary has no catalogue engagement; using ${rawPath}`,
+          );
         } catch (e) {
           if (!isMissingTableError(e)) throw e;
-          console.warn(`[${this.productId}] product_daily_signals summary missing, using raw`);
+          console.warn(`[${this.productId}] product_daily_signals summary missing, using ${rawPath}`);
         }
       }
-      return this._executeSql('dashboard/raw/16_product_daily_signals.sql', params, 'raw');
+      return this._executeSql(rawPath, params, rawSource);
     });
   }
 
@@ -468,6 +506,7 @@ export class AnalyticsRepository {
       'platform_metrics',
       'top_events',
       'product_daily_signals',
+      'cohort_ltv',
     ];
 
     const freshness = {};
@@ -529,10 +568,14 @@ export class AnalyticsRepository {
       platform: () => this.getPlatformBreakdown(params),
       'compare-daily': () => this.getProductDailySignals(params),
       'compare-summary': () => this.getProductDailySignals(params),
+      ltv: () => this._cachedQuery('ltv', 'ltv', params),
     };
     const fn = handlers[name];
-    if (!fn) throw new Error(`Unknown query: ${name}`);
-    return fn();
+    if (fn) return fn();
+    if (QUERY_MAP[name]) {
+      return this._cachedQuery(QUERY_MAP[name].metric || name, name, params);
+    }
+    throw new Error(`Unknown query: ${name}`);
   }
 
   /**
@@ -544,7 +587,7 @@ export class AnalyticsRepository {
     const spec = MVP_KPI_MAP[name];
     if (!spec) throw new Error(`Unknown MVP metric: ${name}`);
 
-    const key = cacheKey(`${this.productId}:mvp:${name}`, params);
+    const key = cacheKey(`${this.productId}:mvp:v3:${name}`, params);
     return cached('kpi', key, async () => {
       if (spec.useRetention) {
         return this.getRetention(params);

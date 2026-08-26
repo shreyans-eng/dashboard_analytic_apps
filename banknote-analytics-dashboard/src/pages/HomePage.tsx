@@ -10,6 +10,7 @@ import {
   Activity,
   Sparkles,
   GitCompareArrows,
+  CircleDollarSign,
 } from 'lucide-react';
 import { useProduct } from '@/lib/product';
 import { useAuth } from '@/lib/auth';
@@ -27,6 +28,12 @@ const METRICS = [
     icon: GitCompareArrows,
     title: 'Compare Apps',
     description: 'Banknote vs Coinzy side-by-side on the same MVP metrics.',
+  },
+  {
+    to: '/ltv',
+    icon: CircleDollarSign,
+    title: 'Cohort LTV',
+    description: 'LTV-30 / 90 / 180 by country and organic / paid / direct installs.',
   },
   {
     to: '/dau',

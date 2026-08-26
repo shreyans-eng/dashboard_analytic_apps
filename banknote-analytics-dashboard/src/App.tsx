@@ -8,6 +8,7 @@ import MetricPage, { METRIC_CONFIGS } from '@/pages/MetricPage';
 import SqlEditorPage from '@/pages/SqlEditorPage';
 import FunnelPage from '@/pages/FunnelPage';
 import EventsExplorerPage from '@/pages/EventsExplorerPage';
+import LtvPage from '@/pages/LtvPage';
 import LoginPage from '@/pages/LoginPage';
 import AdminUsersPage from '@/pages/AdminUsersPage';
 import { defaultDateRange, QueryParams } from '@/lib/api';
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="mvp/marketplace" element={<MetricRoute metricKey="mvp-marketplace" {...shared} />} />
 
         {/* Executive / explorer tabs */}
+        <Route path="ltv" element={<LtvPage {...shared} />} />
         <Route path="dau" element={<MetricRoute metricKey="dau" {...shared} />} />
         <Route path="mau" element={<MetricRoute metricKey="mau" {...shared} />} />
         <Route path="new-users" element={<MetricRoute metricKey="new-users" {...shared} />} />

@@ -21,6 +21,7 @@ export const METRIC_TTL = {
   retention: TTL.RETENTION,
   d1: TTL.RETENTION,
   d7: TTL.RETENTION,
+  ltv: TTL.RETENTION,
   events: TTL.TOP_EVENTS,
   funnel: TTL.FUNNEL,
   inventory: TTL.INVENTORY,

@@ -27,6 +27,7 @@ import {
   X,
   LogOut,
   Shield,
+  CircleDollarSign,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchConfig, AppConfig } from '@/lib/api';
@@ -60,6 +61,7 @@ const NAV = [
   { to: '/mvp/catalogue', pageId: 'mvp.catalogue', label: '9. Catalogue', icon: BookOpen },
   { to: '/mvp/marketplace', pageId: 'mvp.marketplace', label: '10. Marketplace', icon: ShoppingBag },
   { section: 'Explorer' },
+  { to: '/ltv', pageId: 'explorer.ltv', label: 'Cohort LTV', icon: CircleDollarSign },
   { to: '/dau', pageId: 'explorer.dau', label: 'Daily Active Users', icon: Activity },
   { to: '/mau', pageId: 'explorer.mau', label: 'Monthly Active Users', icon: Calendar },
   { to: '/new-users', pageId: 'explorer.new-users', label: 'New Users', icon: UserPlus },
