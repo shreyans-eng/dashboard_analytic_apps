@@ -67,6 +67,12 @@ export function useExecutive(params: QueryParams, enabled = true) {
   });
 }
 
+function dashboardQueryVersion(name: string) {
+  if (name === 'mvp-time-to-first-scan') return 'v5';
+  if (name === 'country-list') return 'v2';
+  return 'v3';
+}
+
 export function useDashboardMetric(name: string, params: QueryParams, enabled = true) {
   const { productId } = useProduct();
   // compare-* and LTV/subscriptions while on Compare must hit the multi-product facade.
@@ -74,12 +80,13 @@ export function useDashboardMetric(name: string, params: QueryParams, enabled = 
     name.startsWith('compare')
     || (name === 'ltv' && productId === 'compare')
     || (name === 'subscription-tiers' && productId === 'compare')
+    || ((name === 'country-list' || name === 'countries') && productId === 'compare')
       ? 'compare'
       : productId;
   const p = withProduct(params, product);
   const staleTime = name === 'events' ? STALE_TIME.EVENTS : STALE_TIME.DAILY;
   return useQuery({
-    queryKey: queryKey(`dashboard:${name}:v3`, p),
+    queryKey: queryKey(`dashboard:${name}:${dashboardQueryVersion(name)}`, p),
     queryFn: () => runDashboardQuery(name, p),
     staleTime,
     enabled,
@@ -144,7 +151,7 @@ export function useScopedDashboardMetric(
   const p = withProduct(params, productId || '');
   const staleTime = name === 'events' ? STALE_TIME.EVENTS : STALE_TIME.DAILY;
   return useQuery({
-    queryKey: queryKey(`dashboard:${name}:v3`, p),
+    queryKey: queryKey(`dashboard:${name}:${dashboardQueryVersion(name)}`, p),
     queryFn: () => runDashboardQuery(name, p),
     staleTime,
     enabled: enabled && Boolean(productId) && productId !== 'compare',

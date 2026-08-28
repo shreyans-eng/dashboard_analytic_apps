@@ -41,6 +41,12 @@ const QUERY_MAP = {
     raw: 'dashboard/raw/04_countries.sql',
     metric: 'countries',
   },
+  'country-list': {
+    summary: 'dashboard/summary/04_country_list.sql',
+    legacy: 'dashboard/04_country_list.sql',
+    raw: 'dashboard/raw/04_country_list.sql',
+    metric: 'countries',
+  },
   retention: {
     summary: 'dashboard/summary/09_retention.sql',
     legacy: null,
@@ -335,7 +341,12 @@ export class AnalyticsRepository {
       }
     }
 
-    if (entry.raw) return this._executeSql(entry.raw, params, 'raw');
+    if (entry.raw) {
+      if (name === 'country-list') {
+        console.warn(`[${this.productId}] country-list using geo.country on events_*`);
+      }
+      return this._executeSql(entry.raw, params, 'raw');
+    }
     throw new Error(
       `No SQL path for ${name} on ${this.productId} (tried summary/view/raw; none available)`,
     );
@@ -697,6 +708,7 @@ export class AnalyticsRepository {
       mau: () => this.getMonthlyUsers(params),
       'new-users': () => this.getNewUsers(params),
       countries: () => this.getCountries(params),
+      'country-list': () => this._cachedQuery('countries', 'country-list', params),
       retention: () => this.getRetention(params),
       d1: () => this.getD1Retention(params),
       d7: () => this.getD7Retention(params),
@@ -723,7 +735,7 @@ export class AnalyticsRepository {
     const spec = MVP_KPI_MAP[name];
     if (!spec) throw new Error(`Unknown MVP metric: ${name}`);
 
-    const key = cacheKey(`${this.productId}:mvp:v5:${name}`, params);
+    const key = cacheKey(`${this.productId}:mvp:v7:${name}`, params);
     const result = await cached('kpi', key, async () => {
       if (spec.useRetention) {
         return this.getRetention(params);
@@ -747,12 +759,16 @@ export class AnalyticsRepository {
       const productSql = this._resolveProductSql(spec.productSql);
       if (productSql) {
         try {
-          const source = productSql === spec.productSql ? 'view' : 'product';
+          const source = productSql.includes('/raw/') ? 'raw' : 'product';
           return await this._executeSql(productSql, params, source);
         } catch (e) {
           if (!isMissingTableError(e)) throw e;
           console.warn(`[${this.productId}] MVP ${name} SQL missing table, falling back`);
         }
+      }
+
+      if (name === 'mvp-time-to-first-scan' && this._sqlExists('dashboard/raw/02_time_to_first_scan.sql')) {
+        return this._executeSql('dashboard/raw/02_time_to_first_scan.sql', params, 'raw');
       }
 
       if (spec.signalKey) {

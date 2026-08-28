@@ -415,7 +415,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'day0_first_scan_rate',
     color: '#22d3ee',
     percent: true,
-    guide: 'This is the “aha” moment. Installs = first-time open. Scanned on day 0 = they got a successful ID on that same day. Median time is how long that first success usually takes.',
+    guide: 'Installs = devices (`user_pseudo_id`) with first_open that calendar day. Same-day ID = those devices that also fired identification_done_success that day. Join is device id only — empty or post-login user_id is ignored.',
     stats: [
       { key: 'cohort_users', label: 'New installs', format: 'number' },
       { key: 'users_scanned_day0', label: 'Got an ID the same day', format: 'number' },

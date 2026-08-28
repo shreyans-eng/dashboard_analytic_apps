@@ -196,10 +196,12 @@ Used everywhere (views + raw):
 
 | | Path |
 |--|------|
-| **Banknote query** | `sql/dashboard/product/02_time_to_first_scan.sql` |
-| **Banknote view** | `v_time_to_first_scan` ← `sql/14_v_time_to_first_scan.sql` (+ `v_new_users`) |
-| **Coinzy today** | Not full median in raw; Compare uses success/install signals via `raw/16_product_daily_signals.sql` |
-| **Events** | Cohort: `first_open` (or `Registration` / first event). Success: **`identification_done_success`** |
+| **Banknote query** | `sql/dashboard/product/banknote/02_time_to_first_scan.sql` |
+| **Coinzy query** | `sql/dashboard/product/coinzy/02_time_to_first_scan.sql` |
+| **Raw fallback** | `sql/dashboard/raw/02_time_to_first_scan.sql` |
+| **View (optional)** | `v_time_to_first_scan` ← `sql/14_v_time_to_first_scan.sql` — same device join; dashboard MVP does **not** require the view |
+| **Join** | `first_open.user_pseudo_id = identification_done_success.user_pseudo_id` on the **same calendar day**. Not `COALESCE(user_id, …)`. |
+| **Events** | Cohort: `first_open`. Success: **`identification_done_success`** |
 
 ### MVP 3 — Identification success rate
 

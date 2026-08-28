@@ -185,8 +185,8 @@ Daily Identify funnel and quality.
 
 | Column | Description |
 |--------|-------------|
-| `day0_first_scan_rate` | % of cohort with successful ID on cohort day |
-| `median_seconds_to_first_scan` | Median seconds from first_seen → first success |
+| `day0_first_scan_rate` | % of `first_open` devices with successful ID the same calendar day (`user_pseudo_id` join) |
+| `median_seconds_to_first_scan` | Median seconds from first_open → first same-day success |
 
 ### v_scan_experiment_metrics
 

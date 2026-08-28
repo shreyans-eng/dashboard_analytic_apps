@@ -28,7 +28,7 @@ Event base: strip `_android` / `_ios` suffix → `event_name_base`
 | # | KPI | Banknote SQL (views) | Coinzy / fallback | Events used |
 |---|-----|----------------------|-------------------|-------------|
 | 1 | DAU | `product/01_dau.sql` from `events_*` | `raw/01_dau.sql` or signals `dau` (= `app_open_dau`) | `session_start` ∪ `App_open` ∪ `first_open` |
-| 2 | Time to first scan | `product/02_*.sql` ← `v_time_to_first_scan` | **No raw fallback yet** (empty until views) | Cohort: `first_open`; success: `identification_done_success` |
+| 2 | Time to first scan | `product/{app}/02_time_to_first_scan.sql` (raw `events_*`) | `raw/02_time_to_first_scan.sql` | Cohort: `first_open` **devices** (`user_pseudo_id`); success: `identification_done_success` on **the same device and calendar day**. Do not join on `user_id`. |
 | 3 | Identify success | `product/03_*.sql` ← `v_identify_metrics` | `raw/16` → `identification_success_rate` | `identification_done_success`, `identification_done_failure` |
 | 4 | Quota hit | `product/04_*.sql` ← `v_identify_metrics` | `raw/16` → `free_quota_hit_rate` | `Identified_limit_reached`, `scan_quota_exhausted`, `limit_exceeded` |
 | 5 | Paywall → purchase | `product/05_*.sql` ← `v_subscription_metrics` | `raw/16` → `paywall_to_confirm_rate` | `Subs_page`, `Subs_page_discount` → `Subs_confirm` |

@@ -217,9 +217,11 @@ SQL (raw / Coinzy-shaped): `sql/dashboard/product/coinzy/` and `sql/dashboard/ra
 | **Chart 1** | Line: `day0_first_scan_rate` vs cohort date |
 | **Chart 2** | Bars: installs vs users who scanned on day 0 |
 | **Shows** | Share of **new installs that day** who got a **successful ID on the same calendar day** |
-| **Cohort** | Users whose first `first_open` is that day |
-| **Success** | First `identification_done_success` |
-| **Formula** | `users with success_date = cohort_date ÷ cohort_users` |
+| **Cohort** | Distinct devices (`user_pseudo_id`) with `first_open` that calendar day (once per device per install day) |
+| **Success** | That same device fired `identification_done_success` on **the same calendar day** |
+| **Join** | `first_open.user_pseudo_id = identification_done_success.user_pseudo_id` — `user_id` is not used |
+| **Formula** | `users_scanned_day0 ÷ cohort_users` |
+| **Why not `user_id`?** | `first_open` has no logged-in id. Banknote stores `user_id` as `''` (empty), so `COALESCE(user_id, …)` merged every install into one row and same-day ID looked like ~0. Coinzy sets `user_id` on success after login, so those devices also failed to join. |
 | **Median time** | Median seconds from first_open timestamp → first success (KPI card averages daily medians in the range) |
 
 Longer time / lower day-0 rate ⇒ permission, camera, paywall, or confusion.

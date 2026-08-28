@@ -1,61 +1,84 @@
 -- =============================================================================
 -- v_time_to_first_scan
--- Cohort metric #5: first_open/cohort → first successful identification.
+-- Same-day first ID: first_open → identification_done_success on user_pseudo_id.
 -- Grain: cohort_date × platform × country
--- Depends on: v_events_normalized, v_new_users
+-- Depends on: v_events_normalized
+--
+-- Do not join on resolved_user_id / COALESCE(user_id, …). Empty-string user_id
+-- and login-after-install change user_id between the two events.
 -- =============================================================================
 
 CREATE OR REPLACE VIEW `{PROJECT}.{DATASET}.v_time_to_first_scan` AS
 
-WITH first_success AS (
+WITH installs AS (
   SELECT
-    resolved_user_id,
-    MIN(event_timestamp) AS first_success_at,
-    MIN(event_date) AS first_success_date
+    user_pseudo_id AS device_id,
+    event_date AS cohort_date,
+    platform,
+    country,
+    MIN(event_timestamp) AS first_at
   FROM `{PROJECT}.{DATASET}.v_events_normalized`
-  WHERE resolved_user_id IS NOT NULL
+  WHERE user_pseudo_id IS NOT NULL
+    AND TRIM(user_pseudo_id) != ''
+    AND (
+      event_name_base = 'first_open'
+      OR STARTS_WITH(event_name_base, 'first_open')
+    )
+  GROUP BY user_pseudo_id, event_date, platform, country
+),
+same_day_success AS (
+  SELECT
+    user_pseudo_id AS device_id,
+    event_date AS success_date,
+    MIN(event_timestamp) AS success_at
+  FROM `{PROJECT}.{DATASET}.v_events_normalized`
+  WHERE user_pseudo_id IS NOT NULL
+    AND TRIM(user_pseudo_id) != ''
     AND event_name_base IN (
       'identification_done_success',
       'Identification_done_success'
     )
-  GROUP BY resolved_user_id
+  GROUP BY user_pseudo_id, event_date
 ),
-
-cohort AS (
+ever_success AS (
   SELECT
-    n.resolved_user_id,
-    n.cohort_date,
-    n.first_seen_at,
-    n.first_platform AS platform,
-    n.first_country AS country,
-    f.first_success_at,
-    f.first_success_date,
-    TIMESTAMP_DIFF(f.first_success_at, n.first_seen_at, SECOND) AS seconds_to_first_scan
-  FROM `{PROJECT}.{DATASET}.v_new_users` n
-  LEFT JOIN first_success f
-    ON n.resolved_user_id = f.resolved_user_id
-  WHERE n.cohort_date IS NOT NULL
+    user_pseudo_id AS device_id,
+    MIN(event_date) AS first_success_date,
+    MIN(event_timestamp) AS first_success_at
+  FROM `{PROJECT}.{DATASET}.v_events_normalized`
+  WHERE user_pseudo_id IS NOT NULL
+    AND TRIM(user_pseudo_id) != ''
+    AND event_name_base IN (
+      'identification_done_success',
+      'Identification_done_success'
+    )
+  GROUP BY user_pseudo_id
 )
 
 SELECT
-  cohort_date,
-  platform,
-  country,
+  i.cohort_date,
+  i.platform,
+  i.country,
   COUNT(*) AS cohort_users,
-  COUNTIF(first_success_date IS NOT NULL) AS users_ever_scanned,
-  COUNTIF(first_success_date = cohort_date) AS users_scanned_day0,
+  COUNTIF(e.device_id IS NOT NULL) AS users_ever_scanned,
+  COUNTIF(s.device_id IS NOT NULL) AS users_scanned_day0,
   SAFE_DIVIDE(
-    COUNTIF(first_success_date = cohort_date),
+    COUNTIF(s.device_id IS NOT NULL),
     COUNT(*)
   ) AS day0_first_scan_rate,
   SAFE_DIVIDE(
-    COUNTIF(first_success_date IS NOT NULL),
+    COUNTIF(e.device_id IS NOT NULL),
     COUNT(*)
   ) AS ever_scanned_rate,
   APPROX_QUANTILES(
-    IF(seconds_to_first_scan IS NOT NULL AND seconds_to_first_scan >= 0,
-       seconds_to_first_scan, NULL),
+    IF(s.success_at IS NOT NULL AND s.success_at >= i.first_at,
+       TIMESTAMP_DIFF(s.success_at, i.first_at, SECOND), NULL),
     100
   )[OFFSET(50)] AS median_seconds_to_first_scan
-FROM cohort
-GROUP BY cohort_date, platform, country;
+FROM installs i
+LEFT JOIN same_day_success s
+  ON i.device_id = s.device_id
+ AND i.cohort_date = s.success_date
+LEFT JOIN ever_success e
+  ON i.device_id = e.device_id
+GROUP BY i.cohort_date, i.platform, i.country;

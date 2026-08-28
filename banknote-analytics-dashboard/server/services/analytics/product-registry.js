@@ -258,8 +258,16 @@ export class ProductAnalyticsFacade {
       return this.registry.getRepo(product).runDashboardQuery('ltv', { ...params, product });
     }
 
-    if (product === 'compare' || name === 'compare-daily' || name === 'compare-summary') {
+    if (name === 'compare-daily' || name === 'compare-summary') {
       return this.compare(name === 'compare-summary' ? 'summary' : 'daily', params);
+    }
+
+    if (product === 'compare' && (name === 'countries' || name === 'country-list')) {
+      return this.mergeCountryRows(name, params);
+    }
+
+    if (product === 'compare') {
+      return this.compare('daily', params);
     }
 
     const repo = this.registry.getRepo(product);
@@ -305,6 +313,38 @@ export class ProductAnalyticsFacade {
   async ping(product) {
     const id = product && this.registry.repos[product] ? product : this.registry.primaryId;
     return this.registry.getRepo(id).ping();
+  }
+
+  /** Union of country names across apps for the filter dropdown. */
+  async mergeCountryRows(name, params = {}) {
+    const results = await Promise.all(
+      this.registry.productIds.map(async (id) => {
+        try {
+          return await this.registry.repos[id].runDashboardQuery(name, { ...params, product: id });
+        } catch (e) {
+          console.warn(`[compare] ${id} ${name} failed: ${e.message}`);
+          return { rows: [], sql: `-- ${id} ${name} failed: ${e.message}`, bytesProcessed: 0 };
+        }
+      }),
+    );
+    const seen = new Set();
+    const rows = [];
+    for (const result of results) {
+      for (const row of result.rows || []) {
+        const country = String(row.country || '').trim();
+        if (!country || country === 'Unknown' || seen.has(country)) continue;
+        seen.add(country);
+        rows.push({ country });
+      }
+    }
+    rows.sort((a, b) => a.country.localeCompare(b.country));
+    return {
+      sql: results.map((r) => r.sql).filter(Boolean).join('\n\n'),
+      rows,
+      count: rows.length,
+      bytesProcessed: results.reduce((s, r) => s + (r.bytesProcessed || 0), 0),
+      products: this.registry.productIds,
+    };
   }
 
   /**

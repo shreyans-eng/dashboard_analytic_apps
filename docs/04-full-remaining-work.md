@@ -81,9 +81,9 @@ COINZY_PREFER_RAW=false
 
 Confirm **all** Coinzy apps that should appear are linked to BigQuery export (only some may be exporting today).
 
-### 3d. Raw time-to-first-scan (if staying on raw)
+### 3d. Raw time-to-first-scan
 
-Add `sql/dashboard/raw/02_time_to_first_scan.sql` (or extend `16_product_daily_signals.sql`) and wire `mvp-time-to-first-scan` `signalKey` — **still TODO in code**. Until then MVP 2 stays empty on Coinzy.
+Done. `sql/dashboard/raw/02_time_to_first_scan.sql` plus per-app `product/{banknote,coinzy}/02_time_to_first_scan.sql`. Join is `user_pseudo_id` on the same calendar day (not `COALESCE(user_id, …)`). `getMvpMetric` falls back to the raw file if product SQL is missing.
 
 ---
 
@@ -145,7 +145,7 @@ Check off when true for **each** registered app:
 1. **Instrument** P0 events on Banknote + Coinzy (if not already).
 2. **Deploy Banknote** product views (`deploy-product-metrics.sh`).
 3. **Grant Coinzy** Data Editor → deploy views → `PREFER_RAW=false`.
-4. **Add raw time-to-first-scan** fallback (or rely on views after step 2–3).
+4. **QA** same-day first ID on MVP 2 / Health report (device join; 1–26 Aug ~24% Banknote, ~20% Coinzy).
 5. **QA** each MVP tab per app + Compare.
 6. (Optional) Summary tables + overview KPI page.
 

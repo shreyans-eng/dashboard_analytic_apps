@@ -1,7 +1,17 @@
 -- =============================================================================
--- MVP #2 — Same-day first ID (fallback when no per-app product SQL)
--- Join: first_open.user_pseudo_id = identification_done_success.user_pseudo_id
--- on the same calendar day. See sql/dashboard/raw/02_time_to_first_scan.sql
+-- MVP #2 — Same-day first ID (install → successful identification that day)
+--
+-- Join is user_pseudo_id only (device). Do not use
+-- COALESCE(user_id, event_params.user_id, user_pseudo_id).
+--
+-- Installs = distinct devices with first_open on a calendar day.
+-- Same-day ID = those devices that also fired identification_done_success
+-- on that same calendar day.
+-- Rate = same-day IDs / installs.
+--
+-- user_id is ignored: Banknote first_open often has user_id = '' (COALESCE
+-- would collapse every install); Coinzy may log in after first_open so
+-- success carries a different user_id than install.
 -- =============================================================================
 
 WITH bounds AS (
