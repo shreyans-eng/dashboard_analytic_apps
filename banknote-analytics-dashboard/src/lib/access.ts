@@ -1,4 +1,7 @@
-/** Page + product permission catalog. Keep in sync with server/access.js */
+/**
+ * Page + product permission catalog.
+ * Must stay in sync with server/access.js (same ids, labels, paths).
+ */
 
 export const PAGE_CATALOG = [
   { section: 'Overview', items: [
@@ -38,6 +41,8 @@ export const PAGE_CATALOG = [
     { id: 'explorer.user-mix', label: 'Unique vs repeat', path: '/user-mix' },
     { id: 'explorer.mau', label: 'Monthly Active Users', path: '/mau' },
     { id: 'explorer.new-users', label: 'New Users', path: '/new-users' },
+    { id: 'explorer.install-day-usage', label: 'Installs + time used', path: '/install-day-usage' },
+    { id: 'explorer.scan-limits', label: 'Scan limits', path: '/scan-limits' },
     { id: 'explorer.d1', label: 'D1 Retention', path: '/d1-retention' },
     { id: 'explorer.d7', label: 'D7 Retention', path: '/d7-retention' },
     { id: 'explorer.countries', label: 'Top Countries', path: '/countries' },
@@ -111,6 +116,8 @@ const PATH_TO_PAGE: Record<string, PageId> = {
   '/user-mix': 'explorer.user-mix',
   '/mau': 'explorer.mau',
   '/new-users': 'explorer.new-users',
+  '/install-day-usage': 'explorer.install-day-usage',
+  '/scan-limits': 'explorer.scan-limits',
   '/d1-retention': 'explorer.d1',
   '/d7-retention': 'explorer.d7',
   '/countries': 'explorer.countries',
@@ -151,6 +158,18 @@ export function canAccessPage(user: AuthUser | null | undefined, pageId: string)
   if (
     pageId === 'explorer.user-mix'
     && (pages.includes('explorer.dau') || pages.includes('mvp.dau'))
+  ) {
+    return true;
+  }
+  if (
+    pageId === 'explorer.install-day-usage'
+    && (pages.includes('explorer.new-users') || pages.includes('mvp.time-to-first-scan'))
+  ) {
+    return true;
+  }
+  if (
+    pageId === 'explorer.scan-limits'
+    && (pages.includes('mvp.quota-hit') || pages.includes('funnels.identify'))
   ) {
     return true;
   }

@@ -225,6 +225,7 @@ const COINZY_IDENTIFY = [
       'free_scan_limit_exceeded',
       'free_scan_blocked',
       'free_scan_success_quota_exhausted',
+      'free_scan_fail_quota_exhausted',
       'Identification_unsuccessful_limit_reached',
       'Collection_limit_Reached',
     ],
@@ -1137,10 +1138,6 @@ WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
 GROUP BY ROLLUP(event_date)
 ORDER BY event_date
 `.trim();
-}
-
-export function buildEventRangeTotalsSql(project, dataset, eventName, startDate, endDate) {
-  return buildEventDailySql(project, dataset, eventName, startDate, endDate);
 }
 
 export function buildEventParamsSql(project, dataset, eventName, startDate, endDate) {

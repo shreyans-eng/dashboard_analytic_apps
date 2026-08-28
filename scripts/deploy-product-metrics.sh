@@ -14,12 +14,8 @@ DATASET="${BQ_DATASET:-analytics_488476338}"
 FILES=(
   sql/07_v_subscription_metrics.sql
   sql/08_v_identify_metrics.sql
-  sql/09_v_scan_experiment_metrics.sql
   sql/10_v_engagement_metrics.sql
-  sql/11_v_attribution_metrics.sql
-  sql/12_v_onboarding_metrics.sql
   sql/14_v_time_to_first_scan.sql
-  sql/13_v_product_kpi_daily.sql
 )
 
 echo "Deploying product metrics to ${PROJECT}.${DATASET}"

@@ -1,8 +1,11 @@
+/**
+ * Dashboard data hooks. Every query key includes the active product so switching
+ * Banknote / Coinzy / Compare does not reuse the wrong cache.
+ */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchConfig,
   fetchDashboardStatus,
-  fetchExecutive,
   fetchKpi,
   runDashboardQuery,
   fetchFunnel,
@@ -42,28 +45,6 @@ export function useDashboardStatus() {
     queryFn: () => fetchDashboardStatus(product),
     staleTime: STALE_TIME.STATUS,
     refetchInterval: intraday ? REFETCH_INTERVAL_INTRADAY : false,
-  });
-}
-
-export function useKpi(params: QueryParams, enabled = true) {
-  const { productId } = useProduct();
-  const p = withProduct(params, productId);
-  return useQuery({
-    queryKey: queryKey('kpi', p),
-    queryFn: () => fetchKpi(p),
-    staleTime: STALE_TIME.DAILY,
-    enabled,
-  });
-}
-
-export function useExecutive(params: QueryParams, enabled = true) {
-  const { productId } = useProduct();
-  const p = withProduct(params, productId);
-  return useQuery({
-    queryKey: queryKey('executive', p),
-    queryFn: () => fetchExecutive(p),
-    staleTime: STALE_TIME.DAILY,
-    enabled: enabled && productId !== 'compare',
   });
 }
 
@@ -134,7 +115,7 @@ export function useFunnel(funnelId: string, params: QueryParams, enabled = true)
   const { productId } = useProduct();
   const p = withProduct(params, productId);
   return useQuery({
-    queryKey: queryKey(`funnel:${funnelId}:v2`, p),
+    queryKey: queryKey(`funnel:${funnelId}:v3`, p),
     queryFn: () => fetchFunnel(funnelId, p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && productId !== 'compare',
@@ -167,7 +148,7 @@ export function useScopedFunnel(
 ) {
   const p = withProduct(params, productId || '');
   return useQuery({
-    queryKey: queryKey(`funnel:${funnelId}:v2`, p),
+    queryKey: queryKey(`funnel:${funnelId}:v3`, p),
     queryFn: () => fetchFunnel(funnelId, p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && Boolean(productId) && productId !== 'compare',

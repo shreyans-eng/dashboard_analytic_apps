@@ -51,15 +51,6 @@ export async function redisSet(key, value, ttlMs) {
   }
 }
 
-export async function redisDelete(key) {
-  if (!available || !client) return;
-  try {
-    await client.del(key);
-  } catch {
-    /* ignore */
-  }
-}
-
 export async function redisClear() {
   if (!available || !client) return;
   try {

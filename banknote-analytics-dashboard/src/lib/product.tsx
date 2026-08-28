@@ -81,12 +81,6 @@ export function buildProductMeta(
   };
 }
 
-/** @deprecated use buildProductMeta + config.products — kept for Compare/Home copy */
-export const PRODUCTS = {
-  banknote: { ...buildProductMeta('banknote'), id: 'banknote' as const },
-  coinzy: { ...buildProductMeta('coinzy'), id: 'coinzy' as const },
-};
-
 interface ProductContextValue {
   productId: ProductId;
   product: ProductMeta;

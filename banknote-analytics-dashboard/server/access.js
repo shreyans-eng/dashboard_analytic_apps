@@ -1,4 +1,7 @@
-/** Page + product permission catalog. Keep in sync with src/lib/access.ts */
+/**
+ * Page + product permission catalog.
+ * Must stay in sync with src/lib/access.ts (same ids, labels, paths).
+ */
 
 export const PAGE_CATALOG = [
   { section: 'Overview', items: [
@@ -38,6 +41,8 @@ export const PAGE_CATALOG = [
     { id: 'explorer.user-mix', label: 'Unique vs repeat', path: '/user-mix' },
     { id: 'explorer.mau', label: 'Monthly Active Users', path: '/mau' },
     { id: 'explorer.new-users', label: 'New Users', path: '/new-users' },
+    { id: 'explorer.install-day-usage', label: 'Installs + time used', path: '/install-day-usage' },
+    { id: 'explorer.scan-limits', label: 'Scan limits', path: '/scan-limits' },
     { id: 'explorer.d1', label: 'D1 Retention', path: '/d1-retention' },
     { id: 'explorer.d7', label: 'D7 Retention', path: '/d7-retention' },
     { id: 'explorer.countries', label: 'Top Countries', path: '/countries' },
@@ -55,14 +60,6 @@ export const PRODUCT_OPTIONS = [
   { id: 'banknote', label: 'Banknote' },
   { id: 'coinzy', label: 'Coinzy' },
 ];
-
-export function pageLabel(id) {
-  for (const section of PAGE_CATALOG) {
-    const item = section.items.find((i) => i.id === id);
-    if (item) return item.label;
-  }
-  return id;
-}
 
 export function productLabel(id) {
   return PRODUCT_OPTIONS.find((p) => p.id === id)?.label || id;
@@ -99,6 +96,18 @@ export function canAccessPage(user, pageId) {
   if (
     pageId === 'explorer.user-mix'
     && (pages.includes('explorer.dau') || pages.includes('mvp.dau'))
+  ) {
+    return true;
+  }
+  if (
+    pageId === 'explorer.install-day-usage'
+    && (pages.includes('explorer.new-users') || pages.includes('mvp.time-to-first-scan'))
+  ) {
+    return true;
+  }
+  if (
+    pageId === 'explorer.scan-limits'
+    && (pages.includes('mvp.quota-hit') || pages.includes('funnels.identify'))
   ) {
     return true;
   }

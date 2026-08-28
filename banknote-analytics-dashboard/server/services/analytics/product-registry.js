@@ -1,3 +1,8 @@
+/**
+ * Multi-app registry + facade.
+ * PRODUCTS=banknote,coinzy,… each gets its own AnalyticsRepository (project, dataset, creds).
+ * product=compare fans the same query out in parallel and tags rows — never unions events_*.
+ */
 import path from 'path';
 import fs from 'fs';
 import { AnalyticsRepository } from './analytics-repository.js';
@@ -286,14 +291,6 @@ export class ProductAnalyticsFacade {
       return out;
     }
     return this.registry.getRepo(product).getKpi({ ...params, product });
-  }
-
-  async getExecutive(params = {}) {
-    const product = this.resolveProduct(params);
-    if (product === 'compare') {
-      throw new Error('Use compare-daily / compare-summary for side-by-side');
-    }
-    return this.registry.getRepo(product).getExecutive({ ...params, product });
   }
 
   async getSummaryFreshness(params = {}) {
@@ -682,7 +679,7 @@ export class ProductAnalyticsFacade {
 
     const repo = this.registry.getRepo(product);
     const sql = buildFunnelSql(repo.project, repo.dataset, mapped.steps, start, end);
-    const key = cacheKey(`${product}:funnel:v7:${funnelId}`, { start, end });
+    const key = cacheKey(`${product}:funnel:v8:${funnelId}`, { start, end });
 
     return cached('funnel', key, async () => {
       const { rows, bytesProcessed } = await runQuery(repo.bigquery, sql);

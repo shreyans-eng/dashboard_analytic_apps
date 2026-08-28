@@ -580,7 +580,7 @@ export default function ComparePage() {
           <li>Same date range, country, and platform filters apply to all apps.</li>
           <li>Subscription tiers are calendar-period IAP counts, not cohort LTV.</li>
           <li>Funnel / catalogue / marketplace need matching Firebase events or rates stay near zero.</li>
-          <li>Add another app via <code>PRODUCTS=...</code> in <code>.env</code> — see docs.</li>
+          <li>Add another app via <code>PRODUCTS=...</code> in <code>.env</code> — see <code>docs/PROJECT.md</code>.</li>
         </ul>
       </div>
     </>

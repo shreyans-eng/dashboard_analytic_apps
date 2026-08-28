@@ -285,7 +285,7 @@ function PathBarChart({
               position="top"
               fill={tick}
               fontSize={11}
-              formatter={(v) => fmtNumber(Number(v))}
+              formatter={(v: number | string) => fmtNumber(Number(v))}
             />
           </Bar>
         </BarChart>

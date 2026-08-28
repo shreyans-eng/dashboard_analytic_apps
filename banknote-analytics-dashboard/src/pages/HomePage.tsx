@@ -12,6 +12,8 @@ import {
   GitCompareArrows,
   CircleDollarSign,
   ClipboardList,
+  Clock,
+  Gauge,
 } from 'lucide-react';
 import { useProduct } from '@/lib/product';
 import { useAuth } from '@/lib/auth';
@@ -59,6 +61,18 @@ const METRICS = [
     icon: UserPlus,
     title: 'New Users',
     description: 'First-time users by cohort date.',
+  },
+  {
+    to: '/install-day-usage',
+    icon: Clock,
+    title: 'Installs + time used',
+    description: 'How many people installed each day, how many stayed in the app, and for how long.',
+  },
+  {
+    to: '/scan-limits',
+    icon: Gauge,
+    title: 'Scan limits',
+    description: 'Free vs subscribed: who hit the successful-ID cap vs the unsuccessful-ID cap.',
   },
   {
     to: '/d1-retention',

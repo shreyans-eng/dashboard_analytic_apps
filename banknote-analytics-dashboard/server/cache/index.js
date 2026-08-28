@@ -1,3 +1,7 @@
+/**
+ * Request cache: Redis when REDIS_URL is set, otherwise in-memory.
+ * Keys include product + filters so Banknote and Coinzy never share a result.
+ */
 import { ttlFor } from './ttl.js';
 import * as memory from './memory.js';
 import * as redis from './redis.js';

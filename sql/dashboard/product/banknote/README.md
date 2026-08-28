@@ -1,5 +1,7 @@
 # Banknote — MVP 8 / 9 / 10 detailed funnels
 
+Step-level SQL for the SQL Editor. Project guide: `docs/PROJECT.md`.
+
 Events taken from `Banknote-ai-identification/src/util/analytics.ts` (+ v2 call sites).
 
 Run in dashboard **SQL Editor** (Banknote product selected) or via API `/api/query/run`.

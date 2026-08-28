@@ -55,6 +55,7 @@ const DOCUMENTED_KPI_EVENTS = [
   'Identification_done',
   'Identified_limit_reached', 'identified_limit_reached', 'scan_quota_exhausted', 'limit_exceeded',
   'free_scan_limit_exceeded', 'free_scan_blocked',
+  'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
   'Subs_page', 'Subs_page_discount', 'Subs_confirm', 'subs_confirm', 'subs_confirm_discount',
   'Collection_screen', 'Global_catalogue_screen',
   'Collection_open', 'collection_open', 'Collection', 'My_collection',

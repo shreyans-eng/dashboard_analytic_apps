@@ -84,18 +84,6 @@ export interface AppConfig {
   primaryProduct?: string;
 }
 
-export interface ExecutivePayload {
-  kpi: KpiSummary;
-  dau: Record<string, unknown>[];
-  mau: Record<string, unknown>[];
-  newUsers: Record<string, unknown>[];
-  countries: Record<string, unknown>[];
-  platform: Record<string, unknown>[];
-  events: Record<string, unknown>[];
-  retention: Record<string, unknown>[];
-  cached?: boolean;
-}
-
 export interface SqlFile {
   dir: string;
   name: string;
@@ -384,10 +372,6 @@ export async function fetchDashboardStatus(product?: string): Promise<DashboardS
 
 export async function fetchKpi(params: QueryParams): Promise<KpiSummary> {
   return post('/kpi', params);
-}
-
-export async function fetchExecutive(params: QueryParams): Promise<ExecutivePayload> {
-  return post('/dashboard/executive', params);
 }
 
 export async function runDashboardQuery(name: string, params: QueryParams): Promise<QueryResult> {

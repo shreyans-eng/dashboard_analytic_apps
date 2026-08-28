@@ -170,13 +170,55 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
           >
             {emptyCompleteRange ? (
               <div className="empty-data">
-                {isDau && incomplete && (!params.start_date || params.start_date > latestComplete)
+                {isDau && incomplete && latestComplete && (!params.start_date || params.start_date > latestComplete)
                   ? 'Data unavailable — this range is after the latest complete Firebase daily export.'
                   : 'No matching data in this range.'}
               </div>
             ) : (
             <ResponsiveContainer width="100%" height={420}>
-              {config.type === 'line' && (
+              {config.type === 'pie' ? (
+                <PieChart>
+                  <Pie
+                    data={rows}
+                    dataKey={config.yKey}
+                    nameKey={config.pieNameKey ?? config.xKey}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={140}
+                    label
+                  >
+                    {rows.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={tipStyle} />
+                </PieChart>
+              ) : config.type === 'bar-h' ? (
+                <BarChart data={rows.slice(0, config.limit ?? 15)} layout="vertical">
+                  <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
+                  <XAxis type="number" tick={{ fill: chart.tick, fontSize: 11 }} />
+                  <YAxis
+                    type="category"
+                    dataKey={config.xKey}
+                    width={config.id === 'events' ? 200 : 90}
+                    tick={{ fill: chart.tick, fontSize: 10 }}
+                  />
+                  <Tooltip contentStyle={tipStyle} />
+                  <Bar dataKey={config.yKey} fill={config.color} radius={[0, 4, 4, 0]} />
+                </BarChart>
+              ) : config.type === 'bar' ? (
+                <BarChart data={rows}>
+                  <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey={config.xKey}
+                    tick={{ fill: chart.tick, fontSize: 11 }}
+                    tickFormatter={(v) => formatXTick(v, config.xKey)}
+                  />
+                  <YAxis tick={{ fill: chart.tick, fontSize: 11 }} />
+                  <Tooltip contentStyle={tipStyle} />
+                  <Bar dataKey={config.yKey} fill={config.color} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              ) : (
                 <LineChart data={rows}>
                   <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
                   <XAxis
@@ -194,54 +236,6 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
                   />
                   <Line type="monotone" dataKey={config.yKey} stroke={config.color} strokeWidth={2} dot={false} />
                 </LineChart>
-              )}
-
-              {config.type === 'bar' && (
-                <BarChart data={rows}>
-                  <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey={config.xKey}
-                    tick={{ fill: chart.tick, fontSize: 11 }}
-                    tickFormatter={(v) => formatXTick(v, config.xKey)}
-                  />
-                  <YAxis tick={{ fill: chart.tick, fontSize: 11 }} />
-                  <Tooltip contentStyle={tipStyle} />
-                  <Bar dataKey={config.yKey} fill={config.color} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              )}
-
-              {config.type === 'bar-h' && (
-                <BarChart data={rows.slice(0, config.limit ?? 15)} layout="vertical">
-                  <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
-                  <XAxis type="number" tick={{ fill: chart.tick, fontSize: 11 }} />
-                  <YAxis
-                    type="category"
-                    dataKey={config.xKey}
-                    width={config.id === 'events' ? 200 : 90}
-                    tick={{ fill: chart.tick, fontSize: 10 }}
-                  />
-                  <Tooltip contentStyle={tipStyle} />
-                  <Bar dataKey={config.yKey} fill={config.color} radius={[0, 4, 4, 0]} />
-                </BarChart>
-              )}
-
-              {config.type === 'pie' && (
-                <PieChart>
-                  <Pie
-                    data={rows}
-                    dataKey={config.yKey}
-                    nameKey={config.pieNameKey ?? config.xKey}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={140}
-                    label
-                  >
-                    {rows.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tipStyle} />
-                </PieChart>
               )}
             </ResponsiveContainer>
             )}

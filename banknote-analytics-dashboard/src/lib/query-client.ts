@@ -19,6 +19,6 @@ export const queryClient = new QueryClient({
   },
 });
 
-export function queryKey(base: string, params: Record<string, unknown>) {
+export function queryKey(base: string, params: object) {
   return [base, params] as const;
 }

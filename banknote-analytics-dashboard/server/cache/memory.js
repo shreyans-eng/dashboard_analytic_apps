@@ -16,10 +16,6 @@ export function memorySet(key, value, ttlMs) {
   store.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
 
-export function memoryDelete(key) {
-  store.delete(key);
-}
-
 export function memoryClear() {
   store.clear();
 }

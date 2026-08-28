@@ -1,3 +1,10 @@
+/**
+ * Per-product BigQuery repository.
+ * Fallback order: summary table → product view → raw events_*.
+ * MVP KPIs 1, 3–5, 7–10 share product_daily_signals when the summary exists.
+ * MVP 2 (same-day first ID) always uses dedicated SQL joined on user_pseudo_id.
+ * Cohort LTV reads Mongo; BigQuery only if LTV_FORCE_RAW or empty + fallback flag.
+ */
 import fs from 'fs';
 import path from 'path';
 import { cacheKey, cached } from '../../cache/index.js';
@@ -101,6 +108,14 @@ const QUERY_MAP = {
   'user-mix': {
     raw: 'dashboard/raw/19_user_mix.sql',
     metric: 'user-mix',
+  },
+  'install-day-usage': {
+    raw: 'dashboard/raw/20_install_day_usage.sql',
+    metric: 'install-day-usage',
+  },
+  'scan-limits': {
+    raw: 'dashboard/raw/21_scan_limits.sql',
+    metric: 'scan-limits',
   },
 };
 
@@ -453,6 +468,22 @@ export class AnalyticsRepository {
     return this._attachCompleteness(result, params);
   }
 
+  async getInstallDayUsage(params) {
+    const key = cacheKey(`${this.productId}:dashboard:install-day-usage:v1`, params);
+    const result = await cached('install-day-usage', key, () =>
+      this._executeSql('dashboard/raw/20_install_day_usage.sql', params, 'raw'),
+    );
+    return this._attachCompleteness(result, params);
+  }
+
+  async getScanLimits(params) {
+    const key = cacheKey(`${this.productId}:dashboard:scan-limits:v1`, params);
+    const result = await cached('scan-limits', key, () =>
+      this._executeSql('dashboard/raw/21_scan_limits.sql', params, 'raw'),
+    );
+    return this._attachCompleteness(result, params);
+  }
+
   async getMonthlyUsers(params) {
     return this._cachedQuery('mau', 'mau', params);
   }
@@ -608,39 +639,6 @@ export class AnalyticsRepository {
     });
   }
 
-  async getExecutive(params) {
-    const key = cacheKey(`${this.productId}:executive`, params);
-    return cached('executive', key, async () => {
-      const [kpi, dau, mau, newUsers, countries, platform, events, retention] = await Promise.all([
-        this.getKpi(params),
-        this.getDailyUsers(params),
-        this.getMonthlyUsers(params).catch(() => ({ rows: [] })),
-        this.getNewUsers(params),
-        this.getCountries(params),
-        this.getPlatformBreakdown(params),
-        this.getTopEvents(params),
-        this.getRetention(params).catch(() => ({ rows: [] })),
-      ]);
-
-      return {
-        kpi: {
-          dau: kpi.dau,
-          mau: kpi.mau,
-          newUsers: kpi.newUsers,
-          d1: kpi.d1,
-          d7: kpi.d7,
-        },
-        dau: dau.rows,
-        mau: mau.rows,
-        newUsers: newUsers.rows,
-        countries: countries.rows,
-        platform: platform.rows,
-        events: events.rows,
-        retention: retention.rows,
-      };
-    });
-  }
-
   async getSummaryFreshness() {
     const tables = [
       'daily_active_users',
@@ -705,6 +703,8 @@ export class AnalyticsRepository {
     const handlers = {
       dau: () => this.getDailyUsers(params),
       'user-mix': () => this.getUserMix(params),
+      'install-day-usage': () => this.getInstallDayUsage(params),
+      'scan-limits': () => this.getScanLimits(params),
       mau: () => this.getMonthlyUsers(params),
       'new-users': () => this.getNewUsers(params),
       countries: () => this.getCountries(params),

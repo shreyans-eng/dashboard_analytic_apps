@@ -31,8 +31,3 @@ export async function detectIntraday(bigquery, project, dataset) {
 export function getIntradayStatus() {
   return { intradayEnabled: cached ?? false, checkedAt: cachedAt ? new Date(cachedAt).toISOString() : null };
 }
-
-export function resetIntradayCache() {
-  cached = null;
-  cachedAt = 0;
-}

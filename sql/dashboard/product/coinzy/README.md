@@ -1,5 +1,7 @@
 # Coinzy — MVP queries + detailed funnels
 
+Step-level + Coinzy-shaped SQL. Project guide: `docs/PROJECT.md`.
+
 Events taken from `CoinzyAndroid` (`AnalyticsUtils.logEvent` call sites).
 
 The dashboard **checks** `sql/dashboard/product/coinzy/` first when Coinzy is selected, then falls back to shared `product/*.sql` views. These Coinzy files query **raw** `events_*` (no views required).

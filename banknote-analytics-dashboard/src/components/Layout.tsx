@@ -1,3 +1,7 @@
+/**
+ * Shell: product switcher, sidebar (filtered by access), theme, sign-out.
+ * NAV ids must match src/lib/access.ts PAGE_CATALOG.
+ */
 import { NavLink, Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import LastUpdated from '@/components/LastUpdated';
 import {
@@ -32,6 +36,8 @@ import {
   Rss,
   Award,
   ClipboardList,
+  Clock,
+  Gauge,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchConfig, AppConfig } from '@/lib/api';
@@ -77,6 +83,8 @@ const NAV = [
   { to: '/user-mix', pageId: 'explorer.user-mix', label: 'Unique vs repeat', icon: Users },
   { to: '/mau', pageId: 'explorer.mau', label: 'Monthly Active Users', icon: Calendar },
   { to: '/new-users', pageId: 'explorer.new-users', label: 'New Users', icon: UserPlus },
+  { to: '/install-day-usage', pageId: 'explorer.install-day-usage', label: 'Installs + time used', icon: Clock },
+  { to: '/scan-limits', pageId: 'explorer.scan-limits', label: 'Scan limits', icon: Gauge },
   { to: '/d1-retention', pageId: 'explorer.d1', label: 'D1 Retention', icon: TrendingUp },
   { to: '/d7-retention', pageId: 'explorer.d7', label: 'D7 Retention', icon: TrendingUp },
   { to: '/countries', pageId: 'explorer.countries', label: 'Top Countries', icon: Globe },

@@ -10,6 +10,8 @@ import FunnelPage from '@/pages/FunnelPage';
 import EventsExplorerPage from '@/pages/EventsExplorerPage';
 import LtvPage from '@/pages/LtvPage';
 import UserMixPage from '@/pages/UserMixPage';
+import InstallDayUsagePage from '@/pages/InstallDayUsagePage';
+import ScanLimitsPage from '@/pages/ScanLimitsPage';
 import ReportPage from '@/pages/ReportPage';
 import LoginPage from '@/pages/LoginPage';
 import AdminUsersPage from '@/pages/AdminUsersPage';
@@ -17,11 +19,51 @@ import { defaultDateRange, QueryParams } from '@/lib/api';
 import { useInvalidateDashboard } from '@/hooks/useAnalytics';
 import { useAuth } from '@/lib/auth';
 
-function MetricRoute({ metricKey, ...shared }: { metricKey: keyof typeof METRIC_CONFIGS } & {
+type Shared = {
   params: QueryParams;
   setParams: (p: QueryParams) => void;
   applyFilters: () => void;
-}) {
+};
+
+const FUNNELS = [
+  'identify',
+  'identify-nav',
+  'identify-home',
+  'catalogue',
+  'collection',
+  'global',
+  'marketplace',
+  'feed',
+  'paywall',
+  'expert',
+] as const;
+
+/** path → MetricPage config key */
+const METRIC_ROUTES: [string, keyof typeof METRIC_CONFIGS][] = [
+  ['mvp/dau', 'mvp-dau'],
+  ['mvp/time-to-first-scan', 'mvp-time-to-first-scan'],
+  ['mvp/identify-success', 'mvp-identify-success'],
+  ['mvp/quota-hit', 'mvp-quota-hit'],
+  ['mvp/paywall', 'mvp-paywall'],
+  ['mvp/retention', 'mvp-retention'],
+  ['mvp/scans-per-user', 'mvp-scans-per-user'],
+  ['mvp/identify-funnel', 'mvp-identify-funnel'],
+  ['mvp/catalogue', 'mvp-catalogue'],
+  ['mvp/marketplace', 'mvp-marketplace'],
+  ['dau', 'dau'],
+  ['mau', 'mau'],
+  ['new-users', 'new-users'],
+  ['d1-retention', 'd1'],
+  ['d7-retention', 'd7'],
+  ['countries', 'countries'],
+  ['platform', 'platform'],
+  ['events', 'events'],
+];
+
+function MetricRoute({
+  metricKey,
+  ...shared
+}: { metricKey: keyof typeof METRIC_CONFIGS } & Shared) {
   return <MetricPage config={METRIC_CONFIGS[metricKey]} {...shared} />;
 }
 
@@ -29,15 +71,16 @@ export default function App() {
   const { loading, authenticated } = useAuth();
   const [params, setParams] = useState<QueryParams>(defaultDateRange(30));
   const invalidate = useInvalidateDashboard();
-  const applyFilters = () => invalidate();
-  const shared = { params, setParams, applyFilters };
+  const shared: Shared = { params, setParams, applyFilters: () => invalidate() };
 
   if (loading) {
-    return <div className="login-screen"><div className="login-card">Loading…</div></div>;
+    return (
+      <div className="login-screen">
+        <div className="login-card">Loading…</div>
+      </div>
+    );
   }
-  if (!authenticated) {
-    return <LoginPage />;
-  }
+  if (!authenticated) return <LoginPage />;
 
   return (
     <Routes>
@@ -46,47 +89,20 @@ export default function App() {
         <Route path="product" element={<ProductAnalyticsPage />} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="report" element={<ReportPage {...shared} />} />
-
-        {/* Funnels */}
-        <Route path="funnels/identify" element={<FunnelPage funnelId="identify" {...shared} />} />
-        <Route path="funnels/identify-nav" element={<FunnelPage funnelId="identify-nav" {...shared} />} />
-        <Route path="funnels/identify-home" element={<FunnelPage funnelId="identify-home" {...shared} />} />
-        <Route path="funnels/catalogue" element={<FunnelPage funnelId="catalogue" {...shared} />} />
-        <Route path="funnels/collection" element={<FunnelPage funnelId="collection" {...shared} />} />
-        <Route path="funnels/global" element={<FunnelPage funnelId="global" {...shared} />} />
-        <Route path="funnels/marketplace" element={<FunnelPage funnelId="marketplace" {...shared} />} />
-        <Route path="funnels/feed" element={<FunnelPage funnelId="feed" {...shared} />} />
-        <Route path="funnels/paywall" element={<FunnelPage funnelId="paywall" {...shared} />} />
-        <Route path="funnels/expert" element={<FunnelPage funnelId="expert" {...shared} />} />
+        {FUNNELS.map((id) => (
+          <Route key={id} path={`funnels/${id}`} element={<FunnelPage funnelId={id} {...shared} />} />
+        ))}
         <Route path="events-explorer" element={<EventsExplorerPage {...shared} />} />
-
-        {/* MVP product KPIs (10) */}
-        <Route path="mvp/dau" element={<MetricRoute metricKey="mvp-dau" {...shared} />} />
-        <Route path="mvp/time-to-first-scan" element={<MetricRoute metricKey="mvp-time-to-first-scan" {...shared} />} />
-        <Route path="mvp/identify-success" element={<MetricRoute metricKey="mvp-identify-success" {...shared} />} />
-        <Route path="mvp/quota-hit" element={<MetricRoute metricKey="mvp-quota-hit" {...shared} />} />
-        <Route path="mvp/paywall" element={<MetricRoute metricKey="mvp-paywall" {...shared} />} />
-        <Route path="mvp/retention" element={<MetricRoute metricKey="mvp-retention" {...shared} />} />
-        <Route path="mvp/scans-per-user" element={<MetricRoute metricKey="mvp-scans-per-user" {...shared} />} />
-        <Route path="mvp/identify-funnel" element={<MetricRoute metricKey="mvp-identify-funnel" {...shared} />} />
-        <Route path="mvp/catalogue" element={<MetricRoute metricKey="mvp-catalogue" {...shared} />} />
-        <Route path="mvp/marketplace" element={<MetricRoute metricKey="mvp-marketplace" {...shared} />} />
-
-        {/* Executive / explorer tabs */}
+        {METRIC_ROUTES.map(([path, metricKey]) => (
+          <Route key={path} path={path} element={<MetricRoute metricKey={metricKey} {...shared} />} />
+        ))}
         <Route path="ltv" element={<LtvPage {...shared} />} />
-        <Route path="dau" element={<MetricRoute metricKey="dau" {...shared} />} />
         <Route path="user-mix" element={<UserMixPage {...shared} />} />
-        <Route path="mau" element={<MetricRoute metricKey="mau" {...shared} />} />
-        <Route path="new-users" element={<MetricRoute metricKey="new-users" {...shared} />} />
-        <Route path="d1-retention" element={<MetricRoute metricKey="d1" {...shared} />} />
-        <Route path="d7-retention" element={<MetricRoute metricKey="d7" {...shared} />} />
-        <Route path="countries" element={<MetricRoute metricKey="countries" {...shared} />} />
-        <Route path="platform" element={<MetricRoute metricKey="platform" {...shared} />} />
-        <Route path="events" element={<MetricRoute metricKey="events" {...shared} />} />
+        <Route path="install-day-usage" element={<InstallDayUsagePage {...shared} />} />
+        <Route path="scan-limits" element={<ScanLimitsPage {...shared} />} />
         <Route path="sql" element={<SqlEditorPage params={params} />} />
         <Route path="admin/users" element={<AdminUsersPage />} />
       </Route>
     </Routes>
   );
 }
-

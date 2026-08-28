@@ -1,3 +1,8 @@
+/**
+ * Product Analytics API.
+ * Serves Banknote + Coinzy (and Compare) from BigQuery summaries / views / raw,
+ * plus Mongo for auth and Cohort LTV. Static `dist/` is served in production.
+ */
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -85,7 +90,6 @@ app.get('/api/sql/files', (_req, res) => {
     'dashboard/product/banknote',
     'dashboard/product/coinzy',
     'validation',
-    'queries',
     'summary',
     'scheduled',
   ];
