@@ -134,7 +134,9 @@ Keep `PREFER_RAW=false` unless debugging. Do not commit `.env` or `secrets/*.jso
 
 ```text
 bigdata/
-  docs/PROJECT.md                 ← this file
+  docs/PROJECT.md                 ← this file (architecture, formulas, deploy)
+  docs/EVENTS-BY-TAB.md           ← tab → Firebase events
+  docs/QUERIES-BY-TAB.md          ← tab → SQL file / view / summary
   sql/
     01–08, 10, 14_v_*.sql         ← view builders (deploy scripts)
     scheduled/                    ← summary + LTV SELECT
@@ -195,14 +197,14 @@ SQL: `sql/dashboard/product/01`–`10_*.sql` (Coinzy override under `product/coi
 |---|-----|----------|---------|
 | 1 | DAU | `dau` | Distinct users with `session_start` / `App_open` / `first_open` |
 | 2 | Install → first scan | `day0_first_scan_rate` | Same-day `identification_done_success` ÷ `first_open` **devices**, join on `user_pseudo_id` only |
-| 3 | Identify success | `identification_success_rate` | Success **events** ÷ (success + failure). Not unique users |
-| 4 | Quota hit | `free_quota_hit_rate` | Distinct quota users ÷ scan-attempt users |
-| 5 | Paywall → purchase | `paywall_to_confirm_rate` | Confirm **events** ÷ paywall **events**. Banknote `Subs_confirm` · Coinzy `subs_confirm` |
+| 3 | Identify success | `identification_success_rate` | Success **events** ÷ (success + failure). Coinzy failure also counts `Identification_failed` |
+| 4 | Quota hit | `free_quota_hit_rate` | Distinct scan-quota users ÷ scan-attempt users (not collection limit) |
+| 5 | Paywall → purchase | `paywall_to_confirm_rate` | Confirm **events** ÷ paywall **events**. Banknote `Subs_confirm` · Coinzy `subs_confirm` / `paid_purchase` |
 | 6 | D1 / D7 | `d1_retention_rate` / `d7` | Returned any event on D+1 / D+7 ÷ `first_open` cohort |
 | 7 | Scans / user | `scans_per_dau` | Success events ÷ DAU |
-| 8 | Identify funnel | `open_to_success_rate` | Distinct success users ÷ Identify-open users **same day**. Step drop-off is Funnels, not this chart |
-| 9 | Catalogue | `catalogue_open_rate` | `Collection_screen` ∪ `Global_catalogue_screen` ÷ DAU |
-| 10 | Marketplace | `marketplace_engagement_rate` | Marketplace / listing users ÷ DAU (`market_item_expolre` typo is real) |
+| 8 | Identify funnel | `open_to_success_rate` | Distinct success users ÷ (`Identify_bottom_nav` ∪ `Identify_home`) same day. Camera screen is **not** open |
+| 9 | Catalogue | `catalogue_open_rate` | `Collection_screen` ∪ `Global_catalogue_screen` (plus each app’s collection nav) ÷ DAU |
+| 10 | Marketplace | `marketplace_engagement_rate` | Market nav / `marketplace_screen` / `market_item_expolre` ÷ DAU. **Feed is a separate tab**, not mixed in |
 
 ### 6.4 Funnels
 
@@ -280,12 +282,12 @@ Refresh: `sql/scheduled/cohort_ltv_mongo.sql` → `scripts/refresh-cohort-ltv-mo
 | Area | Events |
 |------|--------|
 | Install | `first_open` |
-| Identify open | `Identify_bottom_nav`, `Identify_home` (also `Identification_screen`, `Identify_open`) |
-| Photo | `photo_clicked_1` / `_2`, `photo_uploaded_1` / `_2` |
+| Identify open (KPI / funnel entry) | `Identify_bottom_nav`, `Identify_home` — not `Identification_screen` (that is the camera step) |
+| Photo | `photo_clicked_1` / `_2`, `photo_uploaded_1` / `_2` (Coinzy also fires a lot of `Photo_clicked`) |
 | Submit | `photos_submitted`, `photo_submit_button` |
-| Success / fail | `identification_done_success` / `identification_done_failure` |
-| Quota | `Identified_limit_reached`, `scan_quota_exhausted`; Coinzy `free_scan_*` |
-| Paywall | `Subs_page`, `Subs_page_discount` → Banknote `Subs_confirm` · Coinzy `subs_confirm` |
+| Success / fail | `identification_done_success` / `identification_done_failure` (+ Coinzy `Identification_failed`) |
+| Quota | Banknote: `identiifcation_limit_exceeded`. Coinzy: `Identified_limit_reached`, `free_scan_*`. Not `Collection_limit_Reached` |
+| Paywall | `Subs_page`, `Subs_page_discount`, Coinzy `Subscription_screen` / `Subs_page_onboarding` → Banknote `Subs_confirm` · Coinzy `subs_confirm` / `paid_purchase` |
 | Catalogue | `Collection_screen`, `Global_catalogue_screen`; details `banknote_details_*` / `Coin_details_*` |
 | Marketplace | `marketplace_screen`, `market_item_expolre`, `market_contact` |
 | Feed | `Feed_screen`, `feed_like`, `feed_comment` |
@@ -408,8 +410,9 @@ Identify success         = success events ÷ (success + failure)
 Quota hit                = quota users ÷ scan-attempt users
 Paywall MVP              = confirm events ÷ paywall events
 Scans / DAU              = success events ÷ DAU
-Open → success           = distinct success users ÷ Identify-open users
-Catalogue / marketplace  = distinct those users ÷ DAU
+Open → success           = distinct success users ÷ Identify_bottom_nav ∪ Identify_home
+Catalogue                = Collection_screen ∪ Global_catalogue_screen ÷ DAU
+Marketplace              = market screen / nav / listing tap ÷ DAU (not Feed)
 LTV-N                    = revenue days 0…N-1 after install ÷ installs
 ```
 

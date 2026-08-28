@@ -51,7 +51,7 @@ export function useDashboardStatus() {
 function dashboardQueryVersion(name: string) {
   if (name === 'mvp-time-to-first-scan') return 'v5';
   if (name === 'country-list') return 'v2';
-  return 'v3';
+  return 'v4';
 }
 
 export function useDashboardMetric(name: string, params: QueryParams, enabled = true) {
@@ -115,7 +115,7 @@ export function useFunnel(funnelId: string, params: QueryParams, enabled = true)
   const { productId } = useProduct();
   const p = withProduct(params, productId);
   return useQuery({
-    queryKey: queryKey(`funnel:${funnelId}:v3`, p),
+    queryKey: queryKey(`funnel:${funnelId}:v4`, p),
     queryFn: () => fetchFunnel(funnelId, p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && productId !== 'compare',
@@ -148,7 +148,7 @@ export function useScopedFunnel(
 ) {
   const p = withProduct(params, productId || '');
   return useQuery({
-    queryKey: queryKey(`funnel:${funnelId}:v3`, p),
+    queryKey: queryKey(`funnel:${funnelId}:v4`, p),
     queryFn: () => fetchFunnel(funnelId, p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && Boolean(productId) && productId !== 'compare',

@@ -28,26 +28,30 @@ SELECT
   COUNT(DISTINCT CASE WHEN event_name_base IN (
     'Identified_limit_reached', 'identified_limit_reached',
     'free_scan_limit_exceeded', 'free_scan_blocked',
-    'free_scan_success_quota_exhausted',
+    'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
     'Identification_unsuccessful_limit_reached',
+    'identiifcation_limit_exceeded',
     'scan_quota_exhausted', 'limit_exceeded'
   ) THEN resolved_user_id END) AS users_hit_quota,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
     'identification_done_success', 'Identification_done_success',
     'identification_done_failure', 'Identification_done_failure',
+    'Identification_failed', 'Identification_unsuccessful',
     'Identification_done'
   ) THEN resolved_user_id END) AS users_attempted_scan,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Identified_limit_reached', 'identified_limit_reached',
       'free_scan_limit_exceeded', 'free_scan_blocked',
-      'free_scan_success_quota_exhausted',
+      'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
       'Identification_unsuccessful_limit_reached',
+      'identiifcation_limit_exceeded',
       'scan_quota_exhausted', 'limit_exceeded'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'identification_done_success', 'Identification_done_success',
       'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful',
       'Identification_done'
     ) THEN resolved_user_id END)
   ) AS free_quota_hit_rate

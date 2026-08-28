@@ -679,7 +679,7 @@ export class ProductAnalyticsFacade {
 
     const repo = this.registry.getRepo(product);
     const sql = buildFunnelSql(repo.project, repo.dataset, mapped.steps, start, end);
-    const key = cacheKey(`${product}:funnel:v8:${funnelId}`, { start, end });
+    const key = cacheKey(`${product}:funnel:v9:${funnelId}`, { start, end });
 
     return cached('funnel', key, async () => {
       const { rows, bytesProcessed } = await runQuery(repo.bigquery, sql);

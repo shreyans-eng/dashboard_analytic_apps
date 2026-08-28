@@ -227,7 +227,6 @@ const COINZY_IDENTIFY = [
       'free_scan_success_quota_exhausted',
       'free_scan_fail_quota_exhausted',
       'Identification_unsuccessful_limit_reached',
-      'Collection_limit_Reached',
     ],
     isDrop: true,
   },

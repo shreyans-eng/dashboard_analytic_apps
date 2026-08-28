@@ -27,7 +27,7 @@ base AS (
 SELECT
   event_date,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'Identify_bottom_nav', 'Identify_home', 'Identification_screen'
+    'Identify_bottom_nav', 'Identify_home'
   ) THEN resolved_user_id END) AS identify_open,
   COUNT(DISTINCT CASE WHEN event_name_base = 'camera_permission_granted' THEN resolved_user_id END)
     AS camera_granted,
@@ -51,7 +51,7 @@ SELECT
       'identification_done_success', 'Identification_done_success'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Identify_bottom_nav', 'Identify_home', 'Identification_screen'
+      'Identify_bottom_nav', 'Identify_home'
     ) THEN resolved_user_id END)
   ) AS open_to_success_rate,
   SAFE_DIVIDE(
@@ -59,7 +59,7 @@ SELECT
       'photo_clicked_1', 'photo_clicked_2', 'Photo_clicked'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Identify_bottom_nav', 'Identify_home', 'Identification_screen'
+      'Identify_bottom_nav', 'Identify_home'
     ) THEN resolved_user_id END)
   ) AS open_to_photo_rate,
   SAFE_DIVIDE(

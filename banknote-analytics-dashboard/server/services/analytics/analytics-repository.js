@@ -427,7 +427,7 @@ export class AnalyticsRepository {
   }
 
   async getProductDailySignals(params) {
-    const key = cacheKey(`${this.productId}:daily-signals:v6`, params);
+    const key = cacheKey(`${this.productId}:daily-signals:v7`, params);
     return cached('compare', key, async () => {
       const rawPath = this._resolveProductSql('dashboard/raw/16_product_daily_signals.sql');
       const rawSource = rawPath === 'dashboard/raw/16_product_daily_signals.sql' ? 'raw' : 'product';
@@ -735,7 +735,7 @@ export class AnalyticsRepository {
     const spec = MVP_KPI_MAP[name];
     if (!spec) throw new Error(`Unknown MVP metric: ${name}`);
 
-    const key = cacheKey(`${this.productId}:mvp:v7:${name}`, params);
+    const key = cacheKey(`${this.productId}:mvp:v8:${name}`, params);
     const result = await cached('kpi', key, async () => {
       if (spec.useRetention) {
         return this.getRetention(params);

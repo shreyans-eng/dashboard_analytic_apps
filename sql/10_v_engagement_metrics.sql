@@ -39,10 +39,8 @@ user_day_flags AS (
         'Added _to_collection_owned', 'add_to_wishlist'
       ), 1, 0)) AS added_to_collection,
     MAX(IF(event_name_base IN (
-      -- App-verified screen opens (Banknote + Coinzy)
-      'Collection_screen', 'Global_catalogue_screen', 'collection_bottom_nav',
-      -- Legacy / preferred aliases
-      'Collection_open', 'collection_open', 'Collection', 'My_collection'
+      'Collection_screen', 'Global_catalogue_screen',
+      'collection_bottom_nav', 'private_collection_bottom_nav'
     ), 1, 0)) AS opened_collection,
     MAX(IF(event_name_base IN (
       'Collection_detail', 'collection_detail', 'banknote_detail',
@@ -64,9 +62,7 @@ user_day_flags AS (
     )) AS used_filter,
     MAX(IF(event_name_base IN (
       'marketplace_screen', 'Marketplace_bottom_nav', 'marketplace_bottom_nav',
-      'market_item_expolre',
-      'Marketplace_open', 'marketplace_open', 'Market_open', 'Listing_view',
-      'listing_view'
+      'market_item_expolre'
     ), 1, 0)) AS marketplace_engaged,
     MAX(IF(event_name_base IN (
       'market_contact', 'market_contact_button',
@@ -80,8 +76,7 @@ user_day_flags AS (
       'Homescreen', 'home_bottom_nav', 'Home', 'Home_open', 'home_open'
     ), 1, 0)) AS used_home,
     MAX(IF(event_name_base IN (
-      'Identify_bottom_nav', 'Identify_home', 'Identification_screen',
-      'Identify_open', 'Identify', 'identify_open', 'Identification_open'
+      'Identify_bottom_nav', 'Identify_home'
     ), 1, 0)) AS used_identify,
     AVG(IF(session_length_seconds > 0, session_length_seconds, NULL)) AS avg_session_length
   FROM `{PROJECT}.{DATASET}.v_events_normalized`

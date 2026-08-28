@@ -30,11 +30,7 @@ daily_funnel AS (
 
     COUNT(DISTINCT CASE
       WHEN event_name_base IN (
-        -- App-verified entry (Banknote + Coinzy)
-        'Identify_bottom_nav', 'Identify_home', 'Identification_screen',
-        -- Legacy preferred aliases
-        'Identify_open', 'Identify', 'identify_open', 'Identification_open',
-        'camera_opened', 'Camera_open'
+        'Identify_bottom_nav', 'Identify_home'
       ) THEN resolved_user_id END) AS users_identify_open,
 
     COUNT(DISTINCT CASE
@@ -68,7 +64,8 @@ daily_funnel AS (
 
     COUNT(DISTINCT CASE
       WHEN event_name_base IN (
-        'identification_done_failure', 'Identification_done_failure'
+        'identification_done_failure', 'Identification_done_failure',
+        'Identification_failed', 'Identification_unsuccessful'
       ) THEN resolved_user_id END) AS users_failure,
 
     COUNTIF(event_name_base IN (
@@ -76,7 +73,8 @@ daily_funnel AS (
     )) AS success_events,
 
     COUNTIF(event_name_base IN (
-      'identification_done_failure', 'Identification_done_failure'
+      'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful'
     )) AS failure_events,
 
     COUNTIF(event_name_base IN (
@@ -101,10 +99,10 @@ daily_funnel AS (
       'Identified_limit_reached', 'identified_limit_reached',
       'identiifcation_limit_exceeded', 'identification_limit_exceeded',
       'scan_quota_exhausted', 'Scan_quota_exhausted', 'limit_exceeded', 'Limit_exceeded',
-      'free_scan_limit_exceeded', 'free_scan_blocked',
-      'free_scan_success_quota_exhausted',
-      'Identification_unsuccessful_limit_reached'
-    )) AS quota_hit_events,
+        'free_scan_limit_exceeded', 'free_scan_blocked',
+        'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
+        'Identification_unsuccessful_limit_reached'
+      )) AS quota_hit_events,
 
     COUNT(DISTINCT CASE
       WHEN event_name_base IN (
@@ -113,7 +111,7 @@ daily_funnel AS (
         'scan_quota_exhausted', 'Scan_quota_exhausted',
         'limit_exceeded', 'Limit_exceeded',
         'free_scan_limit_exceeded', 'free_scan_blocked',
-        'free_scan_success_quota_exhausted',
+        'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
         'Identification_unsuccessful_limit_reached'
       ) THEN resolved_user_id END) AS users_hit_quota,
 
@@ -121,6 +119,7 @@ daily_funnel AS (
       WHEN event_name_base IN (
         'identification_done_success', 'Identification_done_success',
         'identification_done_failure', 'Identification_done_failure',
+        'Identification_failed', 'Identification_unsuccessful',
         'Identification_done'
       ) THEN resolved_user_id END) AS users_attempted_scan
 

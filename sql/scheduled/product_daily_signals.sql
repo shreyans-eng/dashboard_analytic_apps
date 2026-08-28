@@ -82,29 +82,32 @@ counts AS (
     COUNT(DISTINCT CASE WHEN {{notification_event_predicate_base}} THEN resolved_user_id END) AS notification_dau,
     COUNT(DISTINCT resolved_user_id) AS any_event_dau,
     COUNT(DISTINCT CASE
-      WHEN event_name_base IN ('first_open', 'first_open_android', 'first_open_ios')
+      WHEN event_name_base = 'first_open'
       THEN resolved_user_id END) AS installs,
     COUNTIF(event_name_base IN (
       'identification_done_success', 'Identification_done_success'
     )) AS success_scans,
     COUNTIF(event_name_base IN (
-      'identification_done_failure', 'Identification_done_failure'
+      'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful'
     )) AS failure_scans,
     COUNTIF(event_name_base IN (
       'identification_done_success', 'Identification_done_success',
-      'identification_done_failure', 'Identification_done_failure'
+      'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful'
     )) AS identify_outcomes,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Identified_limit_reached', 'identified_limit_reached',
       'identiifcation_limit_exceeded', 'identification_limit_exceeded',
       'scan_quota_exhausted', 'limit_exceeded',
       'free_scan_limit_exceeded', 'free_scan_blocked',
-      'free_scan_success_quota_exhausted',
+      'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
       'Identification_unsuccessful_limit_reached'
     ) THEN resolved_user_id END) AS quota_hit_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'identification_done_success', 'Identification_done_success',
       'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful',
       'Identification_done'
     ) THEN resolved_user_id END) AS identify_users,
     COUNTIF(event_name_base IN (
@@ -119,19 +122,15 @@ counts AS (
       'identification_done_success', 'Identification_done_success'
     ) THEN resolved_user_id END) AS success_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Identify_bottom_nav', 'Identify_home', 'Identification_screen',
-      'Identify_open', 'Identify', 'identify_open', 'Identification_open'
+      'Identify_bottom_nav', 'Identify_home'
     ) THEN resolved_user_id END) AS identify_open_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Collection_screen', 'Global_catalogue_screen',
-      'collection_bottom_nav',
-      'Collection_open', 'collection_open', 'Collection', 'My_collection'
+      'collection_bottom_nav', 'private_collection_bottom_nav'
     ) THEN resolved_user_id END) AS catalogue_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'marketplace_screen', 'Marketplace_bottom_nav', 'marketplace_bottom_nav',
-      'market_item_expolre', 'Feed_screen', 'feed_bottom_nav',
-      'Marketplace_open', 'marketplace_open', 'Market_open',
-      'Listing_view', 'listing_view'
+      'market_item_expolre'
     ) THEN resolved_user_id END) AS marketplace_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Subs_confirm', 'subs_confirm', 'subs_confirm_discount',

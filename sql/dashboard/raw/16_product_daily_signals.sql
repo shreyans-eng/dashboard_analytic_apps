@@ -25,19 +25,21 @@ SELECT
   COUNT(DISTINCT CASE WHEN {{notification_event_predicate_base}} THEN resolved_user_id END) AS notification_dau,
   COUNT(DISTINCT resolved_user_id) AS any_event_dau,
   COUNT(DISTINCT CASE
-    WHEN event_name_base IN ('first_open', 'first_open_android', 'first_open_ios')
+    WHEN event_name_base = 'first_open'
     THEN resolved_user_id END) AS installs,
   COUNTIF(event_name_base IN (
     'identification_done_success', 'Identification_done_success'
   )) AS success_scans,
   COUNTIF(event_name_base IN (
-    'identification_done_failure', 'Identification_done_failure'
+    'identification_done_failure', 'Identification_done_failure',
+    'Identification_failed', 'Identification_unsuccessful'
   )) AS failure_scans,
   SAFE_DIVIDE(
     COUNTIF(event_name_base IN ('identification_done_success', 'Identification_done_success')),
     COUNTIF(event_name_base IN (
       'identification_done_success', 'Identification_done_success',
-      'identification_done_failure', 'Identification_done_failure'
+      'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful'
     ))
   ) AS identification_success_rate,
   SAFE_DIVIDE(
@@ -50,12 +52,13 @@ SELECT
       'identiifcation_limit_exceeded', 'identification_limit_exceeded',
       'scan_quota_exhausted', 'limit_exceeded',
       'free_scan_limit_exceeded', 'free_scan_blocked',
-      'free_scan_success_quota_exhausted',
+      'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
       'Identification_unsuccessful_limit_reached'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'identification_done_success', 'Identification_done_success',
       'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful',
       'Identification_done'
     ) THEN resolved_user_id END)
   ) AS free_quota_hit_rate,
@@ -74,31 +77,20 @@ SELECT
       'identification_done_success', 'Identification_done_success'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      -- Banknote app entry (verified)
-      'Identify_bottom_nav', 'Identify_home', 'Identification_screen',
-      -- Legacy preferred aliases
-      'Identify_open', 'Identify', 'identify_open', 'Identification_open'
+      'Identify_bottom_nav', 'Identify_home'
     ) THEN resolved_user_id END)
   ) AS open_to_success_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      -- Banknote-verified screen opens (primary)
       'Collection_screen', 'Global_catalogue_screen',
-      -- Coinzy bottom nav (route "collection")
-      'collection_bottom_nav',
-      -- Legacy / preferred aliases
-      'Collection_open', 'collection_open', 'Collection', 'My_collection'
+      'collection_bottom_nav', 'private_collection_bottom_nav'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END)
   ) AS catalogue_open_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      -- Banknote app (verified)
       'marketplace_screen', 'Marketplace_bottom_nav', 'marketplace_bottom_nav',
-      'market_item_expolre', 'Feed_screen', 'feed_bottom_nav',
-      -- Legacy preferred aliases
-      'Marketplace_open', 'marketplace_open', 'Market_open',
-      'Listing_view', 'listing_view'
+      'market_item_expolre'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END)
   ) AS marketplace_engagement_rate,

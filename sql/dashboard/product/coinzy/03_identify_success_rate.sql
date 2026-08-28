@@ -21,12 +21,16 @@ base AS (
 SELECT
   event_date,
   COUNTIF(event_name_base IN ('identification_done_success', 'Identification_done_success')) AS success_events,
-  COUNTIF(event_name_base IN ('identification_done_failure', 'Identification_done_failure')) AS failure_events,
+  COUNTIF(event_name_base IN (
+    'identification_done_failure', 'Identification_done_failure',
+    'Identification_failed', 'Identification_unsuccessful'
+  )) AS failure_events,
   SAFE_DIVIDE(
     COUNTIF(event_name_base IN ('identification_done_success', 'Identification_done_success')),
     COUNTIF(event_name_base IN (
       'identification_done_success', 'Identification_done_success',
-      'identification_done_failure', 'Identification_done_failure'
+      'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful'
     ))
   ) AS identification_success_rate
 FROM base
