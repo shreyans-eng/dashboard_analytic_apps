@@ -56,11 +56,10 @@ labeled AS (
       ) THEN '09_failure'
       WHEN event_name_base IN (
         'identification_all_options_screen', 'idetnification_option_chosen',
-        'identification_option_chosen', 'identification_view_all',
-        'identification_details_screen', 'Coin_details_identification'
+        'identification_option_chosen', 'identification_details_screen',
+        'Coin_details_identification'
       ) THEN '10_post_id_ui'
-      WHEN STARTS_WITH(event_name_base, 'Added_to_collection')
-        OR event_name_base = 'Added _to_collection_owned'
+      WHEN event_name_base IN ('owned_button_clicked', 'not_owned_button_clicked')
         THEN '11_add_collection'
       ELSE NULL
     END AS funnel_stage

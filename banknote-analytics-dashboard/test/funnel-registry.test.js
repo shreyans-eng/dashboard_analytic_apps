@@ -54,8 +54,26 @@ test('camera click and gallery upload are split, and combined on the core step',
     assert.equal(photo1.core, true);
     assert.equal(click1.core, undefined);
     assert.equal(upload1.core, undefined);
-    assert.ok(steps.some((s) => s.id === 'view_all' && s.events.includes('identification_view_all')));
   }
+});
+
+test('Banknote post-ID uses top5 / view-all / Added_to_collection events', () => {
+  const { steps } = getFunnelSteps('identify', 'banknote');
+  assert.deepEqual(steps.find((s) => s.id === 'top_matches').events, ['identification_top5_matches']);
+  assert.ok(steps.some((s) => s.id === 'view_all' && s.events.includes('identification_view_all')));
+  assert.ok(steps.find((s) => s.id === 'add_collection').events.includes('Added_to_collection_identified'));
+});
+
+test('Coinzy post-ID uses all-options + owned_button, not Banknote event names', () => {
+  const { steps } = getFunnelSteps('identify', 'coinzy');
+  assert.deepEqual(steps.find((s) => s.id === 'top_matches').events, ['identification_all_options_screen']);
+  assert.equal(steps.find((s) => s.id === 'view_all'), undefined);
+  assert.equal(steps.find((s) => s.id === 'all_options'), undefined);
+  assert.deepEqual(steps.find((s) => s.id === 'add_collection').events, ['owned_button_clicked']);
+  assert.ok(steps.find((s) => s.id === 'not_owned').events.includes('not_owned_button_clicked'));
+  const mapped = new Set(steps.flatMap((s) => s.events));
+  assert.equal(mapped.has('identification_top5_matches'), false);
+  assert.equal(mapped.has('Added_to_collection_identified'), false);
 });
 
 test('collection and global catalogue are separate funnels', () => {

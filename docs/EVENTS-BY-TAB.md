@@ -86,7 +86,7 @@ Cohort = `first_open`. Returned = **any** Firebase event on that offset day. **D
 
 **KPI rate = distinct success users ÷ Identify entry users, same day.** Camera is not “open”.
 
-The **step path** is Funnels → Identify, not this KPI and not tab 3 (quality). Core steps: entry → camera → permission → photo 1 → photo 2 → scan attempted → submit → success → top 5 results (`identification_top5_matches`) → details → add to collection.
+The **step path** is Funnels → Identify, not this KPI and not tab 3 (quality). Core steps: entry → camera → permission → photo 1 → photo 2 → scan attempted → submit → success → results → details → add to collection.
 
 | Piece | Events |
 |-------|--------|
@@ -139,9 +139,9 @@ Same steps. Entry differs:
 | Quota | no | Banknote `identiifcation_limit_exceeded` · Coinzy `Identified_limit_reached` + `free_scan_*` |
 | Success | yes | `identification_done_success` |
 | Failure | no | `identification_done_failure` (Coinzy also `Identification_failed`) |
-| Top 5 results | yes | `identification_top5_matches` |
-| Details opened | yes | `identification_result_details` |
-| Add to collection | yes | `identification_add_to_collection` |
+| Top 5 / results | yes | Banknote `identification_top5_matches` · Coinzy `identification_all_options_screen` |
+| Details opened | yes | Banknote `identification_details_screen` · `banknote_details_identification` · Coinzy `identification_details_screen` · `Coin_details_identification` |
+| Add to collection | yes | Banknote `Added_to_collection_identified` · `Added_to_collection_owned` · Coinzy `owned_button_clicked` |
 
 ### Private collection
 

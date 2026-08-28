@@ -127,7 +127,7 @@ step_users AS (
     ))
   FROM base
   UNION ALL
-  SELECT '11_all_options', 'All options / multi-coin match', 15,
+  SELECT '11_all_options', 'Results / all options displayed', 15,
     COUNT(DISTINCT CASE WHEN event_name_base = 'identification_all_options_screen' THEN resolved_user_id END),
     COUNTIF(event_name_base = 'identification_all_options_screen')
   FROM base
@@ -148,15 +148,14 @@ step_users AS (
     ))
   FROM base
   UNION ALL
-  SELECT '14_add_collection', 'Added to collection after identify', 18,
-    COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Added_to_collection_identified', 'Added_to_collection_owned',
-      'Added _to_collection_owned'
-    ) THEN resolved_user_id END),
-    COUNTIF(event_name_base IN (
-      'Added_to_collection_identified', 'Added_to_collection_owned',
-      'Added _to_collection_owned'
-    ))
+  SELECT '14_add_collection', 'Marked owned (add to collection)', 18,
+    COUNT(DISTINCT CASE WHEN event_name_base = 'owned_button_clicked' THEN resolved_user_id END),
+    COUNTIF(event_name_base = 'owned_button_clicked')
+  FROM base
+  UNION ALL
+  SELECT '14b_not_owned', 'Marked not owned', 19,
+    COUNT(DISTINCT CASE WHEN event_name_base = 'not_owned_button_clicked' THEN resolved_user_id END),
+    COUNTIF(event_name_base = 'not_owned_button_clicked')
   FROM base
 )
 SELECT

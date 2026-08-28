@@ -69,7 +69,7 @@ const PATH_TITLES: Record<string, string> = {
 const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }> = {
   identify: {
     question: 'Of everyone who starts a scan, how many get a successful ID — and then open details / add to collection?',
-    how: 'Main steps: open Identify → camera → permission → first image → second image → scan attempted → submit → success → top 5 results → details → add to collection. Side rows split camera vs gallery. Failure and quota are blocked outcomes, not success.',
+    how: 'Main steps: open Identify → camera → permission → first image → second image → scan attempted → submit → success → results → details → add to collection (Banknote: Added_to_collection_*; Coinzy: owned_button_clicked). Coinzy results are identification_all_options_screen, not Banknote’s identification_top5_matches. Side rows split camera vs gallery. Failure and quota are blocked outcomes, not success.',
   },
   'identify-nav': {
     question: 'When people tap Identify on the bottom bar, where do they drop off?',

@@ -267,19 +267,9 @@ const COINZY_IDENTIFY = [
   },
   {
     id: 'top_matches',
-    label: 'Top 5 results displayed',
-    events: ['identification_top5_matches'],
-    core: true,
-  },
-  {
-    id: 'view_all',
-    label: 'View all other options',
-    events: ['identification_view_all'],
-  },
-  {
-    id: 'all_options',
-    label: 'All options / multi-coin match',
+    label: 'Results / all options displayed',
     events: ['identification_all_options_screen'],
+    core: true,
   },
   {
     id: 'option_chosen',
@@ -294,13 +284,15 @@ const COINZY_IDENTIFY = [
   },
   {
     id: 'add_collection',
-    label: 'Add to collection after ID',
-    events: [
-      'Added_to_collection_identified',
-      'Added_to_collection_owned',
-      'Added _to_collection_owned',
-    ],
+    label: 'Marked owned (add to collection)',
+    events: ['owned_button_clicked'],
     core: true,
+  },
+  {
+    id: 'not_owned',
+    label: 'Marked not owned',
+    events: ['not_owned_button_clicked'],
+    isDrop: true,
   },
 ];
 
