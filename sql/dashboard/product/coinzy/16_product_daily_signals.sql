@@ -75,10 +75,10 @@ SELECT
   ) AS paywall_to_confirm_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'identification_done_success', 'Identification_done_success'
+      'identification_done_success', 'Identification_done_success', 'Identification_done'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Identify_bottom_nav', 'Identify_home'
+      'Identification_screen', 'photo_screen'
     ) THEN resolved_user_id END)
   ) AS open_to_success_rate,
   SAFE_DIVIDE(

@@ -18,7 +18,7 @@ Run in dashboard **SQL Editor** (Coinzy product selected) or via API `/api/query
 | `04_quota_hit_rate.sql` | 4 Quota hit |
 | `05_paywall_conversion.sql` | 5 Paywall → `subs_confirm` |
 | `07_scans_per_user.sql` | 7 Scans / DAU |
-| `08_identify_funnel_conversion.sql` | 8 Funnel (open→success rollup) |
+| `08_identify_funnel_conversion.sql` | 8 Funnel (camera→success rollup) |
 | `09_catalogue_engagement.sql` | 9 Catalogue rollup |
 | `10_marketplace_engagement.sql` | 10 Marketplace rollup |
 
@@ -34,7 +34,7 @@ Run in dashboard **SQL Editor** (Coinzy product selected) or via API `/api/query
 ## Core paths (Coinzy)
 
 **8 Identify:**  
-`Identify_bottom_nav` ∪ `Identify_home` → `Identification_screen` / `photo_screen` → capture → crop → submit → `identification_done_success`
+`Identification_screen` / `photo_screen` → shutter (`Photo_clicked`) ∥ inferred gallery (crop/clicked minus shutter) → after-crop merge (`photo_clicked_1/2`) → submit → success (`identification_done_success` ∪ `Identification_done`) → details. Gallery tap has no event. Dashboard tabs: Identify (all) plus **Scan · camera** / **Scan · gallery**. Nav ∪ home is **not** the start. Add-to-collection cannot be measured.
 
 **9 Catalogue:**  
 `Collection_screen` ∪ `Global_catalogue_screen` (+ deeper: clicked → sub-collection → `Coin_details_*`)

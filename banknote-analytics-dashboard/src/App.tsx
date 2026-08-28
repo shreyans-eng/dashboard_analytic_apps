@@ -29,6 +29,8 @@ const FUNNELS = [
   'identify',
   'identify-nav',
   'identify-home',
+  'identify-camera',
+  'identify-gallery',
   'catalogue',
   'collection',
   'global',
@@ -101,7 +103,7 @@ export default function App() {
         <Route path="user-mix" element={<UserMixPage {...shared} />} />
         <Route path="install-day-usage" element={<InstallDayUsagePage {...shared} />} />
         <Route path="scan-limits" element={<ScanLimitsPage {...shared} />} />
-        <Route path="sql" element={<SqlEditorPage params={params} />} />
+        <Route path="sql" element={<SqlEditorPage {...shared} />} />
         <Route path="admin/users" element={<AdminUsersPage />} />
       </Route>
     </Routes>

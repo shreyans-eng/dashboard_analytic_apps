@@ -5,35 +5,40 @@
 
 import { dauEventPredicateSql, resolvedUserIdSql } from './dau-definition.js';
 
-/** @typedef {{ id: string, label: string, events: string[], isDrop?: boolean, core?: boolean }} FunnelStep */
+/** @typedef {{ id: string, label: string, events: string[], excludeEvents?: string[], isDrop?: boolean, core?: boolean }} FunnelStep */
 /** @typedef {{ packEvents: string[], confirmEvents: string[], discountEventNames?: string[] }} PackMixDef */
-/** @typedef {{ id: string, title: string, description: string, products: Record<string, FunnelStep[]>, cohortEvents?: Record<string, string[]>, packMix?: Record<string, PackMixDef> }} FunnelDef */
+/** @typedef {{ id: string, title: string, description: string, products: Record<string, FunnelStep[]>, cohortEvents?: Record<string, string[]>, cohortExcludeEvents?: Record<string, string[]>, packMix?: Record<string, PackMixDef> }} FunnelDef */
 
 /**
  * Combined “got an image” (core) plus separate camera vs gallery rows.
  * Core stays click ∪ upload so the main leak is still “never took a photo”.
  * Side rows answer “did they shoot, or pick from gallery?”
  */
-function photoCaptureSteps(index, { click, upload, cropScreen, cropTick }) {
+function photoCaptureSteps(index, { click, upload, extra = [], cropScreen, cropTick }) {
   const nth = index === 1 ? 'First' : 'Second';
   const lower = nth.toLowerCase();
-  return [
+  const hasGallery = Boolean(upload);
+  const rows = [
     {
       id: `photo_${index}`,
-      label: `${nth} image (camera or gallery)`,
-      events: [click, upload].filter(Boolean),
+      label: hasGallery ? `${nth} image (camera or gallery)` : `${nth} image`,
+      events: [click, upload, ...extra].filter(Boolean),
       core: true,
     },
     {
       id: `photo_click_${index}`,
-      label: `${nth} image · camera`,
+      label: hasGallery ? `${nth} image · camera` : `${nth} image · taken`,
       events: [click],
     },
-    {
+  ];
+  if (hasGallery) {
+    rows.push({
       id: `photo_upload_${index}`,
       label: `${nth} image · gallery`,
       events: [upload],
-    },
+    });
+  }
+  rows.push(
     {
       id: `crop_${index}`,
       label: `Crop ${lower} image`,
@@ -44,7 +49,8 @@ function photoCaptureSteps(index, { click, upload, cropScreen, cropTick }) {
       label: `${nth} crop confirmed`,
       events: [cropTick],
     },
-  ];
+  );
+  return rows;
 }
 
 /** Banknote Identify — from Banknote-ai-identification/src/util/analytics.ts + tracking sheet */
@@ -161,16 +167,26 @@ const BANKNOTE_IDENTIFY = [
 ];
 
 /**
- * Coinzy Identify — verified from CoinzyAndroid:
- * CameraScreen.kt, IdentifyViewModel.kt, CoinAnalysisScreen.kt, CoinMatchScreen.kt,
- * HomeScreen.kt, BottomNavigationBar.kt, FreeScanLimitUtil.kt
+ * Coinzy Identify — Camera → (shutter ∥ gallery) → after-crop merge → Submit → Success → Details.
+ * Identify_bottom_nav also fires when camera opens from Home, so it is not a clean entry.
+ * Gallery tap has no event; infer gallery-only as crop/clicked minus Photo_clicked (shutter).
+ * Photo_clicked is shutter only. photo_clicked_1/2 fire after crop on both paths.
+ * Camera permission is shutter-only; gallery can skip it.
+ * Identification_attempted is API start, not a submit conversion.
+ * Identification_done is success (same flow as identification_done_success) — do not also put it on Submit.
+ * Quota, Learn more, owned/collection are not sequential identify steps.
+ * Add-to-collection has no live Firebase success event.
  */
 const COINZY_IDENTIFY = [
   {
     id: 'entry',
-    label: 'Identify entry (nav ∪ home)',
+    label: 'Nav / home tap (nav also fires when camera opens from Home)',
     events: ['Identify_bottom_nav', 'Identify_home'],
-    core: true,
+  },
+  {
+    id: 'home_cta',
+    label: 'Home / banner Identify CTA',
+    events: ['Identify_home'],
   },
   {
     id: 'camera',
@@ -180,63 +196,87 @@ const COINZY_IDENTIFY = [
   },
   {
     id: 'permission_popup',
-    label: 'Camera permission popup',
+    label: 'In-app camera permission (shutter-only; gallery can skip)',
     events: ['Camera_permission_popup'],
-    core: true,
   },
   {
     id: 'permission_granted',
-    label: 'Camera permission granted',
+    label: 'OS camera permission granted (shutter-only)',
     events: ['camera_permission_granted'],
   },
   {
     id: 'permission_denied',
-    label: 'Camera permission denied',
+    label: 'OS camera permission denied (shutter-only)',
     events: ['camer_permission_denied', 'camera_permission_denied'],
-    isDrop: true,
   },
-  ...photoCaptureSteps(1, {
-    click: 'photo_clicked_1',
-    upload: 'photo_uploaded_1',
-    cropScreen: 'photo_cropping_screen_0',
-    cropTick: 'photo_crop_tick_0',
-  }),
-  ...photoCaptureSteps(2, {
-    click: 'photo_clicked_2',
-    upload: 'photo_uploaded_2',
-    cropScreen: 'photo_cropping_screen_1',
-    cropTick: 'photo_crop_tick_1',
-  }),
   {
-    id: 'photo_unspecified',
-    label: 'Photo (unspecified)',
+    id: 'shutter',
+    label: 'Camera shutter',
     events: ['Photo_clicked'],
   },
   {
-    id: 'crop_extra',
-    label: 'Crop (slot 3, unused)',
-    events: ['photo_cropping_screen_2'],
+    id: 'gallery',
+    label: 'Gallery pick (inferred: crop/clicked, never shutter)',
+    events: [
+      'photo_cropping_screen_0',
+      'photo_crop_tick_0',
+      'photo_clicked_1',
+      'photo_cropping_screen_1',
+      'photo_crop_tick_1',
+      'photo_clicked_2',
+    ],
+    excludeEvents: ['Photo_clicked'],
   },
   {
-    id: 'crop_confirm_extra',
-    label: 'Crop confirm (slot 3, unused)',
-    events: ['photo_crop_tick_2'],
-  },
-  {
-    id: 'attempt',
-    label: 'Scan attempted',
-    events: ['Identification_attempted'],
+    id: 'photos',
+    label: 'After crop (both paths)',
+    events: ['photo_clicked_1', 'photo_clicked_2'],
     core: true,
+  },
+  {
+    id: 'crop_1',
+    label: 'First crop screen (index 0) — camera or gallery',
+    events: ['photo_cropping_screen_0'],
+  },
+  {
+    id: 'crop_confirm_1',
+    label: 'First crop confirmed (manual only; auto-crop skips)',
+    events: ['photo_crop_tick_0'],
+  },
+  {
+    id: 'photo_click_1',
+    label: 'First photo after crop (both paths)',
+    events: ['photo_clicked_1'],
+  },
+  {
+    id: 'crop_2',
+    label: 'Second crop screen (index 1) — camera or gallery',
+    events: ['photo_cropping_screen_1'],
+  },
+  {
+    id: 'crop_confirm_2',
+    label: 'Second crop confirmed (manual only; auto-crop skips)',
+    events: ['photo_crop_tick_1'],
+  },
+  {
+    id: 'photo_click_2',
+    label: 'Second photo after crop (both paths)',
+    events: ['photo_clicked_2'],
   },
   {
     id: 'submit',
     label: 'Submit photos',
-    events: ['photo_submit_button', 'photos_submitted', 'Identification_done'],
+    events: ['photo_submit_button', 'photos_submitted'],
     core: true,
   },
   {
+    id: 'attempt',
+    label: 'API started (not submit)',
+    events: ['Identification_attempted'],
+  },
+  {
     id: 'quota_block',
-    label: 'Quota / limit block',
+    label: 'Quota / limit (side branch)',
     events: [
       'Identified_limit_reached',
       'identiifcation_limit_exceeded',
@@ -246,53 +286,38 @@ const COINZY_IDENTIFY = [
       'free_scan_fail_quota_exhausted',
       'Identification_unsuccessful_limit_reached',
     ],
-    isDrop: true,
   },
   {
     id: 'success',
     label: 'Identification success',
-    events: ['identification_done_success', 'Identification_done_success'],
+    events: ['identification_done_success', 'Identification_done_success', 'Identification_done'],
     core: true,
   },
   {
     id: 'failure',
-    label: 'Identification failure',
+    label: 'Identification failure (side branch)',
     events: [
       'identification_done_failure',
       'Identification_done_failure',
       'Identification_failed',
       'Identification_unsuccessful',
     ],
-    isDrop: true,
   },
   {
-    id: 'top_matches',
-    label: 'Results / all options displayed',
+    id: 'all_options',
+    label: 'All options screen',
     events: ['identification_all_options_screen'],
-    core: true,
   },
   {
     id: 'option_chosen',
-    label: 'Option chosen (typo event name in app)',
+    label: 'Learn more / option chosen (optional)',
     events: ['idetnification_option_chosen', 'identification_option_chosen'],
   },
   {
     id: 'details',
-    label: 'ID / coin details after ID',
+    label: 'ID / coin details',
     events: ['identification_details_screen', 'Coin_details_identification'],
     core: true,
-  },
-  {
-    id: 'add_collection',
-    label: 'Marked owned (add to collection)',
-    events: ['owned_button_clicked'],
-    core: true,
-  },
-  {
-    id: 'not_owned',
-    label: 'Marked not owned',
-    events: ['not_owned_button_clicked'],
-    isDrop: true,
   },
 ];
 
@@ -1022,10 +1047,50 @@ const COINZY_EXPERT = [
   },
 ];
 
-function withIdentifyEntry(steps, entryLabel, entryEvents) {
-  return steps.map((s) => (
-    s.id === 'entry' ? { ...s, label: entryLabel, events: entryEvents } : s
-  ));
+function withIdentifyEntry(steps, entryLabel, entryEvents, { core } = {}) {
+  return steps.map((s) => {
+    if (s.id !== 'entry') return s;
+    const next = { ...s, label: entryLabel, events: entryEvents };
+    if (core !== undefined) next.core = core;
+    return next;
+  });
+}
+
+function setCore(steps, coreIds) {
+  const set = new Set(coreIds);
+  return steps.map((s) => {
+    const next = { ...s };
+    if (set.has(s.id)) next.core = true;
+    else delete next.core;
+    return next;
+  });
+}
+
+function relabel(steps, id, label) {
+  return steps.map((s) => (s.id === id ? { ...s, label } : s));
+}
+
+const COINZY_GALLERY_INFER = [
+  'photo_cropping_screen_0',
+  'photo_crop_tick_0',
+  'photo_clicked_1',
+  'photo_cropping_screen_1',
+  'photo_crop_tick_1',
+  'photo_clicked_2',
+];
+
+function banknotePhotoSource(steps, { clickOnly, uploadOnly }) {
+  return steps.map((s) => {
+    if (s.id === 'photo_1') {
+      if (clickOnly) return { ...s, label: 'First image · camera', events: ['photo_clicked_1'] };
+      if (uploadOnly) return { ...s, label: 'First image · gallery', events: ['photo_uploaded_1'] };
+    }
+    if (s.id === 'photo_2') {
+      if (clickOnly) return { ...s, label: 'Second image · camera', events: ['photo_clicked_2'] };
+      if (uploadOnly) return { ...s, label: 'Second image · gallery', events: ['photo_uploaded_2'] };
+    }
+    return s;
+  });
 }
 
 const COLLECTION_STEP_IDS = new Set([
@@ -1050,12 +1115,68 @@ function pickSteps(steps, ids, extraCoreIds = []) {
   ));
 }
 
+/** Keep only these steps, then set core. Optional relabels. */
+function identifyFlow(steps, keepIds, coreIds, labels = {}) {
+  let out = setCore(pickSteps(steps, keepIds), coreIds);
+  for (const [id, label] of Object.entries(labels)) {
+    out = relabel(out, id, label);
+  }
+  return out;
+}
+
+const BANKNOTE_CAMERA_IDS = new Set([
+  'entry', 'camera',
+  'permission_popup', 'permission_granted', 'permission_denied',
+  'photo_1', 'crop_1', 'crop_confirm_1',
+  'photo_2', 'crop_2', 'crop_confirm_2',
+  'attempt', 'submit', 'quota_block', 'success', 'failure',
+  'top_matches', 'view_all', 'all_options', 'option_chosen', 'details', 'add_collection',
+]);
+const BANKNOTE_CAMERA_CORE = [
+  'entry', 'camera', 'permission_popup', 'photo_1', 'photo_2',
+  'attempt', 'submit', 'success', 'top_matches', 'details', 'add_collection',
+];
+const BANKNOTE_GALLERY_IDS = new Set([
+  'entry', 'camera',
+  'photo_1', 'crop_1', 'crop_confirm_1',
+  'photo_2', 'crop_2', 'crop_confirm_2',
+  'attempt', 'submit', 'quota_block', 'success', 'failure',
+  'top_matches', 'view_all', 'all_options', 'option_chosen', 'details', 'add_collection',
+]);
+const BANKNOTE_GALLERY_CORE = [
+  'entry', 'camera', 'photo_1', 'photo_2',
+  'attempt', 'submit', 'success', 'top_matches', 'details', 'add_collection',
+];
+
+const COINZY_CAMERA_IDS = new Set([
+  'camera',
+  'permission_popup', 'permission_granted', 'permission_denied',
+  'shutter',
+  'crop_1', 'crop_confirm_1', 'photo_click_1',
+  'crop_2', 'crop_confirm_2', 'photo_click_2',
+  'photos',
+  'submit', 'attempt', 'quota_block', 'success', 'failure',
+  'all_options', 'option_chosen', 'details',
+]);
+const COINZY_CAMERA_CORE = ['camera', 'shutter', 'photos', 'submit', 'success', 'details'];
+
+const COINZY_GALLERY_IDS = new Set([
+  'camera',
+  'gallery',
+  'crop_1', 'crop_confirm_1', 'photo_click_1',
+  'crop_2', 'crop_confirm_2', 'photo_click_2',
+  'photos',
+  'submit', 'attempt', 'quota_block', 'success', 'failure',
+  'all_options', 'option_chosen', 'details',
+]);
+const COINZY_GALLERY_CORE = ['camera', 'gallery', 'photos', 'submit', 'success', 'details'];
+
 /** @type {Record<string, FunnelDef>} */
 export const FUNNELS = {
   identify: {
     id: 'identify',
     title: 'Identify funnel',
-    description: 'All entries → camera → first image (camera or gallery) → second image → submit → success',
+    description: 'Camera → Photos → Submit → ID success → Details (Coinzy). After camera, shutter ∥ gallery then merge at photo_clicked_1. Banknote still starts at Identify open.',
     products: {
       banknote: BANKNOTE_IDENTIFY,
       coinzy: COINZY_IDENTIFY,
@@ -1064,19 +1185,77 @@ export const FUNNELS = {
   'identify-nav': {
     id: 'identify-nav',
     title: 'Scan funnel · bottom nav',
-    description: 'Identify_bottom_nav → camera → first image (camera or gallery) → second image → submit → success',
+    description: 'Coinzy: nav also fires from Home, so core starts at Camera. Banknote: bottom nav → camera → photos → submit → success.',
     products: {
       banknote: withIdentifyEntry(BANKNOTE_IDENTIFY, 'Bottom nav Identify', ['Identify_bottom_nav']),
-      coinzy: withIdentifyEntry(COINZY_IDENTIFY, 'Bottom nav Identify', ['Identify_bottom_nav']),
+      coinzy: withIdentifyEntry(
+        COINZY_IDENTIFY,
+        'Bottom nav / camera open (also fires from Home CTA)',
+        ['Identify_bottom_nav'],
+      ),
     },
   },
   'identify-home': {
     id: 'identify-home',
     title: 'Scan funnel · home / banner',
-    description: 'Identify_home (home/banner CTA) → camera → first image (camera or gallery) → second image → submit → success',
+    description: 'Home / banner Identify → camera → photos → submit → success → details',
     products: {
       banknote: withIdentifyEntry(BANKNOTE_IDENTIFY, 'Home / banner Identify', ['Identify_home']),
-      coinzy: withIdentifyEntry(COINZY_IDENTIFY, 'Home / banner Identify', ['Identify_home']),
+      coinzy: withIdentifyEntry(
+        COINZY_IDENTIFY,
+        'Home / banner Identify',
+        ['Identify_home'],
+        { core: true },
+      ),
+    },
+  },
+  'identify-camera': {
+    id: 'identify-camera',
+    title: 'Scan funnel · camera',
+    description: 'Shutter path only. Camera → permission → shutter → crop → submit → success. No gallery rows.',
+    products: {
+      banknote: identifyFlow(
+        banknotePhotoSource(BANKNOTE_IDENTIFY, { clickOnly: true }),
+        BANKNOTE_CAMERA_IDS,
+        BANKNOTE_CAMERA_CORE,
+      ),
+      coinzy: identifyFlow(COINZY_IDENTIFY, COINZY_CAMERA_IDS, COINZY_CAMERA_CORE, {
+        photos: 'After crop (camera path)',
+        crop_1: 'First crop screen (camera)',
+        crop_2: 'Second crop screen (camera)',
+        photo_click_1: 'First photo after crop (camera)',
+        photo_click_2: 'Second photo after crop (camera)',
+      }),
+    },
+    cohortEvents: {
+      banknote: ['photo_clicked_1', 'photo_clicked_2', 'Photo_clicked'],
+      coinzy: ['Photo_clicked'],
+    },
+  },
+  'identify-gallery': {
+    id: 'identify-gallery',
+    title: 'Scan funnel · gallery',
+    description: 'Gallery path only. No shutter or camera permission. Coinzy gallery tap is inferred (no event).',
+    products: {
+      banknote: identifyFlow(
+        banknotePhotoSource(BANKNOTE_IDENTIFY, { uploadOnly: true }),
+        BANKNOTE_GALLERY_IDS,
+        BANKNOTE_GALLERY_CORE,
+      ),
+      coinzy: identifyFlow(COINZY_IDENTIFY, COINZY_GALLERY_IDS, COINZY_GALLERY_CORE, {
+        photos: 'After crop (gallery path)',
+        crop_1: 'First crop screen (gallery)',
+        crop_2: 'Second crop screen (gallery)',
+        photo_click_1: 'First photo after crop (gallery)',
+        photo_click_2: 'Second photo after crop (gallery)',
+      }),
+    },
+    cohortEvents: {
+      banknote: ['photo_uploaded_1', 'photo_uploaded_2'],
+      coinzy: COINZY_GALLERY_INFER,
+    },
+    cohortExcludeEvents: {
+      coinzy: ['Photo_clicked'],
     },
   },
   catalogue: {
@@ -1178,6 +1357,7 @@ export function getFunnelSteps(funnelId, productId) {
   if (!funnel) return null;
   const steps = funnel.products[productId];
   const cohortEvents = funnel.cohortEvents?.[productId] || [];
+  const cohortExcludeEvents = funnel.cohortExcludeEvents?.[productId] || [];
   const packMix = funnel.packMix?.[productId] || null;
   if (!steps || !steps.length) {
     return {
@@ -1186,10 +1366,11 @@ export function getFunnelSteps(funnelId, productId) {
       status: 'insufficient_instrumentation',
       message: `No verified event mapping for ${funnelId} on ${productId}`,
       cohortEvents,
+      cohortExcludeEvents,
       packMix,
     };
   }
-  return { funnel, steps, status: 'ok', message: null, cohortEvents, packMix };
+  return { funnel, steps, status: 'ok', message: null, cohortEvents, cohortExcludeEvents, packMix };
 }
 
 export function sqlStringLiteral(s) {
@@ -1213,34 +1394,49 @@ export function buildFunnelSql(project, dataset, steps, startDate, endDate, opti
   const startS = startDate.replace(/-/g, '');
   const endS = endDate.replace(/-/g, '');
   const cohortEvents = options.cohortEvents || [];
+  const cohortExcludeEvents = options.cohortExcludeEvents || [];
   const allEvents = [...new Set([
-    ...steps.flatMap((s) => s.events || []),
+    ...steps.flatMap((s) => [...(s.events || []), ...(s.excludeEvents || [])]),
     ...cohortEvents,
+    ...cohortExcludeEvents,
   ])];
   const allList = allEvents.map(sqlStringLiteral).join(', ');
   const cohortList = cohortEvents.map(sqlStringLiteral).join(', ');
-  const cohortHits = cohortList
-    ? `COUNTIF(${EVENT_BASE} IN (${cohortList})) AS cohort_hits,`
-    : '';
-  const cohortFilter = cohortList ? 'AND cohort_hits > 0' : '';
+  const cohortExcludeList = cohortExcludeEvents.map(sqlStringLiteral).join(', ');
+  const cohortHits = [
+    cohortList ? `COUNTIF(${EVENT_BASE} IN (${cohortList})) AS cohort_hits,` : '',
+    cohortExcludeList ? `COUNTIF(${EVENT_BASE} IN (${cohortExcludeList})) AS cohort_excl,` : '',
+  ].filter(Boolean).join('\n    ');
+  const cohortFilter = [
+    cohortList ? 'AND cohort_hits > 0' : '',
+    cohortExcludeList ? 'AND cohort_excl = 0' : '',
+  ].filter(Boolean).join('\n    ');
 
   const userHits = steps.map((step, i) => {
     const evList = step.events.map(sqlStringLiteral).join(', ');
-    return `COUNTIF(${EVENT_BASE} IN (${evList})) AS hits_${i}`;
+    const exclList = (step.excludeEvents || []).map(sqlStringLiteral).join(', ');
+    const exclCol = exclList
+      ? `COUNTIF(${EVENT_BASE} IN (${exclList})) AS excl_${i}`
+      : `0 AS excl_${i}`;
+    return `COUNTIF(${EVENT_BASE} IN (${evList})) AS hits_${i},\n    ${exclCol}`;
   }).join(',\n    ');
 
   const aggCols = steps.map((_, i) => `
-    COUNTIF(hits_${i} > 0) AS users_${i},
-    COUNTIF(hits_${i} = 1) AS once_${i},
-    COUNTIF(hits_${i} >= 2) AS repeat_${i},
-    SUM(hits_${i}) AS hits_${i}`).join(',');
+    COUNTIF(hits_${i} > 0 AND excl_${i} = 0) AS users_${i},
+    COUNTIF(hits_${i} = 1 AND excl_${i} = 0) AS once_${i},
+    COUNTIF(hits_${i} >= 2 AND excl_${i} = 0) AS repeat_${i},
+    SUM(IF(excl_${i} = 0, hits_${i}, 0)) AS hits_${i}`).join(',');
 
-  const unpack = steps.map((step, i) => `
+  const unpack = steps.map((step, i) => {
+    const eventNames = step.excludeEvents?.length
+      ? `${step.events.join(', ')} minus ${step.excludeEvents.join(', ')}`
+      : step.events.join(', ');
+    return `
   SELECT
     ${i + 1} AS step_order,
     ${sqlStringLiteral(step.id)} AS step_id,
     ${sqlStringLiteral(step.label)} AS step_label,
-    ${sqlStringLiteral(step.events.join(', '))} AS event_names,
+    ${sqlStringLiteral(eventNames)} AS event_names,
     ${step.core ? 'TRUE' : 'FALSE'} AS is_core,
     ${step.isDrop ? 'TRUE' : 'FALSE'} AS is_drop,
     users_${i} AS users,
@@ -1248,7 +1444,8 @@ export function buildFunnelSql(project, dataset, steps, startDate, endDate, opti
     repeat_${i} AS repeat_users,
     hits_${i} AS hits,
     dau
-  FROM agg`).join('\n  UNION ALL\n');
+  FROM agg`;
+  }).join('\n  UNION ALL\n');
 
   return `
 WITH per_user AS (

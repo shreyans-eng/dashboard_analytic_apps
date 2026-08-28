@@ -90,6 +90,26 @@ export interface SqlFile {
   path: string;
 }
 
+export interface SavedQuery {
+  path: string;
+  dir: string;
+  name: string;
+  source: 'disk' | 'custom';
+  dirty: boolean;
+  sqlLength: number;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+  createdAt?: string | null;
+  sql?: string;
+  diskSql?: string | null;
+}
+
+export interface QueryLibraryList {
+  mongo: boolean;
+  queries: SavedQuery[];
+  message?: string;
+}
+
 export interface FunnelRow {
   step_order?: number;
   step_id?: string;
@@ -422,6 +442,38 @@ export async function loadSqlFile(dir: string, file: string): Promise<string> {
   const rel = `${dir}/${file}`;
   const data = await request<{ content: string }>(`/sql/content?path=${encodeURIComponent(rel)}`);
   return data.content;
+}
+
+export async function listSavedQueries(): Promise<QueryLibraryList> {
+  return request('/queries');
+}
+
+export async function importSavedQueries(force = false): Promise<QueryLibraryList & { inserted?: number; updated?: number; skipped?: number; total?: number }> {
+  return post('/queries/import', { force });
+}
+
+export async function loadSavedQuery(relPath: string): Promise<SavedQuery> {
+  return request(`/queries/content?path=${encodeURIComponent(relPath)}`);
+}
+
+export async function saveSavedQuery(relPath: string, sql: string): Promise<{ ok: boolean; query: SavedQuery }> {
+  return request('/queries', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: relPath, sql }),
+  });
+}
+
+export async function revertSavedQuery(relPath: string): Promise<{ ok: boolean; query: SavedQuery }> {
+  return post('/queries/revert', { path: relPath });
+}
+
+export async function createSavedQuery(name: string, sql: string): Promise<{ ok: boolean; query: SavedQuery }> {
+  return post('/queries/custom', { name, sql });
+}
+
+export async function deleteSavedQuery(relPath: string): Promise<{ ok: boolean; path: string }> {
+  return request(`/queries?path=${encodeURIComponent(relPath)}`, { method: 'DELETE' });
 }
 
 export function defaultDateRange(days = 30): QueryParams & { days: number } {

@@ -24,6 +24,7 @@ import { materializeCredentials } from './credentials.js';
 import { connectDb, mongoConfigured } from './db.js';
 import { seedAdmin } from './users.js';
 import { mountAdminUserRoutes } from './routes/admin-users.js';
+import { mountQueryLibraryRoutes } from './routes/queries.js';
 import { startReportScheduler } from './reports.js';
 import { isAdmin } from './access.js';
 
@@ -70,6 +71,7 @@ mountHealthRoutes(app, {
 });
 mountDashboardRoutes(app, facade);
 mountFunnelRoutes(app, facade);
+mountQueryLibraryRoutes(app, { sqlRoot: SQL_ROOT });
 
 app.get('/api/test/bigquery', async (req, res) => {
   try {

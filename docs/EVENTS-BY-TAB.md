@@ -84,14 +84,16 @@ Cohort = `first_open`. Returned = **any** Firebase event on that offset day. **D
 
 ### 8. Identify funnel (open → success)
 
-**KPI rate = distinct success users ÷ Identify entry users, same day.** Camera is not “open”.
+**Banknote KPI** = distinct success users ÷ Identify entry (`Identify_bottom_nav` ∪ `Identify_home`), same day. Camera is not “open”.
 
-The **step path** is Funnels → Identify, not this KPI and not tab 3 (quality). Core steps: entry → camera → permission → photo 1 → photo 2 → scan attempted → submit → success → results → details → add to collection.
+**Coinzy KPI** = distinct success users ÷ camera users (`Identification_screen` ∪ `photo_screen`). `Identify_bottom_nav` also fires when camera opens from Home, so nav ∪ home is not the denominator. Success = `identification_done_success` ∪ `Identification_done`.
 
-| Piece | Events |
-|-------|--------|
-| Open | `Identify_bottom_nav` · `Identify_home` |
-| Success | `identification_done_success` |
+The **step path** is Funnels → Identify, not this KPI and not tab 3 (quality).
+
+| Piece | Banknote | Coinzy |
+|-------|----------|--------|
+| Start | `Identify_bottom_nav` · `Identify_home` | `Identification_screen` · `photo_screen` |
+| Success | `identification_done_success` | `identification_done_success` ∪ `Identification_done` |
 
 ### 9. Collection vs global catalogue
 
@@ -116,32 +118,55 @@ Step drop-off: Funnels → Private collection / Global catalogue.
 
 Each **row** = distinct users who fired that step’s events (not ordered sessions).
 
-### Identify (all) · Scan · bottom nav · Scan · home / banner
+### Identify (all) · Scan · bottom nav · Scan · home / banner · Scan · camera · Scan · gallery
 
-Same steps. Entry differs:
+**Banknote** and **Coinzy** do not share the same core path.
 
-| Tab | Entry events |
-|-----|----------------|
-| Identify (all) | `Identify_bottom_nav` ∪ `Identify_home` |
-| Scan · bottom nav | `Identify_bottom_nav` only |
-| Scan · home / banner | `Identify_home` only |
+**Scan · camera** and **Scan · gallery** are separate tabs (parallel after the camera screen, not later hops). Combined Identify (all) still shows both.
+
+#### Banknote
+
+Entry differs by tab: all = nav ∪ home; nav-only; home-only. **Scan · camera** is a different step list: permission + `photo_clicked_*` only (no upload rows). **Scan · gallery** is upload-only (`photo_uploaded_*`) and **drops permission**. Combined Identify still unions both sources.
 
 | Step | Core? | Events |
 |------|-------|--------|
+| Identify entry | yes | `Identify_bottom_nav` ∪ `Identify_home` |
 | Camera | yes | `Identification_screen` · `photo_screen` |
-| Permission | yes | `identification_camera_permission_popup` |
-| First image | yes | `photo_clicked_1` ∪ `photo_uploaded_1` (also split camera vs gallery) |
+| Permission | yes | `identification_camera_permission_popup` / `Camera_permission_popup` |
+| First image | yes | `photo_clicked_1` ∪ `photo_uploaded_1` |
 | Second image | yes | `photo_clicked_2` ∪ `photo_uploaded_2` |
-| Crop (Banknote) | no | `photo_cropping_screen_1` / `_2` · `photo_crop_tick_1` / `_2` |
-| Crop (Coinzy) | no | `photo_cropping_screen_0` / `_1` · `photo_crop_tick_0` / `_1` |
-| Scan attempted | yes | Banknote `Identification_attempted` ∪ `Identification_done` · Coinzy `Identification_attempted` |
-| Submit | yes | `photo_submit_button` · `photos_submitted` (Coinzy also `Identification_done`) |
-| Quota | no | Banknote `identiifcation_limit_exceeded` · Coinzy `Identified_limit_reached` + `free_scan_*` |
+| Crop | no | `photo_cropping_screen_1` / `_2` · `photo_crop_tick_1` / `_2` |
+| Scan attempted | yes | `Identification_attempted` ∪ `Identification_done` |
+| Submit | yes | `photo_submit_button` · `photos_submitted` |
+| Quota | no (drop) | `identiifcation_limit_exceeded` |
 | Success | yes | `identification_done_success` |
-| Failure | no | `identification_done_failure` (Coinzy also `Identification_failed`) |
-| Top 5 / results | yes | Banknote `identification_top5_matches` · Coinzy `identification_all_options_screen` |
-| Details opened | yes | Banknote `identification_details_screen` · `banknote_details_identification` · Coinzy `identification_details_screen` · `Coin_details_identification` |
-| Add to collection | yes | Banknote `Added_to_collection_identified` · `Added_to_collection_owned` · Coinzy `owned_button_clicked` |
+| Failure | no (drop) | `identification_done_failure` |
+| Top 5 / results | yes | `identification_top5_matches` |
+| Details | yes | `identification_details_screen` · `banknote_details_identification` |
+| Add to collection | yes | `Added_to_collection_identified` · `Added_to_collection_owned` |
+
+#### Coinzy
+
+Real funnel: **Camera → Photos → Submit → ID success → Details.**
+
+`Identify_bottom_nav` also fires when camera opens from Home — it is **not** the first core step (Identify all / nav tabs). Home / banner tab may start at `Identify_home`. After camera, **shutter ∥ gallery** are parallel — **Scan · camera** and **Scan · gallery** are different step lists, not the same funnel filtered. Camera tab: camera → shutter → after crop (plus permission). Gallery tab: camera → inferred gallery → after crop (**no shutter, no permission**). `Photo_clicked` is shutter only; gallery tap has **no event**, so gallery-only = crop/clicked minus shutter. Paths **merge** at `photo_clicked_1/2` on Identify (all). Crop is **0-based**; auto-crop skips `photo_crop_tick_*`. `Identification_attempted` is API start, not a submit conversion. `Identification_done` is success (union with `identification_done_success`), not submit. Quota, Learn more (`idetnification_option_chosen`), owned / sub-collection are **side rows**. **Add-to-collection cannot be measured** — no live Firebase success event (`Added_to_collection_identified` is commented out in the app). Until a dedicated gallery tap event exists, gallery open → pick → crop cannot be measured as its own conversion.
+
+| Step | Core? | Events |
+|------|-------|--------|
+| Nav / home tap | no | `Identify_bottom_nav` ∪ `Identify_home` (nav also fires from Home) |
+| Home CTA | no (yes on home tab) | `Identify_home` |
+| Camera | yes | `Identification_screen` · `photo_screen` |
+| Permission popup / OS | no | Shutter-only. `Camera_permission_popup` vs OS granted/denied — not 1:1. Gallery can skip |
+| Camera shutter | no | `Photo_clicked` (not “taken”; gallery never fires this) |
+| Gallery pick | no | **Inferred:** crop `_0`/`_1` + ticks + `photo_clicked_1/2` **minus** `Photo_clicked`. No tap event |
+| After crop (merge) | yes | `photo_clicked_1` ∪ `photo_clicked_2` |
+| Submit | yes | `photo_submit_button` · `photos_submitted` |
+| API started | no | `Identification_attempted` |
+| Quota | no (side) | `Identified_limit_reached` + `free_scan_*` |
+| Success | yes | `identification_done_success` ∪ `Identification_done` |
+| Failure | no (side) | `identification_done_failure` · `Identification_failed` |
+| All options / Learn more | no | `identification_all_options_screen` · `idetnification_option_chosen` (Learn more only) |
+| Details | yes | `identification_details_screen` · `Coin_details_identification` |
 
 ### Private collection
 

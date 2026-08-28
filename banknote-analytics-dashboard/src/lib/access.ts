@@ -14,6 +14,8 @@ export const PAGE_CATALOG = [
     { id: 'funnels.identify', label: 'Identify (all)', path: '/funnels/identify' },
     { id: 'funnels.identify-nav', label: 'Scan · bottom nav', path: '/funnels/identify-nav' },
     { id: 'funnels.identify-home', label: 'Scan · home / banner', path: '/funnels/identify-home' },
+    { id: 'funnels.identify-camera', label: 'Scan · camera', path: '/funnels/identify-camera' },
+    { id: 'funnels.identify-gallery', label: 'Scan · gallery', path: '/funnels/identify-gallery' },
     { id: 'funnels.catalogue', label: 'Catalogue (all)', path: '/funnels/catalogue' },
     { id: 'funnels.collection', label: 'Private collection', path: '/funnels/collection' },
     { id: 'funnels.global', label: 'Global catalogue', path: '/funnels/global' },
@@ -51,7 +53,7 @@ export const PAGE_CATALOG = [
     { id: 'explorer.events', label: 'Top Events', path: '/events' },
   ]},
   { section: 'Tools', items: [
-    { id: 'sql', label: 'SQL Editor', path: '/sql' },
+    { id: 'sql', label: 'Query library', path: '/sql' },
   ]},
 ] as const;
 
@@ -94,6 +96,8 @@ const PATH_TO_PAGE: Record<string, PageId> = {
   '/funnels/identify': 'funnels.identify',
   '/funnels/identify-nav': 'funnels.identify-nav',
   '/funnels/identify-home': 'funnels.identify-home',
+  '/funnels/identify-camera': 'funnels.identify-camera',
+  '/funnels/identify-gallery': 'funnels.identify-gallery',
   '/funnels/catalogue': 'funnels.catalogue',
   '/funnels/collection': 'funnels.collection',
   '/funnels/global': 'funnels.global',
@@ -140,7 +144,10 @@ export function canAccessPage(user: AuthUser | null | undefined, pageId: string)
   const pages = user.permissions?.pages || [];
   if (pages.includes('*') || pages.includes(pageId)) return true;
   if (
-    (pageId === 'funnels.identify-nav' || pageId === 'funnels.identify-home') &&
+    (pageId === 'funnels.identify-nav'
+      || pageId === 'funnels.identify-home'
+      || pageId === 'funnels.identify-camera'
+      || pageId === 'funnels.identify-gallery') &&
     pages.includes('funnels.identify')
   ) {
     return true;

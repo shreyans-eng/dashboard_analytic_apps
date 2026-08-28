@@ -177,7 +177,7 @@ Runs `product_daily_signals` once per app, tags rows, then:
 | Any event | Last day | Any Firebase event |
 | Installs | Sum | Distinct `first_open` |
 | Identify success | Avg of daily rates | success ÷ (success + failure) **events** |
-| Identify funnel | Avg | Distinct success users ÷ Identify-open users |
+| Identify funnel | Avg | Banknote: success ÷ nav ∪ home. Coinzy: success ∪ Identification_done ÷ camera |
 | Scans / user-day | Avg | Successes ÷ DAU |
 | Quota hit | Avg | Quota users ÷ scan-attempt users |
 | Paywall → purchase | Avg | Confirm **events** ÷ paywall **events** |
@@ -202,7 +202,7 @@ SQL: `sql/dashboard/product/01`–`10_*.sql` (Coinzy override under `product/coi
 | 5 | Paywall → purchase | `paywall_to_confirm_rate` | Confirm **events** ÷ paywall **events**. Unique people, pack mix, and onboarding → purchase are Funnels → Paywall / Onboarding → subs |
 | 6 | D1 / D4 / D7 | `d1_retention_rate` / `d4` / `d7` / `d4_d7` | Returned any event on D+1 / D+4 / D+7; D4–D7 = any of days 4–7. Cohort = `first_open` |
 | 7 | Scans / user | `scans_per_dau` + `scans_p10`…`scans_p99` | Mean = success events ÷ DAU. Percentiles = successful IDs per **scanning** user-day (P10, P25, P50, P75, P95, P99) |
-| 8 | Identify funnel | `open_to_success_rate` | Distinct success users ÷ (`Identify_bottom_nav` ∪ `Identify_home`) same day. Camera screen is **not** open |
+| 8 | Identify funnel | `open_to_success_rate` | Banknote: success ÷ (`Identify_bottom_nav` ∪ `Identify_home`). Coinzy: success (`identification_done_success` ∪ `Identification_done`) ÷ camera (`Identification_screen` ∪ `photo_screen`) — nav is not open |
 | 9 | Collection vs catalogue | `private_collection_open_rate` · `global_catalogue_open_rate` | Separate rates of DAU — **not** mixed |
 | 10 | Marketplace | `marketplace_engagement_rate` | Market nav / `marketplace_screen` / `market_item_expolre` ÷ DAU. **Feed is a separate tab**, not mixed in |
 
@@ -220,8 +220,10 @@ gained  = max(0, to − from)   → joined without prior step
 
 | Tab | Core path |
 |-----|-----------|
-| Identify (all) | `Identify_bottom_nav` ∪ `Identify_home` → camera → first image → second image → submit → success |
-| Scan · nav / home | Same; entry is that one event only |
+| Identify (all) | Banknote: nav ∪ home → camera → photos → submit → success. Coinzy: **Camera → Photos → Submit → Success → Details** (nav is not the start). After camera, shutter ∥ gallery merge at after-crop |
+| Scan · nav / home | Banknote: same with that entry event. Coinzy nav: still starts at camera (`Identify_bottom_nav` also fires from Home). Coinzy home: `Identify_home` then camera |
+| Scan · camera | Shutter-only cohort. Coinzy: **Camera → Shutter → After crop → Submit → Success → Details** (+ permission side). Banknote: permission + `photo_clicked_*`. No gallery rows |
+| Scan · gallery | Gallery-only cohort. Coinzy: **Camera → inferred gallery → After crop → Submit → Success → Details** (no shutter, no permission). Banknote: `photo_uploaded_*` |
 | Collection | Nav → screen → card → sub-collection → details |
 | Global catalogue | Screen → item → details |
 | Marketplace | Nav → screen → listing → sale details → contact |
@@ -229,7 +231,7 @@ gained  = max(0, to − from)   → joined without prior step
 | Paywall | Impression → confirm (user-unique; MVP 5 is event-count — they will not match) |
 | Expert | Coinzy only: landing → upload → continue → queued → report (+ credits path) |
 
-Identify needs **both** images. Crop is a **side** step. Coinzy crop is 0-indexed (`_0` / `_1`); Banknote is `_1` / `_2`.
+Identify needs **both** images on Banknote. Coinzy core Photos is after-crop (`photo_clicked_1/2`) where shutter and gallery merge on Identify (all). **Scan · camera** / **Scan · gallery** are separate tabs. `Photo_clicked` is shutter only; gallery tap has no event. Crop is a **side** step on Banknote. Coinzy crop is 0-indexed (`_0` / `_1`). Coinzy add-to-collection **cannot be measured** (no live success event).
 
 ### 6.5 Event inventory (`/events-explorer`)
 
@@ -282,10 +284,10 @@ Refresh: `sql/scheduled/cohort_ltv_mongo.sql` → `scripts/refresh-cohort-ltv-mo
 | Area | Events |
 |------|--------|
 | Install | `first_open` |
-| Identify open (KPI / funnel entry) | `Identify_bottom_nav`, `Identify_home` — not `Identification_screen` (that is the camera step) |
-| Photo | `photo_clicked_1` / `_2`, `photo_uploaded_1` / `_2` (Coinzy also fires a lot of `Photo_clicked`) |
-| Submit | `photos_submitted`, `photo_submit_button` |
-| Success / fail | `identification_done_success` / `identification_done_failure` (+ Coinzy `Identification_failed`) |
+| Identify open (KPI / funnel entry) | Banknote: `Identify_bottom_nav`, `Identify_home`. Coinzy KPI/funnel start: `Identification_screen` / `photo_screen` — nav also fires from Home |
+| Photo | Banknote `photo_clicked_1/_2` + gallery `photo_uploaded_1/_2`. Coinzy: shutter = `Photo_clicked`; gallery tap has no event (infer crop/clicked minus shutter); merge = `photo_clicked_1/2` after crop |
+| Submit | `photos_submitted`, `photo_submit_button` (Coinzy: not `Identification_done`) |
+| Success / fail | `identification_done_success` / `identification_done_failure`. Coinzy success also `Identification_done`; fail also `Identification_failed` |
 | Quota | Banknote: `identiifcation_limit_exceeded`. Coinzy: `Identified_limit_reached`, `free_scan_*`. Not `Collection_limit_Reached` |
 | Paywall | `Subs_page`, `Subs_page_discount`, Coinzy `Subscription_screen` / `Subs_page_onboarding` → Banknote `Subs_confirm` · Coinzy `subs_confirm` / `paid_purchase` |
 | Catalogue | `Collection_screen`, `Global_catalogue_screen`; details `banknote_details_*` / `Coin_details_*` |
@@ -410,7 +412,7 @@ Identify success         = success events ÷ (success + failure)
 Quota hit                = quota users ÷ scan-attempt users
 Paywall MVP              = confirm events ÷ paywall events
 Scans / DAU              = success events ÷ DAU
-Open → success           = distinct success users ÷ Identify_bottom_nav ∪ Identify_home
+Open → success           = Banknote: success ÷ nav ∪ home. Coinzy: success ∪ Identification_done ÷ camera
 Catalogue                = Collection_screen ∪ Global_catalogue_screen ÷ DAU
 Marketplace              = market screen / nav / listing tap ÷ DAU (not Feed)
 LTV-N                    = revenue days 0…N-1 after install ÷ installs

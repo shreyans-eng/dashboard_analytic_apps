@@ -10,7 +10,8 @@ import fs from 'fs';
 import path from 'path';
 import { cacheKey, cached } from '../../cache/index.js';
 import { createBigQueryClient, runQuery } from './bigquery-client.js';
-import { prepareSql, readSqlFile, isMissingTableError, isMissingColumnError } from './sql-utils.js';
+import { prepareSql, isMissingTableError, isMissingColumnError } from './sql-utils.js';
+import { resolveSql } from '../query-library.js';
 import { detectIntraday, getIntradayStatus } from './intraday.js';
 import {
   clipRowsToCompleteExport,
@@ -260,13 +261,13 @@ export class AnalyticsRepository {
     return catalogue === 0;
   }
 
-  _prepare(relativePath, params) {
-    const raw = readSqlFile(this.sqlRoot, relativePath);
+  async _prepare(relativePath, params) {
+    const raw = await resolveSql(this.sqlRoot, relativePath);
     return prepareSql(raw, params, this.config);
   }
 
   async _executeSql(relativePath, params, source = 'raw') {
-    const sql = this._prepare(relativePath, params);
+    const sql = await this._prepare(relativePath, params);
     const { rows, bytesProcessed } = await runQuery(this.bigquery, sql);
     return {
       sql,
@@ -428,7 +429,7 @@ export class AnalyticsRepository {
   }
 
   async getProductDailySignals(params) {
-    const key = cacheKey(`${this.productId}:daily-signals:v7`, params);
+    const key = cacheKey(`${this.productId}:daily-signals:v8`, params);
     return cached('compare', key, async () => {
       const rawPath = this._resolveProductSql('dashboard/raw/16_product_daily_signals.sql');
       const rawSource = rawPath === 'dashboard/raw/16_product_daily_signals.sql' ? 'raw' : 'product';
@@ -745,7 +746,7 @@ export class AnalyticsRepository {
     const spec = MVP_KPI_MAP[name];
     if (!spec) throw new Error(`Unknown MVP metric: ${name}`);
 
-    const key = cacheKey(`${this.productId}:mvp:v9:${name}`, params);
+    const key = cacheKey(`${this.productId}:mvp:v10:${name}`, params);
     const result = await cached('kpi', key, async () => {
       if (spec.useRetention) {
         return this.getRetention(params);

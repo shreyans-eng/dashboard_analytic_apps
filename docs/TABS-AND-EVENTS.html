@@ -207,9 +207,9 @@
 <p>Event: <code>identification_done_success</code>.</p>
 
 <h3>8. Identify funnel rate (comment 5.8)</h3>
-<p><strong>KPI formula:</strong> distinct success users ÷ distinct Identify-open users, same day.</p>
-<p>Open events: <code>Identify_bottom_nav</code> ∪ <code>Identify_home</code> (camera screen is not “open”).</p>
-<p>The <strong>step-by-step path</strong> is Funnels → Identify (table below). Do not use tab 3 for that.</p>
+<p><strong>Banknote KPI:</strong> distinct success users ÷ Identify-open users (<code>Identify_bottom_nav</code> ∪ <code>Identify_home</code>), same day. Camera screen is not “open”.</p>
+<p><strong>Coinzy KPI:</strong> distinct success users ÷ camera users (<code>Identification_screen</code> ∪ <code>photo_screen</code>). <code>Identify_bottom_nav</code> also fires when camera opens from Home, so nav ∪ home is not the denominator. Success = <code>identification_done_success</code> ∪ <code>Identification_done</code>.</p>
+<p>The <strong>step-by-step path</strong> is Funnels → Identify (tables below). Do not use tab 3 for that.</p>
 
 <h3>9. Collection vs global catalogue (comment 5.9)</h3>
 <p>Two rates of DAU. They are <strong>not</strong> mixed.</p>
@@ -233,23 +233,32 @@
 <h2>Funnels — step events</h2>
 <p>Each row = distinct users who fired that step’s events (not ordered sessions).</p>
 
-<h3>Identify (all) · Scan · bottom nav · Scan · home / banner</h3>
-<p>Same steps. Entry differs: all = nav ∪ home; nav-only; home-only.</p>
+<h3>Identify (all) · Scan · bottom nav · Scan · home / banner · Scan · camera · Scan · gallery</h3>
+<p><strong>Banknote</strong> core: entry → camera → permission → first image → second image → attempted → submit → success → results → details → add to collection. Entry differs: all = nav ∪ home; nav-only; home-only. <strong>Scan · camera</strong> = <code>photo_clicked_*</code> only. <strong>Scan · gallery</strong> = <code>photo_uploaded_*</code> only.</p>
 <table>
-  <tr><th>Core step</th><th>Events</th></tr>
+  <tr><th>Core step</th><th>Banknote events</th></tr>
   <tr><td>Identify entry</td><td><code>Identify_bottom_nav</code> · <code>Identify_home</code></td></tr>
   <tr><td>Camera / photo screen</td><td><code>Identification_screen</code> · <code>photo_screen</code></td></tr>
   <tr><td>Camera permission</td><td><code>Camera_permission_popup</code> (granted / denied are side rows)</td></tr>
   <tr><td>First image</td><td><code>photo_clicked_1</code> ∪ <code>photo_uploaded_1</code></td></tr>
   <tr><td>Second image</td><td><code>photo_clicked_2</code> ∪ <code>photo_uploaded_2</code></td></tr>
-  <tr><td>Scan attempted</td><td>Banknote: <code>Identification_attempted</code> · <code>Identification_done</code> · Coinzy: <code>Identification_attempted</code></td></tr>
-  <tr><td>Submit</td><td><code>photo_submit_button</code> · <code>photos_submitted</code> (Coinzy also <code>Identification_done</code>)</td></tr>
+  <tr><td>Scan attempted</td><td><code>Identification_attempted</code> · <code>Identification_done</code></td></tr>
+  <tr><td>Submit</td><td><code>photo_submit_button</code> · <code>photos_submitted</code></td></tr>
   <tr><td>Success</td><td><code>identification_done_success</code></td></tr>
-  <tr><td>Results displayed</td><td>Banknote <code>identification_top5_matches</code> · Coinzy <code>identification_all_options_screen</code> (Coinzy does not fire top5)</td></tr>
-  <tr><td>Details opened</td><td>Banknote <code>identification_details_screen</code> · <code>banknote_details_identification</code> · Coinzy <code>identification_details_screen</code> · <code>Coin_details_identification</code></td></tr>
-  <tr><td>Added to collection</td><td>Banknote <code>Added_to_collection_identified</code> · <code>Added_to_collection_owned</code> · Coinzy <code>owned_button_clicked</code></td></tr>
+  <tr><td>Results displayed</td><td><code>identification_top5_matches</code></td></tr>
+  <tr><td>Details opened</td><td><code>identification_details_screen</code> · <code>banknote_details_identification</code></td></tr>
+  <tr><td>Added to collection</td><td><code>Added_to_collection_identified</code> · <code>Added_to_collection_owned</code></td></tr>
 </table>
-<p>Side / drop rows (not “success”): crop, quota block, failure, view all options, option chosen.</p>
+<p><strong>Coinzy</strong> real funnel: Camera → After crop (both paths) → Submit → ID success → Details. <strong>Scan · camera</strong> is a different step list: camera → shutter → after crop, plus permission. <strong>Scan · gallery</strong>: camera → inferred gallery → after crop — no shutter, no permission. Gallery tap logs nothing. Paths merge at <code>photo_clicked_1/2</code> on Identify (all). <strong>Add-to-collection cannot be measured</strong> (no live Firebase success event).</p>
+<table>
+  <tr><th>Core step</th><th>Coinzy events</th></tr>
+  <tr><td>Camera / photo screen</td><td><code>Identification_screen</code> · <code>photo_screen</code></td></tr>
+  <tr><td>After crop (merged)</td><td><code>photo_clicked_1</code> ∪ <code>photo_clicked_2</code></td></tr>
+  <tr><td>Submit</td><td><code>photo_submit_button</code> · <code>photos_submitted</code></td></tr>
+  <tr><td>Success</td><td><code>identification_done_success</code> ∪ <code>Identification_done</code></td></tr>
+  <tr><td>Details</td><td><code>identification_details_screen</code> · <code>Coin_details_identification</code></td></tr>
+</table>
+<p>Coinzy side rows: nav/home taps, shutter (<code>Photo_clicked</code>), inferred gallery, crop screens, API start, quota, failure, all-options, Learn more. Gallery open → pick → crop cannot be measured until a dedicated tap event exists.</p>
 
 <h3>Private collection</h3>
 <table>
@@ -295,8 +304,8 @@
 <h2>Do not mix these up</h2>
 <table>
   <tr><th>Looks similar</th><th>What we actually use</th></tr>
-  <tr><td>Identify “open”</td><td>Nav ∪ home — not <code>Identification_screen</code></td></tr>
-  <tr><td>Tab 3 vs Identify funnel</td><td>Tab 3 = quality rate. Funnel = step path including permission, photos, results, details, add</td></tr>
+  <tr><td>Identify “open”</td><td>Banknote: nav ∪ home — not <code>Identification_screen</code>. Coinzy: camera is the start; nav also fires from Home</td></tr>
+  <tr><td>Tab 3 vs Identify funnel</td><td>Tab 3 = quality rate. Funnel = step path. Coinzy: Camera → Photos → Submit → Success → Details (not add-to-collection)</td></tr>
   <tr><td>Collection vs catalogue</td><td>Separate rates and separate funnel tabs</td></tr>
   <tr><td>Marketplace KPI</td><td>Market only — not Feed</td></tr>
   <tr><td>Scan quota</td><td>Scan limit events — not <code>Collection_limit_Reached</code></td></tr>

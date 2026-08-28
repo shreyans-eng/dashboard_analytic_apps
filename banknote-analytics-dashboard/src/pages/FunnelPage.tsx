@@ -18,7 +18,7 @@ import { useProduct } from '@/lib/product';
 import { useTheme } from '@/lib/theme';
 
 interface Props {
-  funnelId: 'identify' | 'identify-nav' | 'identify-home' | 'catalogue' | 'collection' | 'global' | 'marketplace' | 'feed' | 'paywall' | 'paywall-onboarding' | 'expert';
+  funnelId: 'identify' | 'identify-nav' | 'identify-home' | 'identify-camera' | 'identify-gallery' | 'catalogue' | 'collection' | 'global' | 'marketplace' | 'feed' | 'paywall' | 'paywall-onboarding' | 'expert';
   params: QueryParams;
   setParams: (p: QueryParams) => void;
   applyFilters: () => void;
@@ -28,6 +28,8 @@ const PATH_STARTS: Record<Props['funnelId'], string[]> = {
   identify: [],
   'identify-nav': [],
   'identify-home': [],
+  'identify-camera': [],
+  'identify-gallery': [],
   catalogue: ['global_cta', 'global_screen', 'open_kpi'],
   collection: [],
   global: [],
@@ -49,6 +51,12 @@ const PATH_TITLES: Record<string, string> = {
   feed_tab: 'Feed',
   feed_screen: 'Feed',
   entry: 'Started Identify',
+  camera: 'Started Identify',
+  photos: 'After crop',
+  shutter: 'Camera shutter',
+  gallery: 'Gallery pick',
+  success: 'ID success',
+  details: 'Details',
   photo_1: 'First photo',
   photo_click_1: 'First photo · camera',
   photo_upload_1: 'First photo · gallery',
@@ -69,7 +77,7 @@ const PATH_TITLES: Record<string, string> = {
 const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }> = {
   identify: {
     question: 'Of everyone who starts a scan, how many get a successful ID — and then open details / add to collection?',
-    how: 'Main steps: open Identify → camera → permission → first image → second image → scan attempted → submit → success → results → details → add to collection (Banknote: Added_to_collection_*; Coinzy: owned_button_clicked). Coinzy results are identification_all_options_screen, not Banknote’s identification_top5_matches. Side rows split camera vs gallery. Failure and quota are blocked outcomes, not success.',
+    how: 'Main steps: open Identify → camera → permission → first image → second image → scan attempted → submit → success → results → details → add to collection. Banknote add = Added_to_collection_*.',
   },
   'identify-nav': {
     question: 'When people tap Identify on the bottom bar, where do they drop off?',
@@ -78,6 +86,14 @@ const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }>
   'identify-home': {
     question: 'When people start a scan from the home screen or banner, where do they drop off?',
     how: 'Only includes scans started from home / banner. Red is the biggest leak.',
+  },
+  'identify-camera': {
+    question: 'When people take the photo with the camera shutter, where do they drop off?',
+    how: 'Camera path only — no gallery rows. Banknote: permission → photo_clicked_*. Coinzy: camera → shutter → after crop → submit → success → details. Permission is on this tab only.',
+  },
+  'identify-gallery': {
+    question: 'When people pick a photo from the gallery, where do they drop off?',
+    how: 'Gallery path only — no shutter or camera permission. Banknote: photo_uploaded_*. Coinzy has no gallery tap event, so the first unique step is inferred crop/clicked. You cannot measure gallery open → pick.',
   },
   catalogue: {
     question: 'Are people browsing their own collection, the global catalogue, or both?',
@@ -110,6 +126,29 @@ const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }>
   expert: {
     question: 'Of people who open Expert Evaluation, how many get a report — and how many buy credits?',
     how: 'Main path: landing → upload photos → continue with a credit or payment → request queued → report. Credits path: buy credits → pay → token received → consumed. Cancel / fail / refund are blocked outcomes. Coinzy only.',
+  },
+};
+
+const COINZY_IDENTIFY_GUIDE: Record<'identify' | 'identify-nav' | 'identify-home' | 'identify-camera' | 'identify-gallery', { question: string; how: string }> = {
+  identify: {
+    question: 'Of everyone who opens the Identify camera, how many submit photos, get a successful ID, and open details?',
+    how: 'Combined path. For the two sources use Scan · camera and Scan · gallery — they are parallel after the camera screen, not later steps. After-crop merge is photo_clicked_1/2. Add-to-collection cannot be measured.',
+  },
+  'identify-nav': {
+    question: 'Where do people drop off after the Identify camera is open?',
+    how: 'Identify_bottom_nav is not a clean start — it fires whenever the camera opens, including from the Home CTA. Core path: Camera → After crop → Submit → Success → Details.',
+  },
+  'identify-home': {
+    question: 'When people tap Identify on home / banner, where do they drop off?',
+    how: 'Starts at Identify_home, then Camera → After crop → Submit → Success → Details.',
+  },
+  'identify-camera': {
+    question: 'Of people who used the shutter, how many crop, submit, and get a successful ID?',
+    how: 'Camera path only. Core: camera → shutter → after crop → submit → success → details. Permission (in-app + OS) is on this tab. Gallery rows are not shown.',
+  },
+  'identify-gallery': {
+    question: 'Of people who used gallery (inferred), how many crop, submit, and get a successful ID?',
+    how: 'Gallery path only — no shutter, no permission. Coinzy does not log gallery tap; this tab is crop/clicked minus Photo_clicked. Core: camera → inferred gallery → after crop → submit → success → details. Gallery open → pick cannot be measured until a tap event exists.',
   },
 };
 
@@ -441,6 +480,7 @@ function FlowTable({ hops, worst }: { hops: FlowHop[]; worst: FlowHop | null }) 
 export default function FunnelPage({ funnelId, params, setParams, applyFilters }: Props) {
   const { product, isCompare } = useProduct();
   const { chart } = useTheme();
+  const isCoinzy = product.id === 'coinzy';
   const q = useFunnel(funnelId, params, !isCompare);
   const data = q.data;
   const rows = data?.rows || [];
@@ -481,25 +521,55 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
     : null;
 
   const isIdentify =
-    funnelId === 'identify' || funnelId === 'identify-nav' || funnelId === 'identify-home';
+    funnelId === 'identify'
+    || funnelId === 'identify-nav'
+    || funnelId === 'identify-home'
+    || funnelId === 'identify-camera'
+    || funnelId === 'identify-gallery';
+  const showPhotoMix = funnelId === 'identify' || funnelId === 'identify-nav' || funnelId === 'identify-home';
   const isPaywall = funnelId === 'paywall' || funnelId === 'paywall-onboarding';
   const packs = (data?.packs || []) as FunnelPackRow[];
+  const guide =
+    isIdentify && isCoinzy
+      ? COINZY_IDENTIFY_GUIDE[funnelId as keyof typeof COINZY_IDENTIFY_GUIDE]
+      : FUNNEL_GUIDE[funnelId];
 
   const photoMix = useMemo(() => {
-    if (!isIdentify) return null;
+    if (!showPhotoMix) return null;
     const users = (id: string) => num(rows.find((r) => String(r.step_id) === id)?.users);
-    return {
-      got1: users('photo_1'),
-      click1: users('photo_click_1'),
-      upload1: users('photo_upload_1'),
-      got2: users('photo_2'),
-      click2: users('photo_click_2'),
-      upload2: users('photo_upload_2'),
-      chart: [
-        { slot: 'First image', Camera: users('photo_click_1'), Gallery: users('photo_upload_1') },
-        { slot: 'Second image', Camera: users('photo_click_2'), Gallery: users('photo_upload_2') },
-      ],
-    };
+    if (rows.some((r) => String(r.step_id) === 'photo_upload_1')) {
+      return {
+        kind: 'banknote' as const,
+        hasGallery: true,
+        got1: users('photo_1'),
+        click1: users('photo_click_1'),
+        upload1: users('photo_upload_1'),
+        got2: users('photo_2'),
+        click2: users('photo_click_2'),
+        upload2: users('photo_upload_2'),
+        chart: [
+          { slot: 'First image', Camera: users('photo_click_1'), Gallery: users('photo_upload_1') },
+          { slot: 'Second image', Camera: users('photo_click_2'), Gallery: users('photo_upload_2') },
+        ],
+      };
+    }
+    if (rows.some((r) => String(r.step_id) === 'shutter')) {
+      return {
+        kind: 'coinzy' as const,
+        hasGallery: true,
+        shutter: users('shutter'),
+        gallery: users('gallery'),
+        merged: users('photos'),
+        merged1: users('photo_click_1'),
+        merged2: users('photo_click_2'),
+        chart: [
+          { slot: 'Shutter', People: users('shutter') },
+          { slot: 'Gallery (inferred)', People: users('gallery') },
+          { slot: 'After crop (merged)', People: users('photos') },
+        ],
+      };
+    }
+    return null;
   }, [isIdentify, rows]);
 
   return (
@@ -508,7 +578,7 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
         <div>
           <h2>{data?.title || 'Funnel'}</h2>
           <p>
-            {FUNNEL_GUIDE[funnelId]?.question || data?.description} · {product.shortName}
+            {guide?.question || data?.description} · {product.shortName}
           </p>
         </div>
         <FilterBar params={params} onChange={setParams} onApply={applyFilters} />
@@ -534,12 +604,12 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
 
         {!isCompare && data?.status === 'ok' && (
           <>
-            {FUNNEL_GUIDE[funnelId] && (
+            {guide && (
               <div className="page-hint funnel-guide">
                 <p>
-                  <strong>What this page answers:</strong> {FUNNEL_GUIDE[funnelId].question}
+                  <strong>What this page answers:</strong> {guide.question}
                 </p>
-                <p>{FUNNEL_GUIDE[funnelId].how}</p>
+                <p>{guide.how}</p>
                 <ul>
                   <li>
                     <strong>People</strong> = distinct people in your date range, not number of taps.
@@ -563,10 +633,26 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                     Main steps are the journey you care about. Other rows (crop, permission, cancel) are extra
                     context — they are not required to “finish” the journey.
                   </li>
-                  {isIdentify && (
+                  {showPhotoMix && photoMix?.kind === 'banknote' && (
                     <li>
                       <strong>Camera vs gallery:</strong> the main “first/second image” step counts either
                       source. The camera / gallery rows underneath tell you whether they shot or uploaded.
+                    </li>
+                  )}
+                  {showPhotoMix && photoMix?.kind === 'coinzy' && (
+                    <li>
+                      <strong>Shutter vs gallery:</strong> parallel after the camera screen, not a later
+                      hop. <code>Photo_clicked</code> is shutter only. Gallery tap logs nothing — gallery-only
+                      people are crop/clicked minus shutter. Paths merge at <code>photo_clicked_1</code>.
+                      Permission is shutter-only.
+                    </li>
+                  )}
+                  {isIdentify && isCoinzy && (
+                    <li>
+                      <strong>Add to collection</strong> is not on this funnel. Coinzy has no live
+                      Firebase success event for it (<code>Added_to_collection_identified</code> is
+                      dead). Owned / sub-collection events are Collection-tab actions, not Identify
+                      steps.
                     </li>
                   )}
                 </ul>
@@ -621,11 +707,11 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
               </div>
             )}
 
-            {photoMix && (
+            {photoMix?.kind === 'banknote' && (
               <>
                 <div className="funnel-kpis multi">
                   <div className="funnel-kpi">
-                    <span className="funnel-kpi-label">First image (either)</span>
+                    <span className="funnel-kpi-label">First image</span>
                     <span className="funnel-kpi-value">{fmtNumber(photoMix.got1)}</span>
                     <span className="funnel-kpi-sub">Camera or gallery</span>
                   </div>
@@ -640,7 +726,7 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                     <span className="funnel-kpi-sub">photo_uploaded_1</span>
                   </div>
                   <div className="funnel-kpi">
-                    <span className="funnel-kpi-label">Second image (either)</span>
+                    <span className="funnel-kpi-label">Second image</span>
                     <span className="funnel-kpi-value">{fmtNumber(photoMix.got2)}</span>
                     <span className="funnel-kpi-sub">Camera or gallery</span>
                   </div>
@@ -669,6 +755,56 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                         <Tooltip contentStyle={tipStyle} />
                         <Bar dataKey="Camera" fill="#4f8cff" radius={[4, 4, 0, 0]} maxBarSize={48} />
                         <Bar dataKey="Gallery" fill="#fbbf24" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </ChartCard>
+              </>
+            )}
+
+            {photoMix?.kind === 'coinzy' && (
+              <>
+                <div className="funnel-kpis multi">
+                  <div className="funnel-kpi">
+                    <span className="funnel-kpi-label">Shutter</span>
+                    <span className="funnel-kpi-value">{fmtNumber(photoMix.shutter)}</span>
+                    <span className="funnel-kpi-sub">Photo_clicked only</span>
+                  </div>
+                  <div className="funnel-kpi">
+                    <span className="funnel-kpi-label">Gallery (inferred)</span>
+                    <span className="funnel-kpi-value">{fmtNumber(photoMix.gallery)}</span>
+                    <span className="funnel-kpi-sub">Crop/clicked, never shutter</span>
+                  </div>
+                  <div className="funnel-kpi">
+                    <span className="funnel-kpi-label">After crop (merged)</span>
+                    <span className="funnel-kpi-value">{fmtNumber(photoMix.merged)}</span>
+                    <span className="funnel-kpi-sub">photo_clicked_1 ∪ photo_clicked_2</span>
+                  </div>
+                  <div className="funnel-kpi">
+                    <span className="funnel-kpi-label">First after crop</span>
+                    <span className="funnel-kpi-value">{fmtNumber(photoMix.merged1)}</span>
+                    <span className="funnel-kpi-sub">Both paths</span>
+                  </div>
+                  <div className="funnel-kpi">
+                    <span className="funnel-kpi-label">Second after crop</span>
+                    <span className="funnel-kpi-value">{fmtNumber(photoMix.merged2)}</span>
+                    <span className="funnel-kpi-sub">Both paths</span>
+                  </div>
+                </div>
+                <ChartCard title="Shutter vs gallery — parallel after camera">
+                  <p className="funnel-note" style={{ marginTop: 0 }}>
+                    Gallery tap has no Firebase event. Gallery-only people are inferred as crop or
+                    photo_clicked_* minus Photo_clicked. Mixed shutter+gallery users count as shutter.
+                    After-crop is the merge — not “taken”.
+                  </p>
+                  <div className="funnel-recharts" style={{ height: 240 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={photoMix.chart} margin={{ top: 12, right: 12, left: 4, bottom: 8 }}>
+                        <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="slot" tick={{ fill: chart.tick, fontSize: 12 }} />
+                        <YAxis tick={{ fill: chart.tick, fontSize: 11 }} width={44} />
+                        <Tooltip contentStyle={tipStyle} />
+                        <Bar dataKey="People" fill="#4f8cff" radius={[4, 4, 0, 0]} maxBarSize={64} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

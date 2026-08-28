@@ -151,13 +151,24 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
     Boolean(latestComplete && endDate && endDate > latestComplete);
   const isDau = config.yKey === 'dau';
   const emptyCompleteRange = !query.isLoading && !query.error && rows.length === 0;
+  const isCoinzyIdentifyFunnel = config.id === 'mvp-identify-funnel' && product.id === 'coinzy';
+  const title = isCoinzyIdentifyFunnel ? '8. Camera → got a success' : config.title;
+  const subtitle = isCoinzyIdentifyFunnel
+    ? 'Of people who opened the Identify camera, what share got a successful ID that same day'
+    : config.subtitle;
+  const chartTitle = isCoinzyIdentifyFunnel
+    ? 'People who opened the camera and got a success'
+    : config.chartTitle;
+  const guide = isCoinzyIdentifyFunnel
+    ? 'Coinzy denominator is camera (Identification_screen ∪ photo_screen), not Identify_bottom_nav ∪ Identify_home — nav also fires when camera opens from Home. Success is identification_done_success ∪ Identification_done. Tab 3 is quality only. The path Camera → Photos → Submit → Success → Details is Funnels → Identify. Add-to-collection cannot be measured (no live success event).'
+    : config.guide;
 
   return (
     <>
       <div className="page-header">
         <div>
-          <h2>{config.title}</h2>
-          <p>{config.subtitle} · {product.shortName}</p>
+          <h2>{title}</h2>
+          <p>{subtitle} · {product.shortName}</p>
         </div>
         <FilterBar params={params} onChange={setParams} onApply={applyFilters} />
       </div>
@@ -169,9 +180,9 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
             Later dates are not ready yet — they are missing, not zero activity.
           </p>
         )}
-        {config.guide && (
+        {guide && (
           <div className="page-hint" style={{ marginBottom: 16 }}>
-            {config.guide}
+            {guide}
           </div>
         )}
         {config.stats && rows.length > 0 && (
@@ -186,7 +197,7 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
         )}
         <div className="chart-grid">
           <ChartCard
-            title={config.chartTitle}
+            title={chartTitle}
             loading={query.isLoading}
             error={query.error?.message}
           >

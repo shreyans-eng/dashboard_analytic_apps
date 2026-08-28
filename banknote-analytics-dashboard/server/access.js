@@ -14,6 +14,8 @@ export const PAGE_CATALOG = [
     { id: 'funnels.identify', label: 'Identify (all)', path: '/funnels/identify' },
     { id: 'funnels.identify-nav', label: 'Scan · bottom nav', path: '/funnels/identify-nav' },
     { id: 'funnels.identify-home', label: 'Scan · home / banner', path: '/funnels/identify-home' },
+    { id: 'funnels.identify-camera', label: 'Scan · camera', path: '/funnels/identify-camera' },
+    { id: 'funnels.identify-gallery', label: 'Scan · gallery', path: '/funnels/identify-gallery' },
     { id: 'funnels.catalogue', label: 'Catalogue (all)', path: '/funnels/catalogue' },
     { id: 'funnels.collection', label: 'Private collection', path: '/funnels/collection' },
     { id: 'funnels.global', label: 'Global catalogue', path: '/funnels/global' },
@@ -51,7 +53,7 @@ export const PAGE_CATALOG = [
     { id: 'explorer.events', label: 'Top Events', path: '/events' },
   ]},
   { section: 'Tools', items: [
-    { id: 'sql', label: 'SQL Editor', path: '/sql' },
+    { id: 'sql', label: 'Query library', path: '/sql' },
   ]},
 ];
 
@@ -77,7 +79,10 @@ export function canAccessPage(user, pageId) {
   const pages = user.permissions?.pages || [];
   if (pages.includes('*') || pages.includes(pageId)) return true;
   if (
-    (pageId === 'funnels.identify-nav' || pageId === 'funnels.identify-home') &&
+    (pageId === 'funnels.identify-nav'
+      || pageId === 'funnels.identify-home'
+      || pageId === 'funnels.identify-camera'
+      || pageId === 'funnels.identify-gallery') &&
     pages.includes('funnels.identify')
   ) {
     return true;
@@ -166,7 +171,7 @@ export function toPublicUser(doc) {
 
 export function pageIdForApiPath(pathname) {
   const p = String(pathname || '');
-  if (p.startsWith('/api/sql') || p === '/api/query/run') return 'sql';
+  if (p.startsWith('/api/sql') || p.startsWith('/api/queries') || p === '/api/query/run') return 'sql';
   if (p.startsWith('/api/analytics/events')) return 'events-explorer';
   const funnel = p.match(/^\/api\/analytics\/funnels\/([^/]+)$/);
   if (funnel && funnel[1] !== '') return `funnels.${funnel[1]}`;

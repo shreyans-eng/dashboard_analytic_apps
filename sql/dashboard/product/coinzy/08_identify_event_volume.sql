@@ -1,6 +1,9 @@
 -- =============================================================================
--- Coinzy MVP #8 — Identify: event volume by screen/action (which fires most)
--- Events from CoinzyAndroid CameraScreen / IdentifyViewModel / CoinAnalysisScreen
+-- Coinzy MVP #8 — Identify: event volume by screen/action
+-- Stages match Camera → Photos → Submit → Success → Details.
+-- Identification_done is success, not submit.
+-- Identification_attempted is API start.
+-- Collection / owned events are Collection-tab actions, not Identify.
 -- =============================================================================
 
 WITH bounds AS (
@@ -27,40 +30,39 @@ labeled AS (
     resolved_user_id,
     event_name_base,
     CASE
-      WHEN event_name_base IN ('Identify_bottom_nav', 'Identify_home') THEN '01_entry'
-      WHEN event_name_base IN ('Identification_screen', 'photo_screen') THEN '02_camera_screen'
+      WHEN event_name_base IN ('Identify_bottom_nav', 'Identify_home') THEN '01_entry_side'
+      WHEN event_name_base IN ('Identification_screen', 'photo_screen') THEN '02_camera'
       WHEN event_name_base IN (
-        'Camera_permission_popup', 'camera_permission_granted', 'camera_permission_denied'
-      ) THEN '03_permission'
-      WHEN event_name_base IN (
-        'photo_clicked_1', 'photo_clicked_2', 'Photo_clicked'
-      ) THEN '04_capture'
+        'Camera_permission_popup', 'camera_permission_granted',
+        'camer_permission_denied', 'camera_permission_denied'
+      ) THEN '03_permission_shutter_only'
+      WHEN event_name_base = 'Photo_clicked' THEN '04_shutter'
       WHEN event_name_base IN (
         'photo_cropping_screen_0', 'photo_cropping_screen_1', 'photo_cropping_screen_2',
         'photo_crop_tick_0', 'photo_crop_tick_1', 'photo_crop_tick_2'
-      ) THEN '05_crop'
+      ) THEN '04b_crop_both_paths'
+      WHEN event_name_base IN ('photo_clicked_1', 'photo_clicked_2') THEN '05_after_crop_merged'
+      WHEN event_name_base IN ('photo_submit_button', 'photos_submitted') THEN '05_submit'
+      WHEN event_name_base = 'Identification_attempted' THEN '05b_api_start'
       WHEN event_name_base IN (
-        'photo_submit_button', 'photos_submitted', 'Identification_done', 'Identification_attempted'
-      ) THEN '06_submit'
+        'Identified_limit_reached', 'identiifcation_limit_exceeded', 'free_scan_limit_exceeded',
+        'free_scan_blocked', 'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
+        'Identification_unsuccessful_limit_reached'
+      ) THEN '06_quota_side'
       WHEN event_name_base IN (
-        'Identified_limit_reached', 'free_scan_limit_exceeded', 'free_scan_blocked',
-        'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
-        'Identification_unsuccessful_limit_reached', 'Collection_limit_Reached'
-      ) THEN '07_quota'
-      WHEN event_name_base IN (
-        'identification_done_success', 'Identification_done_success'
-      ) THEN '08_success'
+        'identification_done_success', 'Identification_done_success', 'Identification_done'
+      ) THEN '07_success'
       WHEN event_name_base IN (
         'identification_done_failure', 'Identification_done_failure',
         'Identification_failed', 'Identification_unsuccessful'
-      ) THEN '09_failure'
+      ) THEN '07b_failure_side'
       WHEN event_name_base IN (
         'identification_all_options_screen', 'idetnification_option_chosen',
-        'identification_option_chosen', 'identification_details_screen',
-        'Coin_details_identification'
-      ) THEN '10_post_id_ui'
-      WHEN event_name_base IN ('owned_button_clicked', 'not_owned_button_clicked')
-        THEN '11_add_collection'
+        'identification_option_chosen'
+      ) THEN '08_options_side'
+      WHEN event_name_base IN (
+        'identification_details_screen', 'Coin_details_identification'
+      ) THEN '09_details'
       ELSE NULL
     END AS funnel_stage
   FROM base

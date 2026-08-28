@@ -150,6 +150,8 @@ This tab is the **rate chart**. Step drop-off is the Identify **funnel** pages, 
 | Identify (all) | `identify` | `FUNNELS.identify` |
 | Scan · bottom nav | `identify-nav` | same steps; entry = `Identify_bottom_nav` |
 | Scan · home / banner | `identify-home` | same steps; entry = `Identify_home` |
+| Scan · camera | `identify-camera` | shutter cohort (`Photo_clicked` / `photo_clicked_*`) |
+| Scan · gallery | `identify-gallery` | gallery cohort; Coinzy excludes `Photo_clicked` |
 | Catalogue (all) | `catalogue` | `BANKNOTE_CATALOGUE` / `COINZY_CATALOGUE` |
 | Private collection | `collection` | subset of catalogue |
 | Global catalogue | `global` | subset of catalogue |

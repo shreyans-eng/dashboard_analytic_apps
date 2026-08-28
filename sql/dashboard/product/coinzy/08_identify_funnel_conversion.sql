@@ -1,7 +1,11 @@
 -- =============================================================================
 -- Coinzy MVP #8 — Identify funnel conversion (raw events)
--- Open: Identify_bottom_nav ∪ Identify_home (CameraScreen / HomeScreen)
--- Photo: photo_clicked_1/2 / Photo_clicked  ·  Submit: photos_submitted / Identification_done
+-- Denominator (identify_open column) = camera, not nav ∪ home.
+-- Identify_bottom_nav also fires when camera opens from Home.
+-- Photos include crop (0-based) + after-crop clicks.
+-- Submit = photos_submitted / photo_submit_button (not Identification_done).
+-- Success = identification_done_success ∪ Identification_done.
+-- photo_captured = after-crop merge (photo_clicked_1/2), not Photo_clicked (shutter only).
 -- =============================================================================
 
 WITH bounds AS (
@@ -27,20 +31,22 @@ base AS (
 SELECT
   event_date,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'Identify_bottom_nav', 'Identify_home'
+    'Identification_screen', 'photo_screen'
   ) THEN resolved_user_id END) AS identify_open,
   COUNT(DISTINCT CASE WHEN event_name_base = 'camera_permission_granted' THEN resolved_user_id END)
     AS camera_granted,
-  COUNT(DISTINCT CASE WHEN event_name_base = 'camera_permission_denied' THEN resolved_user_id END)
-    AS camera_denied,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'photo_clicked_1', 'photo_clicked_2', 'Photo_clicked'
+    'camer_permission_denied', 'camera_permission_denied'
+  ) THEN resolved_user_id END) AS camera_denied,
+  COUNT(DISTINCT CASE WHEN event_name_base = 'Photo_clicked' THEN resolved_user_id END) AS shutter,
+  COUNT(DISTINCT CASE WHEN event_name_base IN (
+    'photo_clicked_1', 'photo_clicked_2'
   ) THEN resolved_user_id END) AS photo_captured,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'photo_submit_button', 'photos_submitted', 'Identification_done'
+    'photo_submit_button', 'photos_submitted'
   ) THEN resolved_user_id END) AS submit,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'identification_done_success', 'Identification_done_success'
+    'identification_done_success', 'Identification_done_success', 'Identification_done'
   ) THEN resolved_user_id END) AS success,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
     'identification_done_failure', 'Identification_done_failure',
@@ -48,32 +54,32 @@ SELECT
   ) THEN resolved_user_id END) AS failure,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'identification_done_success', 'Identification_done_success'
+      'identification_done_success', 'Identification_done_success', 'Identification_done'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Identify_bottom_nav', 'Identify_home'
+      'Identification_screen', 'photo_screen'
     ) THEN resolved_user_id END)
   ) AS open_to_success_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'photo_clicked_1', 'photo_clicked_2', 'Photo_clicked'
+      'photo_clicked_1', 'photo_clicked_2'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Identify_bottom_nav', 'Identify_home'
+      'Identification_screen', 'photo_screen'
     ) THEN resolved_user_id END)
   ) AS open_to_photo_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'identification_done_success', 'Identification_done_success'
+      'identification_done_success', 'Identification_done_success', 'Identification_done'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'photo_submit_button', 'photos_submitted', 'Identification_done'
+      'photo_submit_button', 'photos_submitted'
     ) THEN resolved_user_id END)
   ) AS submit_to_success_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base = 'camera_permission_granted' THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'camera_permission_granted', 'camera_permission_denied'
+      'camera_permission_granted', 'camer_permission_denied', 'camera_permission_denied'
     ) THEN resolved_user_id END)
   ) AS camera_permission_grant_rate
 FROM base

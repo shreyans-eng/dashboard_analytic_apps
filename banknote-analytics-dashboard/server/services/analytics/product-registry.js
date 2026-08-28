@@ -681,6 +681,7 @@ export class ProductAnalyticsFacade {
     const repo = this.registry.getRepo(product);
     const sql = buildFunnelSql(repo.project, repo.dataset, mapped.steps, start, end, {
       cohortEvents: mapped.cohortEvents || [],
+      cohortExcludeEvents: mapped.cohortExcludeEvents || [],
     });
     const packSql = mapped.packMix
       ? buildPackMixSql(repo.project, repo.dataset, {
@@ -690,7 +691,7 @@ export class ProductAnalyticsFacade {
         endDate: end,
       })
       : null;
-    const key = cacheKey(`${product}:funnel:v12:${funnelId}`, { start, end });
+    const key = cacheKey(`${product}:funnel:v19:${funnelId}`, { start, end });
 
     return cached('funnel', key, async () => {
       const [funnelResult, packResult] = await Promise.all([

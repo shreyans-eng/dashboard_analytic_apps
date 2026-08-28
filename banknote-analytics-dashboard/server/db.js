@@ -53,6 +53,7 @@ export async function connectDb() {
     await next.connect();
     const nextDb = next.db(dbName);
     await nextDb.collection('users').createIndex({ username: 1 }, { unique: true });
+    await nextDb.collection('dashboard_queries').createIndex({ path: 1 }, { unique: true });
     client = next;
     db = nextDb;
     try {
