@@ -5,10 +5,10 @@ import { useDashboardMetric } from '@/hooks/useAnalytics';
 interface Props {
   params: QueryParams;
   onChange: (p: QueryParams) => void;
-  onApply: () => void;
+  onApply: (next?: QueryParams) => void;
   showChannel?: boolean;
-  eagerCountries?: boolean;
   showPresets?: boolean;
+  extraCountries?: string[];
 }
 
 export default function FilterBar({
@@ -16,10 +16,11 @@ export default function FilterBar({
   onChange,
   onApply,
   showChannel = false,
-  eagerCountries = false,
   showPresets = false,
+  extraCountries,
 }: Props) {
   const [loadCountries, setLoadCountries] = useState(false);
+  const useRowCountries = Array.isArray(extraCountries);
   // Load country options from the same date range (no country/platform filter).
   const listParams = useMemo(
     () => ({
@@ -31,19 +32,21 @@ export default function FilterBar({
   const countriesQ = useDashboardMetric(
     'countries',
     listParams,
-    eagerCountries || loadCountries || Boolean(params.country),
+    !useRowCountries && (loadCountries || Boolean(params.country)),
   );
 
   const countries = useMemo(() => {
-    const fromApi = (countriesQ.data ?? [])
-      .map((r) => String(r.country ?? '').trim())
-      .filter((c) => c && (showChannel || c !== 'Unknown'));
+    const fromApi = useRowCountries
+      ? extraCountries
+      : (countriesQ.data ?? [])
+          .map((r) => String(r.country ?? '').trim())
+          .filter((c) => c && (showChannel || c !== 'Unknown'));
     const selected = params.country?.trim();
-    const set = new Set(fromApi);
+    const set = new Set(fromApi.map((c) => String(c || '').trim()).filter(Boolean));
     if (selected) set.add(selected);
     if (showChannel) set.add('Unknown');
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [countriesQ.data, params.country, showChannel]);
+  }, [countriesQ.data, extraCountries, params.country, showChannel, useRowCountries]);
 
   return (
     <div className="filters">
@@ -112,8 +115,9 @@ export default function FilterBar({
               type="button"
               className={params.days === days ? 'on' : ''}
               onClick={() => {
-                onChange({ ...params, ...defaultDateRange(days) });
-                onApply();
+                const next = { ...params, ...defaultDateRange(days) };
+                onChange(next);
+                onApply(next);
               }}
             >
               Last {days}d
@@ -121,7 +125,7 @@ export default function FilterBar({
           ))}
         </div>
       )}
-      <button type="button" onClick={onApply}>Apply</button>
+      <button type="button" onClick={() => onApply()}>Apply</button>
     </div>
   );
 }

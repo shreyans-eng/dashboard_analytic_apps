@@ -9,20 +9,41 @@ export interface QueryParams {
   days?: number;
   /** banknote | coinzy | compare */
   product?: string;
+  page?: number;
+  page_size?: number;
+  search?: string;
+  paginate?: boolean | string;
 }
 
 export interface QueryResult {
   sql: string;
   rows: Record<string, unknown>[];
   count: number;
+  total?: number;
+  page?: number;
+  page_size?: number;
+  page_count?: number;
+  daily?: Record<string, unknown>[];
+  by_channel?: Record<string, unknown>[];
+  totals?: Record<string, unknown>;
+  countries?: string[];
   bytesProcessed?: number;
   cached?: boolean;
   error?: string;
   products?: string[];
+  summary?: Record<string, unknown>[];
+  warnings?: string[];
+  source?: string;
+  refreshed_at?: string | Date | null;
+  latestCompleteDate?: string | null;
+  incompleteDates?: boolean;
+  dataUnavailable?: boolean;
+  /** Compare-ltv: per-product sources */
+  sources?: { product: string; source: string | null }[];
 }
 
 export interface KpiSummary {
-  dau: number;
+  dau: number | null;
   mau: number;
   newUsers: number;
   d1: number;
@@ -33,6 +54,7 @@ export interface DashboardStatus {
   lastRefresh: string | null;
   tables: Record<string, string | null>;
   intraday: { intradayEnabled: boolean; checkedAt: string | null };
+  latestCompleteDate?: string | null;
   summaryDataset?: string;
   product?: string;
   project?: string;
@@ -88,10 +110,13 @@ export interface FunnelRow {
   is_core?: boolean;
   is_drop?: boolean;
   users?: number;
+  once_users?: number;
+  repeat_users?: number;
   hits?: number;
   dau?: number;
   pct_of_dau?: number;
   hits_per_user?: number;
+  repeat_share?: number;
   prev_users?: number;
   pct_of_previous?: number;
   drop_off_users?: number;

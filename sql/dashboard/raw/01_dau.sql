@@ -1,18 +1,17 @@
 -- =============================================================================
--- Raw-events DAU (no views required — works with Data Viewer only)
+-- Raw-events DAU — unique users who opened the app or started a session
+-- Qualifying events (suffix-stripped): session_start, App_open, first_open
+-- Identity: GA4 user_id → event param user_id (skip "anonymous") → user_pseudo_id
 -- =============================================================================
 
 SELECT
   PARSE_DATE('%Y%m%d', event_date) AS event_date,
-  COUNT(DISTINCT COALESCE(
-    user_id,
-    (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-    user_pseudo_id
-  )) AS dau
+  COUNT(DISTINCT {{resolved_user_id}}) AS dau
 FROM `{PROJECT}.{DATASET}.events_*`
 WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', {{start_date}})
                         AND FORMAT_DATE('%Y%m%d', {{end_date}})
-  AND _TABLE_SUFFIX NOT LIKE 'intraday_%'
+  AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\d{8}$')
+  AND {{dau_event_predicate}}
   [[AND event_country = {{country}}]]
   [[AND event_platform = {{platform}}]]
 GROUP BY event_date

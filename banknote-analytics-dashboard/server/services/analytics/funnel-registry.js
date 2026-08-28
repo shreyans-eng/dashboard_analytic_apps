@@ -3,10 +3,50 @@
  * Do not add events without evidence. Empty product mapping → insufficient instrumentation.
  */
 
+import { dauEventPredicateSql, resolvedUserIdSql } from './dau-definition.js';
+
 /** @typedef {{ id: string, label: string, events: string[], isDrop?: boolean, core?: boolean }} FunnelStep */
 /** @typedef {{ id: string, title: string, description: string, products: Record<string, FunnelStep[]> }} FunnelDef */
 
-/** Banknote Identify — from Banknote-ai-identification/src/util/analytics.ts */
+/**
+ * Combined “got an image” (core) plus separate camera vs gallery rows.
+ * Core stays click ∪ upload so the main leak is still “never took a photo”.
+ * Side rows answer “did they shoot, or pick from gallery?”
+ */
+function photoCaptureSteps(index, { click, upload, cropScreen, cropTick }) {
+  const nth = index === 1 ? 'First' : 'Second';
+  const lower = nth.toLowerCase();
+  return [
+    {
+      id: `photo_${index}`,
+      label: `${nth} image (camera or gallery)`,
+      events: [click, upload].filter(Boolean),
+      core: true,
+    },
+    {
+      id: `photo_click_${index}`,
+      label: `${nth} image · camera`,
+      events: [click],
+    },
+    {
+      id: `photo_upload_${index}`,
+      label: `${nth} image · gallery`,
+      events: [upload],
+    },
+    {
+      id: `crop_${index}`,
+      label: `Crop ${lower} image`,
+      events: [cropScreen],
+    },
+    {
+      id: `crop_confirm_${index}`,
+      label: `${nth} crop confirmed`,
+      events: [cropTick],
+    },
+  ];
+}
+
+/** Banknote Identify — from Banknote-ai-identification/src/util/analytics.ts + tracking sheet */
 const BANKNOTE_IDENTIFY = [
   {
     id: 'entry',
@@ -36,22 +76,22 @@ const BANKNOTE_IDENTIFY = [
     events: ['camer_permission_denied', 'camera_permission_denied'],
     isDrop: true,
   },
+  ...photoCaptureSteps(1, {
+    click: 'photo_clicked_1',
+    upload: 'photo_uploaded_1',
+    cropScreen: 'photo_cropping_screen_1',
+    cropTick: 'photo_crop_tick_1',
+  }),
+  ...photoCaptureSteps(2, {
+    click: 'photo_clicked_2',
+    upload: 'photo_uploaded_2',
+    cropScreen: 'photo_cropping_screen_2',
+    cropTick: 'photo_crop_tick_2',
+  }),
   {
-    id: 'photo',
-    label: 'Photo click / gallery upload',
-    events: ['photo_clicked_1', 'photo_clicked_2', 'Photo_clicked', 'photo_uploaded_1', 'photo_uploaded_2'],
-    core: true,
-  },
-  {
-    id: 'crop',
-    label: 'Crop screen',
-    events: ['photo_cropping_screen_1', 'photo_cropping_screen_2'],
-    core: true,
-  },
-  {
-    id: 'crop_confirm',
-    label: 'Crop confirmed',
-    events: ['photo_crop_tick_1', 'photo_crop_tick_2'],
+    id: 'photo_unspecified',
+    label: 'Photo (unspecified)',
+    events: ['Photo_clicked'],
   },
   {
     id: 'submit',
@@ -81,6 +121,16 @@ const BANKNOTE_IDENTIFY = [
     id: 'top_matches',
     label: 'Top matches screen',
     events: ['identification_top5_matches'],
+  },
+  {
+    id: 'view_all',
+    label: 'View all other options',
+    events: ['identification_view_all'],
+  },
+  {
+    id: 'all_options',
+    label: 'All options screen',
+    events: ['identification_all_options_screen'],
   },
   {
     id: 'option_chosen',
@@ -130,25 +180,35 @@ const COINZY_IDENTIFY = [
   {
     id: 'permission_denied',
     label: 'Camera permission denied',
-    events: ['camera_permission_denied'],
+    events: ['camer_permission_denied', 'camera_permission_denied'],
     isDrop: true,
   },
+  ...photoCaptureSteps(1, {
+    click: 'photo_clicked_1',
+    upload: 'photo_uploaded_1',
+    cropScreen: 'photo_cropping_screen_0',
+    cropTick: 'photo_crop_tick_0',
+  }),
+  ...photoCaptureSteps(2, {
+    click: 'photo_clicked_2',
+    upload: 'photo_uploaded_2',
+    cropScreen: 'photo_cropping_screen_1',
+    cropTick: 'photo_crop_tick_1',
+  }),
   {
-    id: 'photo',
-    label: 'Photo click / capture',
-    events: ['photo_clicked_1', 'photo_clicked_2', 'Photo_clicked'],
-    core: true,
+    id: 'photo_unspecified',
+    label: 'Photo (unspecified)',
+    events: ['Photo_clicked'],
   },
   {
-    id: 'crop',
-    label: 'Crop screen',
-    events: ['photo_cropping_screen_0', 'photo_cropping_screen_1', 'photo_cropping_screen_2'],
-    core: true,
+    id: 'crop_extra',
+    label: 'Crop (slot 3, unused)',
+    events: ['photo_cropping_screen_2'],
   },
   {
-    id: 'crop_confirm',
-    label: 'Crop confirmed',
-    events: ['photo_crop_tick_0', 'photo_crop_tick_1', 'photo_crop_tick_2'],
+    id: 'crop_confirm_extra',
+    label: 'Crop confirm (slot 3, unused)',
+    events: ['photo_crop_tick_2'],
   },
   {
     id: 'submit',
@@ -161,6 +221,7 @@ const COINZY_IDENTIFY = [
     label: 'Quota / limit block',
     events: [
       'Identified_limit_reached',
+      'identiifcation_limit_exceeded',
       'free_scan_limit_exceeded',
       'free_scan_blocked',
       'free_scan_success_quota_exhausted',
@@ -185,6 +246,11 @@ const COINZY_IDENTIFY = [
       'Identification_unsuccessful',
     ],
     isDrop: true,
+  },
+  {
+    id: 'view_all',
+    label: 'View all other options',
+    events: ['identification_view_all'],
   },
   {
     id: 'all_options',
@@ -552,15 +618,261 @@ const COINZY_PAYWALL = [
   },
 ];
 
+/**
+ * Coinzy Expert Evaluation — events verified in BigQuery (Jul–Aug 2026).
+ * Banknote has no expert_* instrumentation.
+ * Core booking: landing → upload → continue (credit ∪ pay) → queued → report.
+ * Start / list / status sit beside that path (upload users can exceed start).
+ * Core credits: buy credits → continue payment → token received → consumed.
+ */
+export const COINZY_EXPERT_EVENTS = [
+  'expert_evaluation_landing',
+  'expert_evaluations_list',
+  'expert_evaluation_start',
+  'expert_evaluation_buy_credits',
+  'expert_evaluation_view_all',
+  'expert_evaluation_item_click',
+  'expert_upload_photos',
+  'expert_upload_continue_with_credit',
+  'expert_upload_continue_payment',
+  'expert_request_queued',
+  'expert_evaluation_status',
+  'expert_book_new_evaluation',
+  'expert_book_new_evaluation_created',
+  'expert_outbox_retry',
+  'expert_outbox_retry_after_credits',
+  'expert_request_retry_started',
+  'expert_refund_requested',
+  'expert_status_buy_credits_continue_payment',
+  'expert_buy_credits_continue_payment',
+  'expert_token_purchase_received',
+  'expert_token_purchase_pending',
+  'expert_token_purchase_cancelled',
+  'expert_token_purchase_failed',
+  'expert_token_purchase_consumed',
+  'expert_token_verification_failed',
+  'expert_evaluation_report',
+  'expert_rating_submitted',
+  'expert_report_pdf_download',
+  'expert_report_pdf_share',
+  'expert_report_pdf_failed',
+];
+
+const COINZY_EXPERT = [
+  {
+    id: 'landing',
+    label: 'Expert landing',
+    events: ['expert_evaluation_landing'],
+    core: true,
+  },
+  {
+    id: 'start',
+    label: 'Start evaluation',
+    events: ['expert_evaluation_start'],
+  },
+  {
+    id: 'list',
+    label: 'Evaluations list',
+    events: ['expert_evaluations_list'],
+  },
+  {
+    id: 'view_all',
+    label: 'View all evaluations',
+    events: ['expert_evaluation_view_all'],
+  },
+  {
+    id: 'item_click',
+    label: 'Open an evaluation',
+    events: ['expert_evaluation_item_click'],
+  },
+  {
+    id: 'upload',
+    label: 'Upload photos',
+    events: ['expert_upload_photos'],
+    core: true,
+  },
+  {
+    id: 'continue',
+    label: 'Continue (credit or pay)',
+    events: ['expert_upload_continue_with_credit', 'expert_upload_continue_payment'],
+    core: true,
+  },
+  {
+    id: 'queued',
+    label: 'Request queued',
+    events: ['expert_request_queued'],
+    core: true,
+  },
+  {
+    id: 'status',
+    label: 'Evaluation status',
+    events: ['expert_evaluation_status'],
+  },
+  {
+    id: 'report',
+    label: 'Expert report',
+    events: ['expert_evaluation_report'],
+    core: true,
+  },
+  {
+    id: 'rating',
+    label: 'Rating submitted',
+    events: ['expert_rating_submitted'],
+  },
+  {
+    id: 'pdf_download',
+    label: 'Download report PDF',
+    events: ['expert_report_pdf_download'],
+  },
+  {
+    id: 'pdf_share',
+    label: 'Share report PDF',
+    events: ['expert_report_pdf_share'],
+  },
+  {
+    id: 'book_new',
+    label: 'Book new evaluation',
+    events: ['expert_book_new_evaluation'],
+  },
+  {
+    id: 'book_created',
+    label: 'New evaluation created',
+    events: ['expert_book_new_evaluation_created'],
+  },
+  {
+    id: 'retry_outbox',
+    label: 'Outbox retry',
+    events: ['expert_outbox_retry'],
+  },
+  {
+    id: 'retry_after_credits',
+    label: 'Retry after credits',
+    events: ['expert_outbox_retry_after_credits'],
+  },
+  {
+    id: 'retry_started',
+    label: 'Request retry started',
+    events: ['expert_request_retry_started'],
+  },
+  {
+    id: 'refund',
+    label: 'Refund requested',
+    events: ['expert_refund_requested'],
+    isDrop: true,
+  },
+  {
+    id: 'pdf_failed',
+    label: 'Report PDF failed',
+    events: ['expert_report_pdf_failed'],
+    isDrop: true,
+  },
+  {
+    id: 'buy_credits',
+    label: 'Buy expert credits',
+    events: ['expert_evaluation_buy_credits'],
+    core: true,
+  },
+  {
+    id: 'credits_continue',
+    label: 'Credits → continue payment',
+    events: [
+      'expert_buy_credits_continue_payment',
+      'expert_status_buy_credits_continue_payment',
+    ],
+    core: true,
+  },
+  {
+    id: 'token_received',
+    label: 'Token purchase received',
+    events: ['expert_token_purchase_received'],
+    core: true,
+  },
+  {
+    id: 'token_consumed',
+    label: 'Token consumed',
+    events: ['expert_token_purchase_consumed'],
+    core: true,
+  },
+  {
+    id: 'token_pending',
+    label: 'Token purchase pending',
+    events: ['expert_token_purchase_pending'],
+  },
+  {
+    id: 'token_cancelled',
+    label: 'Token purchase cancelled',
+    events: ['expert_token_purchase_cancelled'],
+    isDrop: true,
+  },
+  {
+    id: 'token_failed',
+    label: 'Token purchase failed',
+    events: ['expert_token_purchase_failed'],
+    isDrop: true,
+  },
+  {
+    id: 'token_verify_fail',
+    label: 'Token verification failed',
+    events: ['expert_token_verification_failed'],
+    isDrop: true,
+  },
+];
+
+function withIdentifyEntry(steps, entryLabel, entryEvents) {
+  return steps.map((s) => (
+    s.id === 'entry' ? { ...s, label: entryLabel, events: entryEvents } : s
+  ));
+}
+
+const COLLECTION_STEP_IDS = new Set([
+  'collection_tab', 'collection_screen', 'collection_clicked',
+  'sub_collection', 'sub_item', 'details_collection',
+]);
+const GLOBAL_STEP_IDS = new Set([
+  'global_cta', 'global_screen', 'global_item', 'details_global',
+]);
+const MARKET_STEP_IDS = new Set([
+  'market_tab', 'market_screen', 'market_item', 'sale_details',
+  'contact', 'sell_cta', 'listing_created',
+]);
+const FEED_STEP_IDS = new Set([
+  'feed_tab', 'feed_screen', 'feed_engage', 'feed_post',
+]);
+
+function pickSteps(steps, ids, extraCoreIds = []) {
+  const extra = new Set(extraCoreIds);
+  return steps.filter((s) => ids.has(s.id)).map((s) => (
+    extra.has(s.id) ? { ...s, core: true } : s
+  ));
+}
+
 /** @type {Record<string, FunnelDef>} */
 export const FUNNELS = {
   identify: {
     id: 'identify',
     title: 'Identify funnel',
-    description: 'Entry → camera → photo → crop → submit → success/failure → details',
+    description: 'All entries → camera → first image (camera or gallery) → second image → submit → success',
     products: {
       banknote: BANKNOTE_IDENTIFY,
       coinzy: COINZY_IDENTIFY,
+    },
+  },
+  'identify-nav': {
+    id: 'identify-nav',
+    title: 'Scan funnel · bottom nav',
+    description: 'Identify_bottom_nav → camera → first image (camera or gallery) → second image → submit → success',
+    products: {
+      banknote: withIdentifyEntry(BANKNOTE_IDENTIFY, 'Bottom nav Identify', ['Identify_bottom_nav']),
+      coinzy: withIdentifyEntry(COINZY_IDENTIFY, 'Bottom nav Identify', ['Identify_bottom_nav']),
+    },
+  },
+  'identify-home': {
+    id: 'identify-home',
+    title: 'Scan funnel · home / banner',
+    description: 'Identify_home (home/banner CTA) → camera → first image (camera or gallery) → second image → submit → success',
+    products: {
+      banknote: withIdentifyEntry(BANKNOTE_IDENTIFY, 'Home / banner Identify', ['Identify_home']),
+      coinzy: withIdentifyEntry(COINZY_IDENTIFY, 'Home / banner Identify', ['Identify_home']),
     },
   },
   catalogue: {
@@ -572,13 +884,40 @@ export const FUNNELS = {
       coinzy: COINZY_CATALOGUE,
     },
   },
+  collection: {
+    id: 'collection',
+    title: 'Private collection funnel',
+    description: 'Bottom nav / collection screen → card → sub-collection → details',
+    products: {
+      banknote: pickSteps(BANKNOTE_CATALOGUE, COLLECTION_STEP_IDS, ['collection_tab']),
+      coinzy: pickSteps(COINZY_CATALOGUE, COLLECTION_STEP_IDS, ['collection_tab']),
+    },
+  },
+  global: {
+    id: 'global',
+    title: 'Global catalogue funnel',
+    description: 'Global catalogue screen → item → details',
+    products: {
+      banknote: pickSteps(BANKNOTE_CATALOGUE, GLOBAL_STEP_IDS),
+      coinzy: pickSteps(COINZY_CATALOGUE, GLOBAL_STEP_IDS),
+    },
+  },
   marketplace: {
     id: 'marketplace',
-    title: 'Marketplace + Feed funnel',
-    description: 'Marketplace listing path and Feed engagement',
+    title: 'Marketplace funnel',
+    description: 'Marketplace nav → listings → sale details → contact seller',
     products: {
-      banknote: BANKNOTE_MARKETPLACE,
-      coinzy: COINZY_MARKETPLACE,
+      banknote: pickSteps(BANKNOTE_MARKETPLACE, MARKET_STEP_IDS),
+      coinzy: pickSteps(COINZY_MARKETPLACE, MARKET_STEP_IDS),
+    },
+  },
+  feed: {
+    id: 'feed',
+    title: 'Feed funnel',
+    description: 'Feed nav → screen → like / comment → create post',
+    products: {
+      banknote: pickSteps(BANKNOTE_MARKETPLACE, FEED_STEP_IDS, ['feed_tab', 'feed_engage']),
+      coinzy: pickSteps(COINZY_MARKETPLACE, FEED_STEP_IDS, ['feed_tab', 'feed_engage']),
     },
   },
   paywall: {
@@ -588,6 +927,14 @@ export const FUNNELS = {
     products: {
       banknote: BANKNOTE_PAYWALL,
       coinzy: COINZY_PAYWALL,
+    },
+  },
+  expert: {
+    id: 'expert',
+    title: 'Expert evaluation funnel',
+    description: 'Landing → upload → continue → queued → report; credits → token consumed',
+    products: {
+      coinzy: COINZY_EXPERT,
     },
   },
 };
@@ -625,8 +972,9 @@ export function sqlStringLiteral(s) {
  * Skips UNNEST(event_params) so BigQuery does not bill the fat nested column.
  * Logged-in users still resolve via top-level user_id; everyone has user_pseudo_id.
  */
-const CHEAP_USER = 'COALESCE(user_id, user_pseudo_id)';
+const CHEAP_USER = resolvedUserIdSql({ cheap: true });
 const EVENT_BASE = `REGEXP_REPLACE(event_name, r'_(android|ios)$', '')`;
+const DAU_EVENT = dauEventPredicateSql('event_name');
 
 /**
  * One events_* scan (event_name + user_id + user_pseudo_id only).
@@ -635,13 +983,19 @@ const EVENT_BASE = `REGEXP_REPLACE(event_name, r'_(android|ios)$', '')`;
 export function buildFunnelSql(project, dataset, steps, startDate, endDate) {
   const startS = startDate.replace(/-/g, '');
   const endS = endDate.replace(/-/g, '');
+  const allEvents = [...new Set(steps.flatMap((s) => s.events || []))];
+  const allList = allEvents.map(sqlStringLiteral).join(', ');
 
-  const aggCols = steps.map((step, i) => {
+  const userHits = steps.map((step, i) => {
     const evList = step.events.map(sqlStringLiteral).join(', ');
-    return `
-    COUNT(DISTINCT IF(${EVENT_BASE} IN (${evList}), ${CHEAP_USER}, NULL)) AS users_${i},
-    COUNTIF(${EVENT_BASE} IN (${evList})) AS hits_${i}`;
-  }).join(',');
+    return `COUNTIF(${EVENT_BASE} IN (${evList})) AS hits_${i}`;
+  }).join(',\n    ');
+
+  const aggCols = steps.map((_, i) => `
+    COUNTIF(hits_${i} > 0) AS users_${i},
+    COUNTIF(hits_${i} = 1) AS once_${i},
+    COUNTIF(hits_${i} >= 2) AS repeat_${i},
+    SUM(hits_${i}) AS hits_${i}`).join(',');
 
   const unpack = steps.map((step, i) => `
   SELECT
@@ -652,18 +1006,30 @@ export function buildFunnelSql(project, dataset, steps, startDate, endDate) {
     ${step.core ? 'TRUE' : 'FALSE'} AS is_core,
     ${step.isDrop ? 'TRUE' : 'FALSE'} AS is_drop,
     users_${i} AS users,
+    once_${i} AS once_users,
+    repeat_${i} AS repeat_users,
     hits_${i} AS hits,
     dau
   FROM agg`).join('\n  UNION ALL\n');
 
   return `
-WITH agg AS (
+WITH per_user AS (
   SELECT
-    COUNT(DISTINCT ${CHEAP_USER}) AS dau,
-    ${aggCols.trim()}
+    ${CHEAP_USER} AS uid,
+    COUNTIF(${DAU_EVENT}) AS dau_hits,
+    ${userHits}
   FROM \`${project}.${dataset}.events_*\`
   WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
     AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\\d{8}$')
+    AND (${DAU_EVENT}${allList ? ` OR ${EVENT_BASE} IN (${allList})` : ''})
+  GROUP BY uid
+),
+agg AS (
+  SELECT
+    COUNTIF(dau_hits > 0) AS dau,
+    ${aggCols.trim()}
+  FROM per_user
+  WHERE uid IS NOT NULL
 ),
 steps AS (
 ${unpack}
@@ -684,10 +1050,13 @@ SELECT
   s.is_core,
   s.is_drop,
   s.users,
+  s.once_users,
+  s.repeat_users,
   s.hits,
   s.dau,
   SAFE_DIVIDE(s.users, s.dau) AS pct_of_dau,
   SAFE_DIVIDE(s.hits, NULLIF(s.users, 0)) AS hits_per_user,
+  SAFE_DIVIDE(s.repeat_users, NULLIF(s.users, 0)) AS repeat_share,
   c.prev_users,
   SAFE_DIVIDE(s.users, c.prev_users) AS pct_of_previous,
   CASE

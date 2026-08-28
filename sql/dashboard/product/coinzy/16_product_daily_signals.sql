@@ -2,13 +2,13 @@
 -- Coinzy daily product signals (raw events) — Compare + MVP rollup
 -- Verified from CoinzyAndroid: Collection_screen / collection_bottom_nav,
 -- marketplace_screen / marketplace_bottom_nav, Subs_page / subs_confirm.
--- Cheap identity: COALESCE(user_id, user_pseudo_id) — no event_params UNNEST.
+-- Cheap identity: GA4 user_id (skip placeholders) then user_pseudo_id — no event_params UNNEST.
 -- =============================================================================
 
 WITH base AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
-    COALESCE(user_id, user_pseudo_id) AS resolved_user_id,
+    {{resolved_user_id_cheap}} AS resolved_user_id,
     REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base
   FROM `{PROJECT}.{DATASET}.events_*`
   WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', {{start_date}})
@@ -21,7 +21,10 @@ WITH base AS (
 
 SELECT
   event_date,
-  COUNT(DISTINCT resolved_user_id) AS dau,
+  COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END) AS dau,
+  COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END) AS app_open_dau,
+  COUNT(DISTINCT CASE WHEN {{notification_event_predicate_base}} THEN resolved_user_id END) AS notification_dau,
+  COUNT(DISTINCT resolved_user_id) AS any_event_dau,
   COUNT(DISTINCT CASE
     WHEN event_name_base IN ('first_open', 'first_open_android', 'first_open_ios')
     THEN resolved_user_id END) AS installs,
@@ -42,7 +45,7 @@ SELECT
   ) AS identification_success_rate,
   SAFE_DIVIDE(
     COUNTIF(event_name_base IN ('identification_done_success', 'Identification_done_success')),
-    COUNT(DISTINCT resolved_user_id)
+    COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END)
   ) AS scans_per_dau,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
@@ -83,7 +86,7 @@ SELECT
       'Collection_screen', 'Global_catalogue_screen', 'collection_bottom_nav',
       'Collection_open', 'collection_open', 'Collection', 'My_collection'
     ) THEN resolved_user_id END),
-    COUNT(DISTINCT resolved_user_id)
+    COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END)
   ) AS catalogue_open_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
@@ -92,7 +95,7 @@ SELECT
       'Marketplace_open', 'marketplace_open', 'Market_open',
       'Listing_view', 'listing_view'
     ) THEN resolved_user_id END),
-    COUNT(DISTINCT resolved_user_id)
+    COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END)
   ) AS marketplace_engagement_rate,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
     'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',

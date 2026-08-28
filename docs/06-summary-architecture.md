@@ -37,12 +37,14 @@ Views (v_*) → raw SQL → clear error
 | `platform_metrics` | date × platform | Platform |
 | `top_events` | date × event_name_base × … | Top events |
 | `product_daily_signals` | date | MVP KPIs + Compare |
-| `cohort_ltv` | cohort_date × country × install_channel × platform | Explorer Cohort LTV |
 | `event_inventory_daily` | date × event_name | Discovery only (optional) |
+
+> **Cohort LTV:** daily BigQuery SELECT → MongoDB `cohort_ltv` (not `analytics_summary`, no BQ write). API serves Mongo with filters/pagination. See [09-cohort-ltv.md](./09-cohort-ltv.md).
 
 SQL builders: `sql/scheduled/*.sql`  
 Dashboard readers: `sql/dashboard/summary/*.sql`  
 Raw fallbacks: `sql/dashboard/raw/*.sql`  
+LTV refresh SELECT: `sql/scheduled/cohort_ltv_mongo.sql`  
 View path: `sql/dashboard/*.sql` + `sql/dashboard/product/*.sql`
 
 ## KPI mappings
@@ -75,9 +77,30 @@ API responses include `source: summary | view | raw` when queries run through th
 
 ## Freshness
 
-- Raw: Firebase → BigQuery **daily** export (not real-time).  
-- Summary: refreshed by `npm run refresh-summaries:product` (run after export lands, e.g. ~08:00–10:00 UTC).  
+- Raw: Firebase → BigQuery **daily** export (not real-time). There are currently **no** `events_intraday_*` tables.
+- Latest **complete** DAU day = `MAX(events_YYYYMMDD)` in the dataset. The dashboard omits later dates instead of showing 0.
+- Summary: refreshed by `npm run refresh-summaries:product` (run after export lands, e.g. ~08:00–10:00 UTC).
 - Cache: may serve summary results up to TTL after refresh.
+
+## DAU (three series)
+
+Do not mix notification users into app-open DAU. `dau` on the dashboard is always **app-open**.
+
+| Field | Meaning | Events (suffix `_android` / `_ios` stripped) |
+|-------|---------|-----------------------------------------------|
+| `app_open_dau` / `dau` | Opened the app or started a session | `session_start`, `App_open`, `first_open` |
+| `notification_dau` | Received / displayed / tapped a push | `notification_display`, `notification_receive`, `notification_foreground`, `notification_open`, `notification_opened`, `notification_dismiss`, `notification_interact` |
+| `any_event_dau` | Any Firebase activity that day | any event in `events_*` |
+
+Not in `notification_dau`: in-app permission / onboarding (`Notification_permission_*`, `onboarding_notification_permission*`) and in-app `notif_popup` / `notif_popup_android` / `notif_popup_ios`. Those are app UX, not push delivery.
+
+Computed from raw `events_*` on every summary refresh — never copied from an older `dau` value. Shared predicates: `banknote-analytics-dashboard/server/services/analytics/dau-definition.js`.
+
+`product_daily_signals` is **date-only**. Unfiltered Explorer/MVP/Compare DAU can read it after refresh. Country or platform filters skip that table and query `events_*` so the filter actually changes the number.
+
+Identity: skip placeholder `user_id` values (`anonymous`, empty, `(not set)`); otherwise GA4 `user_id` → event param `user_id` → `user_pseudo_id`.
+
+Flow: Firebase `events_*` → `sql/scheduled/product_daily_signals.sql` → `analytics_summary.product_daily_signals` → API `getProductDailySignals` / `compare-daily` → Compare UI (`Opened the app (DAU)` vs `Notification (display / receive)`).
 
 ## Commands
 
@@ -90,8 +113,6 @@ PRODUCT=coinzy FULL=1 npm run discover-events   # all-time (more $)
 
 # Refresh summaries (discovers date bounds; default window = DAYS or full range)
 PRODUCT=coinzy DAYS=90 npm run refresh-summaries:product
-# Cohort LTV auto-expands lookback to LTV_DAYS (default 210) unless START= is set
-PRODUCT=coinzy DAYS=30 LTV_DAYS=210 npm run refresh-summaries:product
 PRODUCT=coinzy START=2025-06-21 END=2026-08-11 npm run refresh-summaries:product
 PRODUCT=banknote DAYS=90 npm run refresh-summaries:product
 

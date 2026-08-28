@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { applyDauSqlPlaceholders } from './dau-definition.js';
 
 export function today() {
   return new Date().toISOString().slice(0, 10);
@@ -37,6 +38,8 @@ export function prepareSql(rawSql, params = {}, config = {}) {
     .replace(/\{PROJECT\}/g, project)
     .replace(/\{DATASET\}/g, dataset)
     .replace(/\{SUMMARY_DATASET\}/g, summaryDataset);
+
+  sql = applyDauSqlPlaceholders(sql);
 
   sql = sql.replace(/\{\{start_date\}\}/g, `DATE '${startDate}'`);
   sql = sql.replace(/\{\{end_date\}\}/g, `DATE '${endDate}'`);
@@ -84,4 +87,10 @@ export function readSqlFile(sqlRoot, relativePath) {
 export function isMissingTableError(err) {
   const msg = String(err?.message || err).toLowerCase();
   return msg.includes('not found') || msg.includes('does not exist');
+}
+
+/** Summary table exists but is missing a newly added column (pre-refresh). */
+export function isMissingColumnError(err) {
+  const msg = String(err?.message || err).toLowerCase();
+  return msg.includes('unrecognized name') || msg.includes('name not found inside');
 }

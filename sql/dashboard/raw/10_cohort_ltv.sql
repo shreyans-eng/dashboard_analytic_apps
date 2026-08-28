@@ -1,11 +1,13 @@
 -- =============================================================================
--- Cohort LTV (raw events_*) — LTV-30 / 90 / 180 by country × install channel
+-- Cohort LTV — primary dashboard query on existing Firebase export (events_*)
+-- Not using analytics_summary. Grain: cohort_date × country × install_channel
 --
--- Grain: cohort_date × country × install_channel × platform
 -- Cohort: first first_open per user (install date + country + first-touch channel frozen)
 -- Revenue: in_app_purchase / purchase monetary value only (event_value_in_usd or
 --          event_params.value). Refunds subtract. Custom Subs_confirm is NOT revenue.
 -- Maturity: LTV-N and revenue_N are NULL until DATE_DIFF(today, cohort_date) >= N.
+-- Identity: COALESCE(user_id, user_pseudo_id) — do not UNNEST event_params.user_id
+--           on this interactive path (cost standard).
 --
 -- Channel mapping verified on Coinzy + Banknote first_open (Aug 2026):
 --   google-play / organic, google / organic → Organic
@@ -25,20 +27,14 @@ events_in_window AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
     TIMESTAMP_MICROS(event_timestamp) AS event_timestamp,
-    COALESCE(
-      user_id,
-      (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-      user_pseudo_id
-    ) AS resolved_user_id,
+    COALESCE(user_id, user_pseudo_id) AS resolved_user_id,
     REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base,
     event_name,
-    event_value_in_usd,
     geo.country AS geo_country,
     device.operating_system AS device_os,
     platform,
     traffic_source.source AS ts_source,
     traffic_source.medium AS ts_medium,
-    traffic_source.name AS ts_campaign,
     collected_traffic_source.manual_source AS cts_source,
     collected_traffic_source.manual_medium AS cts_medium,
     collected_traffic_source.gclid AS cts_gclid,
@@ -77,7 +73,6 @@ installs AS (
     )) AS platform,
     LOWER(COALESCE(NULLIF(ts_source, ''), NULLIF(cts_source, ''), NULLIF(utm_source, ''), '')) AS src,
     LOWER(COALESCE(NULLIF(ts_medium, ''), NULLIF(cts_medium, ''), NULLIF(utm_medium, ''), '')) AS medium,
-    LOWER(COALESCE(NULLIF(ts_campaign, ''), '')) AS campaign,
     COALESCE(cts_gclid, '') AS gclid,
     event_timestamp
   FROM events_in_window
@@ -88,7 +83,7 @@ cohorts AS (
   SELECT
     resolved_user_id,
     ARRAY_AGG(
-      STRUCT(cohort_date, country, platform, src, medium, campaign, gclid)
+      STRUCT(cohort_date, country, platform, src, medium, gclid)
       ORDER BY event_timestamp
       LIMIT 1
     )[OFFSET(0)] AS touch
@@ -167,7 +162,6 @@ SELECT
   cohort_date,
   country,
   install_channel,
-  platform,
   COUNT(*) AS installs,
   IF(MAX(cohort_age_days) >= 30, SUM(revenue_30), NULL) AS revenue_30,
   IF(MAX(cohort_age_days) >= 90, SUM(revenue_90), NULL) AS revenue_90,
@@ -186,5 +180,5 @@ WHERE TRUE
   [[AND country = {{country}}]]
   [[AND platform = {{platform}}]]
   [[AND install_channel = {{install_channel}}]]
-GROUP BY cohort_date, country, install_channel, platform
-ORDER BY cohort_date, country, install_channel, platform;
+GROUP BY cohort_date, country, install_channel
+ORDER BY cohort_date, country, install_channel;

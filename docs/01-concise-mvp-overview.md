@@ -12,7 +12,7 @@
 
 | # | KPI | One-line meaning |
 |---|-----|------------------|
-| 1 | DAU | Active users / day |
+| 1 | DAU | People who opened the app that day (not notifications) |
 | 2 | Time to first scan | How fast to first successful ID |
 | 3 | Identify success | success ÷ (success + failure) |
 | 4 | Quota hit | Free-limit pressure |

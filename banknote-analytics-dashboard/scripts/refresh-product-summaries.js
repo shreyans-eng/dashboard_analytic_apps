@@ -2,13 +2,15 @@
 /**
  * Multi-product summary refresh from raw events_* (idempotent window refresh).
  *
- * Does NOT mutate Firebase raw tables.
- * Prefer sql/scheduled/*.sql which materialize into analytics_summary.
+ * Does NOT mutate Firebase events_* row data.
+ * KPI summaries materialize into analytics_summary (optional).
+ *
+ * Cohort LTV is NOT refreshed here — use MongoDB:
+ *   PRODUCTS=banknote,coinzy DAYS=30 LTV_DAYS=210 npm run refresh-ltv:mongo
  *
  * Usage:
  *   PRODUCT=coinzy node scripts/refresh-product-summaries.js
  *   PRODUCT=banknote DAYS=90 node scripts/refresh-product-summaries.js
- *   PRODUCT=coinzy START=2025-06-21 END=2026-08-11 INCLUDE_INVENTORY=1 node scripts/refresh-product-summaries.js
  *   PRODUCTS=banknote,coinzy DAYS=30 node scripts/refresh-product-summaries.js
  */
 
@@ -17,6 +19,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { BigQuery } from '@google-cloud/bigquery';
+import { applyDauSqlPlaceholders } from '../server/services/analytics/dau-definition.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -49,11 +52,13 @@ const CORE_FILES = [
   'platform_metrics.sql',
   'top_events.sql',
   'product_daily_signals.sql',
-  'cohort_ltv.sql',
 ];
 
-/** LTV-180 needs cohorts ≥ 180 days old and a re-refresh until that window closes. */
-const LTV_LOOKBACK_DAYS = Number(process.env.LTV_DAYS || 210);
+function allRefreshFiles(includeInventory) {
+  const files = [...CORE_FILES];
+  if (includeInventory) files.push('event_inventory_daily.sql');
+  return files;
+}
 
 function resolveCred(rel) {
   if (!rel) return null;
@@ -72,15 +77,30 @@ function parseDate(s) {
 }
 
 async function ensureSummaryDataset(bq, project, summaryDataset) {
+  const ds = bq.dataset(summaryDataset);
+  try {
+    await ds.get();
+    console.log(`  dataset ${project}.${summaryDataset}: exists`);
+    return;
+  } catch (e) {
+    if (!/Not found|404/i.test(String(e.message || e))) throw e;
+  }
+
   try {
     await bq.createDataset(summaryDataset, { location: 'US' });
     console.log(`  dataset ${project}.${summaryDataset}: created`);
   } catch (e) {
-    if (e.code === 409 || /Already Exists/i.test(e.message)) {
+    if (e.code === 409 || /Already Exists/i.test(String(e.message || e))) {
       console.log(`  dataset ${project}.${summaryDataset}: exists`);
-    } else {
-      throw e;
+      return;
     }
+    // Do not continue — CREATE TABLE would fail with a confusing "dataset not found".
+    throw new Error(
+      `[${project}] Dataset ${summaryDataset} is missing and this service account cannot create it ` +
+        `(${String(e.message || e).split('\n')[0]}). ` +
+        `Create ${project}.${summaryDataset} once in BigQuery (location US), then grant the SA ` +
+        `bigquery.dataEditor on that dataset. Application code cannot fix this IAM gap.`,
+    );
   }
 }
 
@@ -117,6 +137,8 @@ function substituteSql(raw, { project, dataset, summaryDataset, startSuffix, end
     .replace(/\{END_DATE\}/g, endDate);
 
   sql = sql.replaceAll(`${project}.analytics_summary`, `${project}.${summaryDataset}`);
+
+  sql = applyDauSqlPlaceholders(sql);
 
   if (!raw.includes('{START_SUFFIX}') && !raw.includes('{START_DATE}')) {
     // Table suffix windows
@@ -163,8 +185,19 @@ async function refreshProduct(productId, opts) {
   }
 
   const bq = new BigQuery({ projectId: cfg.project, keyFilename });
-  console.log(`\n======== ${productId} → ${cfg.project}.${cfg.summaryDataset} ========`);
 
+  let files = allRefreshFiles(opts.includeInventory);
+  if (opts.onlyFiles?.length) {
+    const allow = new Set(opts.onlyFiles.map((f) => (f.endsWith('.sql') ? f : `${f}.sql`)));
+    files = files.filter((f) => allow.has(f));
+    if (!files.length) {
+      throw new Error(
+        `[${productId}] ONLY_FILES matched nothing. Available: ${allRefreshFiles(true).join(', ')}`,
+      );
+    }
+  }
+
+  console.log(`\n======== ${productId} → ${cfg.project}.${cfg.summaryDataset} ========`);
   await ensureSummaryDataset(bq, cfg.project, cfg.summaryDataset);
 
   const bounds = await discoverBounds(bq, cfg.project, cfg.dataset);
@@ -194,9 +227,7 @@ async function refreshProduct(productId, opts) {
   const startSuffix = start.replace(/-/g, '');
   const endSuffix = end.replace(/-/g, '');
   console.log(`  refresh window: ${start} → ${end} (${startSuffix}–${endSuffix})`);
-
-  const files = [...CORE_FILES];
-  if (opts.includeInventory) files.push('event_inventory_daily.sql');
+  if (opts.onlyFiles?.length) console.log(`  ONLY_FILES: ${files.join(', ')}`);
 
   let totalBytes = 0;
   for (const file of files) {
@@ -206,29 +237,12 @@ async function refreshProduct(productId, opts) {
       continue;
     }
     const raw = fs.readFileSync(full, 'utf8');
-    let fileStartSuffix = startSuffix;
-    let fileEndSuffix = endSuffix;
-    if (file === 'cohort_ltv.sql' && !opts.start) {
-      const endD = parseDate(end);
-      const ltvStartD = new Date(endD);
-      ltvStartD.setUTCDate(ltvStartD.getUTCDate() - (LTV_LOOKBACK_DAYS - 1));
-      const earliestD = parseDate(bounds.earliest);
-      const windowStartD = parseDate(start);
-      const earlier = ltvStartD < windowStartD ? ltvStartD : windowStartD;
-      const clamped = earlier < earliestD ? earliestD : earlier;
-      fileStartSuffix = clamped.toISOString().slice(0, 10).replace(/-/g, '');
-      if (fileStartSuffix !== startSuffix) {
-        console.log(
-          `  ${file}: expanding cohort lookback ${fileStartSuffix} → ${endSuffix} (LTV_DAYS=${LTV_LOOKBACK_DAYS})`,
-        );
-      }
-    }
     const sql = substituteSql(raw, {
       project: cfg.project,
       dataset: cfg.dataset,
       summaryDataset: cfg.summaryDataset,
-      startSuffix: fileStartSuffix,
-      endSuffix: fileEndSuffix,
+      startSuffix,
+      endSuffix,
       days: opts.days,
     });
     try {
@@ -261,12 +275,26 @@ async function main() {
   const includeInventory = ['1', 'true', 'yes'].includes(
     String(process.env.INCLUDE_INVENTORY || '').toLowerCase(),
   );
+  const onlyFiles = (process.env.ONLY_FILES || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   const results = [];
+  const failures = [];
   for (const id of productList) {
-    results.push(await refreshProduct(id, { days, start, end, includeInventory }));
+    try {
+      results.push(await refreshProduct(id, { days, start, end, includeInventory, onlyFiles }));
+    } catch (e) {
+      const message = String(e?.message || e);
+      console.error(`\n✗ ${id} failed: ${message}`);
+      failures.push({ productId: id, error: message });
+    }
   }
-  console.log('\nSummary:', JSON.stringify(results, null, 2));
+  console.log('\nSummary:', JSON.stringify({ ok: results, failed: failures }, null, 2));
+  if (failures.length) {
+    process.exitCode = 1;
+  }
 }
 
 main().catch((e) => {

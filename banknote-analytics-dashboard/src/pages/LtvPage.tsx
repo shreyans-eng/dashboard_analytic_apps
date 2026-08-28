@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, CircleDollarSign } from 'lucide-react';
 import FilterBar from '@/components/FilterBar';
 import ChartCard from '@/components/ChartCard';
 import { useTheme } from '@/lib/theme';
-import { useDashboardMetric } from '@/hooks/useAnalytics';
+import { useLtv } from '@/hooks/useAnalytics';
 import { fmtNumber, fmtPercent, fmtUsd, QueryParams } from '@/lib/api';
 import { useProduct } from '@/lib/product';
 
@@ -85,8 +85,30 @@ interface Props {
 export default function LtvPage({ params, setParams, applyFilters }: Props) {
   const { product, isCompare } = useProduct();
   const { chart } = useTheme();
-  const q = useDashboardMetric('ltv', params, !isCompare);
-  const rows = (q.data ?? []) as LtvRow[];
+  const [tableQuery, setTableQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
+
+  const ltvParams = useMemo(
+    () => ({
+      ...params,
+      page,
+      page_size: pageSize,
+      search: tableQuery.trim() || undefined,
+      paginate: true,
+    }),
+    [params, page, pageSize, tableQuery],
+  );
+
+  const q = useLtv(ltvParams, !isCompare);
+  const rows = (q.data?.rows ?? []) as LtvRow[];
+  const dataSource = q.data?.source;
+  const total = Number(q.data?.total ?? rows.length);
+  const pageCount = Math.max(
+    1,
+    Number(q.data?.page_count ?? (Math.ceil(total / pageSize) || 1)),
+  );
+  const safePage = Math.min(page, pageCount - 1);
 
   const tipStyle = useMemo(
     () => ({
@@ -98,6 +120,15 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
   );
 
   const daily = useMemo(() => {
+    if (Array.isArray(q.data?.daily) && q.data.daily.length) {
+      return q.data.daily as {
+        event_date: string;
+        installs: number;
+        ltv_30: number | null;
+        ltv_90: number | null;
+        ltv_180: number | null;
+      }[];
+    }
     const byDate = new Map<string, {
       event_date: string;
       installs: number;
@@ -147,9 +178,16 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
         ltv_90: d.inst90 ? d.rev90 / d.inst90 : null,
         ltv_180: d.inst180 ? d.rev180 / d.inst180 : null,
       }));
-  }, [rows]);
+  }, [q.data?.daily, rows]);
 
   const byChannel = useMemo(() => {
+    if (Array.isArray(q.data?.by_channel) && q.data.by_channel.length) {
+      return CHANNELS.map((ch) => {
+        const row = (q.data!.by_channel as { channel: string; installs: number; ltv_30: number | null; ltv_90: number | null; ltv_180: number | null }[])
+          .find((c) => c.channel === ch);
+        return row || { channel: ch, installs: 0, ltv_30: null, ltv_90: null, ltv_180: null };
+      });
+    }
     const acc: Record<string, { channel: string; installs: number; rev30: number; rev90: number; rev180: number; inst30: number; inst90: number; inst180: number }> = {};
     for (const ch of CHANNELS) {
       acc[ch] = { channel: ch, installs: 0, rev30: 0, rev90: 0, rev180: 0, inst30: 0, inst90: 0, inst180: 0 };
@@ -181,9 +219,23 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
       ltv_90: acc[ch].inst90 ? acc[ch].rev90 / acc[ch].inst90 : null,
       ltv_180: acc[ch].inst180 ? acc[ch].rev180 / acc[ch].inst180 : null,
     }));
-  }, [rows]);
+  }, [q.data?.by_channel, rows]);
 
   const totals = useMemo(() => {
+    if (q.data?.totals && typeof q.data.totals === 'object') {
+      const t = q.data.totals as {
+        installs?: number;
+        ltv_30?: number | null;
+        ltv_90?: number | null;
+        ltv_180?: number | null;
+      };
+      return {
+        installs: num(t.installs),
+        ltv_30: finite(t.ltv_30),
+        ltv_90: finite(t.ltv_90),
+        ltv_180: finite(t.ltv_180),
+      };
+    }
     let installs = 0;
     let rev30 = 0;
     let rev90 = 0;
@@ -215,39 +267,23 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
       ltv_90: inst90 ? rev90 / inst90 : null,
       ltv_180: inst180 ? rev180 / inst180 : null,
     };
-  }, [rows]);
-
-  const [tableQuery, setTableQuery] = useState('');
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(25);
-
-  const filteredRows = useMemo(() => {
-    const q = tableQuery.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      const hay = [
-        String(r.cohort_date).slice(0, 10),
-        r.country || 'Unknown',
-        r.install_channel || '',
-      ].join(' ').toLowerCase();
-      return hay.includes(q);
-    });
-  }, [rows, tableQuery]);
+  }, [q.data?.totals, rows]);
 
   useEffect(() => {
     setPage(0);
-  }, [tableQuery, pageSize, params.start_date, params.end_date, params.country, params.platform, params.install_channel, rows.length]);
+  }, [tableQuery, pageSize, params.start_date, params.end_date, params.country, params.platform, params.install_channel]);
 
-  const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageRows = filteredRows.slice(safePage * pageSize, safePage * pageSize + pageSize);
-  const from = filteredRows.length === 0 ? 0 : safePage * pageSize + 1;
-  const to = Math.min(filteredRows.length, safePage * pageSize + pageSize);
+  const from = total === 0 ? 0 : safePage * pageSize + 1;
+  const to = Math.min(total, safePage * pageSize + rows.length);
 
   const setChannel = (channel: string | undefined) => {
     setParams({ ...params, install_channel: channel });
     applyFilters();
   };
+
+  const extraCountries = Array.isArray(q.data?.countries) && q.data.countries.length
+    ? q.data.countries.map(String)
+    : Array.from(new Set(rows.map((r) => String(r.country || 'Unknown').trim()).filter(Boolean)));
 
   return (
     <>
@@ -261,6 +297,7 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
             Revenue in the N days after install ÷ installs · {product.shortName}. Date range is{' '}
             <strong>install (cohort) dates</strong>, not purchase dates. Include dates at least 30 / 90 / 180
             days ago for LTV-30 / 90 / 180; newer cohorts stay empty until they mature.
+            {dataSource ? ` · source: ${dataSource}` : ''}
           </p>
         </div>
         <FilterBar
@@ -268,8 +305,8 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
           onChange={setParams}
           onApply={applyFilters}
           showChannel
-          eagerCountries
           showPresets
+          extraCountries={extraCountries}
         />
       </div>
 
@@ -282,6 +319,11 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
 
         {!isCompare && (
           <>
+            {q.error && (
+              <div className="empty-state error" style={{ marginBottom: 12 }}>
+                {q.error.message}
+              </div>
+            )}
             <div className="ltv-channel-help">
               <h3>What Organic, Paid, and Direct mean</h3>
               <p>
@@ -437,7 +479,7 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
                 <span className="muted small">
                   {q.isLoading
                     ? 'Loading…'
-                    : `${fmtNumber(from)}–${fmtNumber(to)} of ${fmtNumber(filteredRows.length)}`}
+                    : `${fmtNumber(from)}–${fmtNumber(to)} of ${fmtNumber(total)}`}
                 </span>
               </div>
               <div className="table-wrap funnel-table">
@@ -455,7 +497,7 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageRows.map((r, i) => (
+                    {rows.map((r, i) => (
                       <tr key={`${r.cohort_date}-${r.country}-${r.install_channel}-${safePage}-${i}`}>
                         <td>{String(r.cohort_date).slice(0, 10)}</td>
                         <td>{r.country || 'Unknown'}</td>
@@ -469,7 +511,7 @@ export default function LtvPage({ params, setParams, applyFilters }: Props) {
                         <td className="muted">{r.paid_rate_30 == null ? '—' : fmtPercent(Number(r.paid_rate_30))}</td>
                       </tr>
                     ))}
-                    {!q.isLoading && pageRows.length === 0 && (
+                    {!q.isLoading && rows.length === 0 && (
                       <tr>
                         <td colSpan={8} className="muted" style={{ textAlign: 'center', padding: 24 }}>
                           No rows for these filters.

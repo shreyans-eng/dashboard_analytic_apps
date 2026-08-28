@@ -5,6 +5,7 @@ import {
   Activity,
   Calendar,
   UserPlus,
+  Users,
   TrendingUp,
   Globe,
   Smartphone,
@@ -28,6 +29,9 @@ import {
   LogOut,
   Shield,
   CircleDollarSign,
+  Rss,
+  Award,
+  ClipboardList,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchConfig, AppConfig } from '@/lib/api';
@@ -43,15 +47,22 @@ const NAV = [
   { to: '/', pageId: 'home', label: 'Home', icon: Home },
   { to: '/product', pageId: 'product', label: 'Product Analytics', icon: Sparkles },
   { to: '/compare', pageId: 'compare', label: 'Compare Apps', icon: GitCompareArrows },
+  { to: '/report', pageId: 'report', label: 'Health report', icon: ClipboardList },
   { section: 'Funnels' },
-  { to: '/funnels/identify', pageId: 'funnels.identify', label: 'Identify', icon: ScanLine },
-  { to: '/funnels/catalogue', pageId: 'funnels.catalogue', label: 'Catalogue', icon: BookOpen },
+  { to: '/funnels/identify', pageId: 'funnels.identify', label: 'Identify (all)', icon: ScanLine },
+  { to: '/funnels/identify-nav', pageId: 'funnels.identify-nav', label: 'Scan · bottom nav', icon: ScanLine },
+  { to: '/funnels/identify-home', pageId: 'funnels.identify-home', label: 'Scan · home / banner', icon: ScanLine },
+  { to: '/funnels/catalogue', pageId: 'funnels.catalogue', label: 'Catalogue (all)', icon: BookOpen },
+  { to: '/funnels/collection', pageId: 'funnels.collection', label: 'Private collection', icon: BookOpen },
+  { to: '/funnels/global', pageId: 'funnels.global', label: 'Global catalogue', icon: Globe },
   { to: '/funnels/marketplace', pageId: 'funnels.marketplace', label: 'Marketplace', icon: ShoppingBag },
+  { to: '/funnels/feed', pageId: 'funnels.feed', label: 'Feed', icon: Rss },
   { to: '/funnels/paywall', pageId: 'funnels.paywall', label: 'Paywall', icon: PiggyBank },
+  { to: '/funnels/expert', pageId: 'funnels.expert', label: 'Expert evaluation', icon: Award, products: ['coinzy'] },
   { to: '/events-explorer', pageId: 'events-explorer', label: 'Event inventory', icon: ListTree },
   { section: 'MVP KPIs (10)' },
-  { to: '/mvp/dau', pageId: 'mvp.dau', label: '1. DAU', icon: Activity },
-  { to: '/mvp/time-to-first-scan', pageId: 'mvp.time-to-first-scan', label: '2. Time to first scan', icon: Timer },
+  { to: '/mvp/dau', pageId: 'mvp.dau', label: '1. DAU (opened app)', icon: Activity },
+  { to: '/mvp/time-to-first-scan', pageId: 'mvp.time-to-first-scan', label: '2. Install → first scan', icon: Timer },
   { to: '/mvp/identify-success', pageId: 'mvp.identify-success', label: '3. Identify success', icon: ScanLine },
   { to: '/mvp/quota-hit', pageId: 'mvp.quota-hit', label: '4. Quota hit', icon: Target },
   { to: '/mvp/paywall', pageId: 'mvp.paywall', label: '5. Paywall → purchase', icon: PiggyBank },
@@ -63,6 +74,7 @@ const NAV = [
   { section: 'Explorer' },
   { to: '/ltv', pageId: 'explorer.ltv', label: 'Cohort LTV', icon: CircleDollarSign },
   { to: '/dau', pageId: 'explorer.dau', label: 'Daily Active Users', icon: Activity },
+  { to: '/user-mix', pageId: 'explorer.user-mix', label: 'Unique vs repeat', icon: Users },
   { to: '/mau', pageId: 'explorer.mau', label: 'Monthly Active Users', icon: Calendar },
   { to: '/new-users', pageId: 'explorer.new-users', label: 'New Users', icon: UserPlus },
   { to: '/d1-retention', pageId: 'explorer.d1', label: 'D1 Retention', icon: TrendingUp },
@@ -145,6 +157,9 @@ export default function Layout() {
       continue;
     }
     if (item.pageId && !canAccessPage(item.pageId)) continue;
+    if ('products' in item && Array.isArray(item.products)) {
+      if (isCompare || !item.products.includes(productId)) continue;
+    }
     if (pendingSection) {
       navItems.push(pendingSection);
       pendingSection = null;

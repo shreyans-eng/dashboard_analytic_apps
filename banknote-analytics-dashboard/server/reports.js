@@ -94,7 +94,7 @@ function reportHtml({ product, period, kpi, dashboardUrl }) {
       <table style="width:100%;border-collapse:collapse;margin:18px 0">
         <tr>
           <td style="padding:12px;background:#141720;border-radius:8px">
-            <div style="font-size:11px;color:#9aa0b0;text-transform:uppercase">Latest DAU</div>
+            <div style="font-size:11px;color:#9aa0b0;text-transform:uppercase">Latest DAU (opened the app)</div>
             <div style="font-size:26px;font-weight:700">${num(kpi.dau)}</div>
           </td>
           <td style="width:8px"></td>

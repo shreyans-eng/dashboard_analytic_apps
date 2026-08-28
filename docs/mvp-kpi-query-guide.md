@@ -50,7 +50,7 @@ The 10 MVP KPIs answer: *Are we growing? Do people get Identify value? Do free l
 
 | # | KPI | Formula |
 |---|-----|---------|
-| 1 | **DAU** | Distinct `resolved_user_id` per day |
+| 1 | **DAU** | Distinct users with `session_start` / `App_open` / `first_open` that day |
 | 2 | **Time to first scan** | Day-0 first success rate + median seconds install → first `identification_done_success` |
 | 3 | **Identification success rate** | `success / (success + failure)` |
 | 4 | **Quota hit rate** | Users who hit quota ÷ users who attempted a scan |
@@ -187,11 +187,10 @@ Used everywhere (views + raw):
 
 | | Path |
 |--|------|
-| **Banknote query** | `sql/dashboard/product/01_dau.sql` |
-| **Banknote view** | `v_daily_active_users` ← `sql/02_v_daily_active_users.sql` |
-| **Coinzy query** | `sql/dashboard/raw/01_dau.sql` |
-| **Executive** | `sql/dashboard/01_daily_active_users.sql` · summary `summary/01_dau.sql` |
-| **Events** | Any event that day (distinct users). Not a single event name. |
+| **Banknote query** | `sql/dashboard/product/01_dau.sql` (raw `events_*`) |
+| **Coinzy query** | `sql/dashboard/product/coinzy/01_dau.sql` / `sql/dashboard/raw/01_dau.sql` |
+| **Executive** | Same definition; unfiltered Compare may read `product_daily_signals.dau` |
+| **Events** | `session_start`, `App_open` (`_android`/`_ios`), `first_open`. Not `notification_display`. |
 
 ### MVP 2 — Time to first scan
 

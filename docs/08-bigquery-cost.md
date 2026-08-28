@@ -29,7 +29,9 @@ On-demand pricing is about **$6.25 per TiB** scanned (check current Google prici
 
 | Area | Cost path |
 |------|-----------|
-| **MVP 1, 3–5, 7–10 + Compare** | Read `product_daily_signals` (summary). One cached raw scan only if that table is missing. All those KPIs **share** the same cached signals query. |
+| **Explorer / MVP DAU (no country or platform filter)** | `product_daily_signals` summary (megabytes). Cached 24h. |
+| **DAU with country or platform filter** | Raw `events_*` (summary has no country/platform grain). Cached 24h per filter. |
+| **MVP 1, 3–5, 7–10 + Compare** | Same `product_daily_signals` summary. One cached raw scan only if that table is missing. Those KPIs **share** the cached signals query. |
 | **MVP 6 retention + Explorer** | Summary `daily_retention` / `daily_active_users` / etc. first |
 | **MVP 2 time-to-first-scan** | Still needs product SQL / views (not in the signals table). Avoid opening it on a huge date range unless summaries/views exist. |
 | **Funnels** | **One** raw scan of `event_name`, `user_id`, `user_pseudo_id` only. Cached 24h. No `event_params`. |

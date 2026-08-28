@@ -24,7 +24,7 @@ WITH raw_events AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
     user_pseudo_id,
-    user_id AS ga4_user_id,
+    user_id,
     geo.country AS geo_country,
     device.operating_system AS device_os,
     platform,
@@ -34,6 +34,7 @@ WITH raw_events AS (
   WHERE _TABLE_SUFFIX NOT LIKE 'intraday_%'
     AND _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY))
                           AND FORMAT_DATE('%Y%m%d', CURRENT_DATE())
+    AND {{dau_event_predicate}}
   -- Intraday: uncomment block below if events_intraday_* exists
   -- UNION ALL
   -- SELECT ... FROM `{PROJECT}.{DATASET}.events_intraday_*` WHERE ...
@@ -41,7 +42,7 @@ WITH raw_events AS (
 normalized AS (
   SELECT
     event_date,
-    COALESCE(ga4_user_id, user_pseudo_id) AS resolved_user_id,
+    {{resolved_user_id}} AS resolved_user_id,
     COALESCE(
       (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'platform'),
       CASE

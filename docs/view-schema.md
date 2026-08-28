@@ -35,7 +35,7 @@ One row per `resolved_user_id` per calendar day with activity.
 | Column | Type | Description |
 |--------|------|-------------|
 | `event_date` | DATE | Activity date |
-| `resolved_user_id` | STRING | User identity: `user_id` → param `user_id` → `user_pseudo_id` |
+| `resolved_user_id` | STRING | User identity: real `user_id` → param `user_id` (skip `anonymous`) → `user_pseudo_id` |
 | `user_pseudo_id` | STRING | GA4 device identifier |
 | `platform` | STRING | Most frequent platform that day (`android` / `ios`) |
 | `country` | STRING | Most frequent country that day |

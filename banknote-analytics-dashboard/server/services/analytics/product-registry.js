@@ -242,6 +242,22 @@ export class ProductAnalyticsFacade {
   async runDashboardQuery(name, params = {}) {
     const product = this.resolveProduct(params);
 
+    // Dedicated compare LTV path — never fall through to compare-daily.
+    if (name === 'compare-ltv' || (name === 'ltv' && product === 'compare')) {
+      return this.compareLtv(params);
+    }
+
+    if (
+      name === 'compare-subscriptions'
+      || (name === 'subscription-tiers' && product === 'compare')
+    ) {
+      return this.compareSubscriptions(params);
+    }
+
+    if (name === 'ltv') {
+      return this.registry.getRepo(product).runDashboardQuery('ltv', { ...params, product });
+    }
+
     if (product === 'compare' || name === 'compare-daily' || name === 'compare-summary') {
       return this.compare(name === 'compare-summary' ? 'summary' : 'daily', params);
     }
@@ -350,11 +366,204 @@ export class ProductAnalyticsFacade {
     return { sql, rows, count: rows.length, bytesProcessed, products };
   }
 
+  /**
+   * Monthly / Yearly / Lifetime subscription mix per registered product.
+   */
+  async compareSubscriptions(params = {}) {
+    const results = await Promise.all(
+      this.registry.productIds.map(async (id) => {
+        const cfg = this.registry.configs[id];
+        try {
+          const result = await this.registry.repos[id].runDashboardQuery('subscription-tiers', {
+            ...params,
+            product: id,
+          });
+          return { label: cfg.label, result, error: null };
+        } catch (e) {
+          const msg = String(e?.message || e);
+          console.error(`[compare] ${id} subscription-tiers failed: ${msg}`);
+          return {
+            label: cfg.label,
+            result: {
+              rows: [],
+              sql: `-- ${cfg.label} subscription tiers failed: ${msg.replace(/\n/g, ' ')}`,
+              bytesProcessed: 0,
+            },
+            error: msg,
+          };
+        }
+      }),
+    );
+
+    const rows = results.flatMap(({ label, result }) =>
+      (result.rows || []).map((r) => ({
+        ...r,
+        product: label,
+      })),
+    );
+    const sql = results
+      .map(({ label, result }) => `-- ===== ${label} subscription tiers =====\n${result.sql || ''}`)
+      .join('\n\n');
+    const bytesProcessed = results.reduce((s, x) => s + (x.result.bytesProcessed || 0), 0);
+    const errors = results.filter((r) => r.error).map((r) => `${r.label}: ${r.error}`);
+
+    if (errors.length && !rows.length) {
+      throw new Error(`Subscription tier compare failed — ${errors.join(' · ')}`);
+    }
+
+    const tiers = ['Monthly', 'Yearly', 'Lifetime'];
+    const summary = results.map(({ label, result }) => {
+      const byTier = Object.fromEntries(
+        (result.rows || []).map((r) => [r.subscription_tier, r]),
+      );
+      return {
+        product: label,
+        tiers: tiers.map((tier) => ({
+          subscription_tier: tier,
+          purchases: Number(byTier[tier]?.purchases || 0),
+          paying_users: Number(byTier[tier]?.paying_users || 0),
+          revenue_usd: Number(byTier[tier]?.revenue_usd || 0),
+        })),
+        source: result.source || 'raw',
+      };
+    });
+
+    return {
+      sql,
+      rows,
+      summary,
+      count: rows.length,
+      bytesProcessed,
+      products: results.map((r) => r.label),
+      source: 'raw',
+      warnings: errors.length ? errors : undefined,
+    };
+  }
+
+  /**
+   * Fan out cohort LTV per product (same date/country/platform/channel filters).
+   */
+  async compareLtv(params = {}) {
+    const results = await Promise.all(
+      this.registry.productIds.map(async (id) => {
+        const cfg = this.registry.configs[id];
+        try {
+          const result = await this.registry.repos[id].runDashboardQuery('ltv', {
+            ...params,
+            product: id,
+            paginate: false,
+          });
+          return { label: cfg.label, result, error: null };
+        } catch (e) {
+          const msg = String(e?.message || e);
+          console.error(`[compare] ${id} ltv failed: ${msg}`);
+          return {
+            label: cfg.label,
+            result: {
+              rows: [],
+              sql: `-- ${cfg.label} LTV failed: ${msg.replace(/\n/g, ' ')}`,
+              bytesProcessed: 0,
+            },
+            error: msg,
+          };
+        }
+      }),
+    );
+
+    const rows = results.flatMap(({ label, result }) =>
+      (result.rows || []).map((r) => ({
+        ...r,
+        product: label,
+      })),
+    );
+    const sql = results
+      .map(({ label, result }) => `-- ===== ${label} LTV =====\n${result.sql || ''}`)
+      .join('\n\n');
+    const bytesProcessed = results.reduce((s, x) => s + (x.result.bytesProcessed || 0), 0);
+    const errors = results.filter((r) => r.error).map((r) => `${r.label}: ${r.error}`);
+
+    if (errors.length && !rows.length) {
+      throw new Error(`Cohort LTV compare failed — ${errors.join(' · ')}`);
+    }
+
+    // Pre-roll product totals so the Compare table never depends on client aggregation alone.
+    const summary = results.map(({ label, result }) => {
+      let r30 = 0;
+      let i30 = 0;
+      let r90 = 0;
+      let i90 = 0;
+      let r180 = 0;
+      let i180 = 0;
+      let installs = 0;
+      for (const row of result.rows || []) {
+        const inst = Number(row.installs || 0);
+        installs += inst;
+        const a30 = row.revenue_30 != null && Number.isFinite(Number(row.revenue_30))
+          ? Number(row.revenue_30)
+          : (row.ltv_30 != null && Number.isFinite(Number(row.ltv_30)) ? Number(row.ltv_30) * inst : null);
+        const a90 = row.revenue_90 != null && Number.isFinite(Number(row.revenue_90))
+          ? Number(row.revenue_90)
+          : (row.ltv_90 != null && Number.isFinite(Number(row.ltv_90)) ? Number(row.ltv_90) * inst : null);
+        const a180 = row.revenue_180 != null && Number.isFinite(Number(row.revenue_180))
+          ? Number(row.revenue_180)
+          : (row.ltv_180 != null && Number.isFinite(Number(row.ltv_180)) ? Number(row.ltv_180) * inst : null);
+        if (a30 != null) {
+          r30 += a30;
+          i30 += inst;
+        }
+        if (a90 != null) {
+          r90 += a90;
+          i90 += inst;
+        }
+        if (a180 != null) {
+          r180 += a180;
+          i180 += inst;
+        }
+      }
+      return {
+        product: label,
+        installs,
+        ltv_30: i30 > 0 ? r30 / i30 : null,
+        ltv_90: i90 > 0 ? r90 / i90 : null,
+        ltv_180: i180 > 0 ? r180 / i180 : null,
+        has_ltv_rows: (result.rows || []).length > 0,
+        source: result.source || null,
+      };
+    });
+
+    const productSources = summary.map((s) => s.source).filter(Boolean);
+    const cheap = (s) => s === 'mongodb' || s === 'cohort_ltv' || s === 'summary';
+    const source = !productSources.length
+      ? null
+      : productSources.every((s) => s === 'mongodb')
+        ? 'mongodb'
+        : productSources.every((s) => s === 'raw')
+          ? 'raw'
+          : productSources.every(cheap)
+            ? 'mongodb'
+            : 'mixed';
+
+    return {
+      sql,
+      rows,
+      summary,
+      count: rows.length,
+      bytesProcessed,
+      products: results.map((r) => r.label),
+      source,
+      sources: summary.map((s) => ({ product: s.product, source: s.source })),
+      warnings: errors.length ? errors : undefined,
+    };
+  }
+
   summarizeProduct(dailyRows, product) {
     if (!dailyRows.length) {
       return {
         product,
-        dau: 0,
+        dau: null,
+        app_open_dau: null,
+        notification_dau: null,
+        any_event_dau: null,
         unique_users: 0,
         installs: 0,
         success_scans: 0,
@@ -379,7 +588,10 @@ export class ProductAnalyticsFacade {
 
     return {
       product,
-      dau: Number(latest.dau || 0),
+      dau: Number(latest.app_open_dau ?? latest.dau ?? 0),
+      app_open_dau: Number(latest.app_open_dau ?? latest.dau ?? 0),
+      notification_dau: latest.notification_dau == null ? null : Number(latest.notification_dau),
+      any_event_dau: latest.any_event_dau == null ? null : Number(latest.any_event_dau),
       unique_users: null,
       installs: sum('installs'),
       success_scans: sum('success_scans'),
@@ -430,7 +642,7 @@ export class ProductAnalyticsFacade {
 
     const repo = this.registry.getRepo(product);
     const sql = buildFunnelSql(repo.project, repo.dataset, mapped.steps, start, end);
-    const key = cacheKey(`${product}:funnel:${funnelId}`, { start, end });
+    const key = cacheKey(`${product}:funnel:v7:${funnelId}`, { start, end });
 
     return cached('funnel', key, async () => {
       const { rows, bytesProcessed } = await runQuery(repo.bigquery, sql);

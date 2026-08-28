@@ -18,7 +18,7 @@ You need:
 1. A [Render](https://dashboard.render.com) account (sign up with GitHub).
 2. Access to the GitHub repo above.
 3. Two service-account JSON files on your laptop (do **not** put these on GitHub):
-   - `secrets/bigquery-metabase-sa.json` (Banknote)
+   - `secrets/bigquery-banknote-sa.json` (Banknote)
    - `secrets/coinzy-analytics-dashboard-sa.json` (Coinzy)
 4. Login values from `banknote-analytics-dashboard/.env`:
    - `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD` (seeds the first admin)
@@ -91,7 +91,7 @@ Do **not** set `PORT`. Render sets it automatically.
 | `DASHBOARD_PASSWORD` | `.env` → `DASHBOARD_PASSWORD` |
 | `AUTH_SECRET` | `.env` → `AUTH_SECRET` |
 | `MONGODB_URI` | Atlas URI, including password |
-| `GOOGLE_CREDENTIALS_JSON` | entire `secrets/bigquery-metabase-sa.json` |
+| `GOOGLE_CREDENTIALS_JSON` | entire `secrets/bigquery-banknote-sa.json` |
 | `COINZY_GOOGLE_CREDENTIALS_JSON` | entire `secrets/coinzy-analytics-dashboard-sa.json` |
 
 How to paste JSON:

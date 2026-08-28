@@ -12,12 +12,12 @@ const ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(ROOT, '..');
 const ENV_FILE = path.join(ROOT, '.env');
 const ENV_EXAMPLE = path.join(ROOT, '.env.example');
-const DEFAULT_SA = path.join(REPO_ROOT, 'secrets', 'bigquery-metabase-sa.json');
+const DEFAULT_SA = path.join(REPO_ROOT, 'secrets', 'bigquery-banknote-sa.json');
 
 const SEARCH_PATHS = [
   DEFAULT_SA,
-  path.join(ROOT, 'secrets', 'bigquery-metabase-sa.json'),
-  path.join(REPO_ROOT, 'secrets', 'metabase-local-dev.json'),
+  path.join(ROOT, 'secrets', 'bigquery-banknote-sa.json'),
+  path.join(REPO_ROOT, 'secrets', 'bigquery-metabase-sa.json'), // legacy filename
 ];
 
 function isServiceAccountFile(filePath) {
@@ -33,7 +33,6 @@ function findServiceAccount() {
   for (const p of SEARCH_PATHS) {
     if (fs.existsSync(p) && isServiceAccountFile(p)) return p;
   }
-  // Search workspace secrets/ and dashboard secrets/
   for (const dir of [path.join(REPO_ROOT, 'secrets'), path.join(ROOT, 'secrets')]) {
     if (!fs.existsSync(dir)) continue;
     for (const f of fs.readdirSync(dir)) {
@@ -48,7 +47,6 @@ function findServiceAccount() {
 function main() {
   console.log('Banknote Analytics Dashboard — local setup\n');
 
-  // Create .env
   if (!fs.existsSync(ENV_FILE)) {
     if (fs.existsSync(ENV_EXAMPLE)) {
       fs.copyFileSync(ENV_EXAMPLE, ENV_FILE);
@@ -59,7 +57,7 @@ function main() {
         'BQ_DATASET=analytics_488476338',
         'BQ_SUMMARY_DATASET=analytics_summary',
         'USE_SUMMARY_TABLES=true',
-        'GOOGLE_APPLICATION_CREDENTIALS=../secrets/bigquery-metabase-sa.json',
+        'GOOGLE_APPLICATION_CREDENTIALS=../secrets/bigquery-banknote-sa.json',
         'PORT=3001',
         'VITE_API_URL=http://localhost:3001',
         'DEFAULT_DAYS=30',
@@ -82,14 +80,14 @@ function main() {
     } else {
       envContent = envContent.replace(
         /GOOGLE_APPLICATION_CREDENTIALS=.*/,
-        `GOOGLE_APPLICATION_CREDENTIALS=${credPath}`
+        `GOOGLE_APPLICATION_CREDENTIALS=${credPath}`,
       );
     }
     fs.writeFileSync(ENV_FILE, envContent);
     console.log(`✓ Service account found: ${sa}`);
   } else {
     console.log('\n⚠ Service account JSON not found.');
-    console.log('  Place your key at one of:');
+    console.log('  Place your key at:');
     console.log(`    ${DEFAULT_SA}`);
     console.log('    Or copy from GCP Console → IAM → Service Accounts → Keys');
     console.log('\n  Then re-run: node scripts/setup-env.js\n');

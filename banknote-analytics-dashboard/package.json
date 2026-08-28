@@ -16,8 +16,10 @@
     "start:prod": "npm run build && node server/index.js",
     "refresh-summaries": "node scripts/refresh-summaries.js",
     "refresh-summaries:product": "node scripts/refresh-product-summaries.js",
+    "refresh-ltv:mongo": "node scripts/refresh-cohort-ltv-mongo.js",
     "discover-events": "node scripts/discover-events.js",
     "validate:summary": "node scripts/validate-summary-vs-raw.js",
+    "test": "node --test test/*.test.js",
     "seed-admin": "node scripts/seed-admin.js"
   },
   "dependencies": {

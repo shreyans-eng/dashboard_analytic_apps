@@ -29,7 +29,7 @@ Used on almost every query:
 
 | Field | How it is resolved |
 |-------|--------------------|
-| **User** (`resolved_user_id`) | `COALESCE(user_id, event_params.user_id, user_pseudo_id)` |
+| **User** (`resolved_user_id`) | `COALESCE(real GA4 user_id, real event-param user_id, user_pseudo_id)`. Placeholder values such as `anonymous` are skipped so they cannot merge many devices into one user. |
 | **Country** | `COALESCE(event_params.country, geo.country, 'Unknown')` |
 | **Platform** | Event param `platform`, else `_android` / `_ios` suffix, else `device.operating_system` |
 | **Event base** | Strip trailing `_android` / `_ios` from `event_name` → `event_name_base` |
@@ -89,14 +89,23 @@ Sub-admins only see pages and apps an admin assigned. Compare requires access to
 |---------|-----|-------|----------------|
 | Overview | Home | `/` | Landing cards only — **no BigQuery query** |
 | Overview | Product Analytics | `/product` | Explainers + links — **no live numbers** |
-| Overview | Compare Apps | `/compare` | Comparison table + 6 trend charts |
-| Funnels | Identify | `/funnels/identify` | KPI cards, bars, hop table, full step table |
-| Funnels | Catalogue | `/funnels/catalogue` | Same layout, two paths (collection + global) |
-| Funnels | Marketplace | `/funnels/marketplace` | Same layout, two paths (market + feed) |
+| Overview | Compare Apps | `/compare` | Comparison table + trend charts (opened-app DAU, notification DAU, any-event) |
+| Overview | Health report | `/report` | Combined + Banknote + Coinzy tabs: rollup table, Identify funnel, what to pick |
+| Funnels | Identify (all) | `/funnels/identify` | KPI cards, bars, hop table, full step table |
+| Funnels | Scan · bottom nav | `/funnels/identify-nav` | Same layout; entry = `Identify_bottom_nav` only |
+| Funnels | Scan · home / banner | `/funnels/identify-home` | Same layout; entry = `Identify_home` only |
+| Funnels | Catalogue (all) | `/funnels/catalogue` | Combined collection + global paths |
+| Funnels | Private collection | `/funnels/collection` | Collection nav → screen → card → details |
+| Funnels | Global catalogue | `/funnels/global` | Global screen → item → details |
+| Funnels | Marketplace | `/funnels/marketplace` | Market nav → listing → sale details → contact |
+| Funnels | Feed | `/funnels/feed` | Feed nav → screen → like/comment → post |
 | Funnels | Paywall | `/funnels/paywall` | Same layout, paywall → confirm |
+| Funnels | Expert evaluation | `/funnels/expert` | Coinzy only: book a report + buy credits |
 | Funnels | Event inventory | `/events-explorer` | Event list + daily chart + params table |
-| MVP KPIs (10) | 1–10 | `/mvp/...` | One trend chart each |
-| Explorer | Cohort LTV, DAU, MAU, New users, D1, D7, Countries, Platform, Events | `/ltv` … `/events` | LTV has KPI + 2 charts + table; others one chart |
+| MVP KPIs (10) | 1–10 | `/mvp/...` | One trend chart each (MVP 2 and 6 add a second chart) |
+| Explorer | Daily Active Users | `/dau` | Unique people per day (open / session) |
+| Explorer | Unique vs repeat | `/user-mix` | New vs returning, one-day vs 2+ days, once vs again same day |
+| Explorer | MAU, New users, D1, D7, Countries, Platform, Events, Cohort LTV | `/mau` … `/events`, `/ltv` | One chart each; LTV has KPI + 2 charts + table |
 | Tools | SQL Editor | `/sql` | Query library + result table |
 | Admin | Users & access | `/admin/users` | Access list / create / monthly reports |
 
@@ -133,7 +142,9 @@ Rollup is **not** a single pooled query over the whole period. It mixes last-day
 
 | Row | What you see | How the table cell is rolled up | Daily formula (each day) |
 |-----|----------------|----------------------------------|---------------------------|
-| **Latest DAU** | Active users | **Last day** in the range | Distinct `resolved_user_id` that day |
+| **Latest DAU (opened the app)** | Users who opened the app | **Last complete day** in the range | Distinct `resolved_user_id` with `session_start` / `App_open` / `first_open` (`dau` = `app_open_dau`) |
+| **Notification DAU** | Users who received/displayed a push | **Last complete day** | Distinct users with `notification_display` / `notification_receive` / `notification_interact` (etc.) |
+| **Any Firebase event** | Anyone with any event | **Last complete day** | Distinct users in `events_*` that day |
 | **Installs (period)** | New installs | **Sum** of daily install counts | Distinct `first_open` users that day |
 | **Identify success** | AI + photo quality | **Average** of daily rates | `success_events ÷ (success + failure)` |
 | **Identify funnel** | Open → success | **Average** of daily rates | Distinct success users ÷ distinct Identify-open users |
@@ -143,19 +154,41 @@ Rollup is **not** a single pooled query over the whole period. It mixes last-day
 | **Catalogue engagement** | Browse loop | **Average** of daily rates | Distinct catalogue-open users ÷ DAU |
 | **Marketplace engagement** | Commerce loop | **Average** of daily rates | Distinct marketplace users ÷ DAU |
 | **Paying users** | Pro conversions | **Sum** of daily distinct paying users | Distinct confirm / `paid_purchase` users that day |
+| **LTV-30 / 90 / 180** | Cohort LTV | Weighted USD after install ÷ installs (mature cohorts only) | Same formula as Explorer Cohort LTV, per app |
 
 Averaging daily rates weights each day equally (a quiet day counts as much as a busy day). Summing daily distinct paying users can double-count someone who confirmed on two different days.
 
 ### Trend charts (same formulas, by day)
 
-1. DAU  
-2. Identify success  
-3. Identify funnel (open → success)  
-4. Paywall → purchase  
-5. Catalogue engagement  
-6. Marketplace engagement  
+1. Opened the app (DAU)  
+2. Notification (display / receive)  
+3. Any Firebase event  
+4. Identify success  
+5. Identify funnel (open → success)  
+6. Paywall → purchase  
+7. Catalogue engagement  
+8. Marketplace engagement  
+9. LTV-30 (install cohort date)  
+10. LTV-90 (install cohort date)  
+11. LTV-180 (install cohort date) 
 
-Same date / country / platform filters apply to **both** apps.
+Same date / country / platform filters apply to **both** apps. Compare defaults to **210 days** so LTV windows can mature; MVP signal charts still use the selected range.
+
+---
+
+## 6b. Health report (`/report`)
+
+Live write-up of the same metrics, with three tabs:
+
+| Tab | Who sees it | What it shows |
+|-----|-------------|----------------|
+| **Combined** | Users with both apps | Side-by-side rollup, DAU chart, Identify bars, ordered “what to pick” |
+| **Banknote** | Users with Banknote | Unique vs repeat, Identify leak, same-day scan, paywall |
+| **Coinzy** | Users with Coinzy | Same as Banknote, plus Expert landing → report |
+
+Sidebar **Banknote / Coinzy / Compare** still works: Compare opens Combined; an app switch opens that app’s separate report. You can also switch tabs on the page without changing the sidebar.
+
+Recommendations are derived from the loaded range (same-day scan, one-day users, Identify drop, scan quality, Expert, D7, paywall) — not a frozen snapshot.
 
 ---
 
@@ -171,20 +204,23 @@ SQL (raw / Coinzy-shaped): `sql/dashboard/product/coinzy/` and `sql/dashboard/ra
 | | |
 |--|--|
 | **Chart** | Line: `dau` vs `event_date` |
-| **Shows** | How many unique people used the app that day |
-| **Formula** | `COUNT(DISTINCT resolved_user_id)` for any event that day |
-| **Why** | Baseline. Every other rate is “of active users” or “of scanners” |
+| **Shows** | How many unique people **opened the app** that day |
+| **Formula** | Distinct `resolved_user_id` with `session_start`, `App_open`, or `first_open` that day (suffix `_android` / `_ios` stripped). This is `app_open_dau`. The dashboard field `dau` is the same number. |
+| **Not counted** | `notification_display` and other push events (`notification_dau` is a separate series on Compare). `any_event_dau` is anyone with any Firebase event. |
+| **Why** | Baseline. Every other rate is “of people who opened the app” or “of scanners” |
 
-### MVP 2 — Time to first scan (`/mvp/time-to-first-scan`)
+### MVP 2 — Install → first scan (`/mvp/time-to-first-scan`)
 
 | | |
 |--|--|
-| **Chart** | Line: `day0_first_scan_rate` vs cohort date |
+| **KPI cards** | Installs (`cohort_users`), scanned on day 0, day-0 rate, median seconds to first success |
+| **Chart 1** | Line: `day0_first_scan_rate` vs cohort date |
+| **Chart 2** | Bars: installs vs users who scanned on day 0 |
 | **Shows** | Share of **new installs that day** who got a **successful ID on the same calendar day** |
 | **Cohort** | Users whose first `first_open` is that day |
 | **Success** | First `identification_done_success` |
 | **Formula** | `users with success_date = cohort_date ÷ cohort_users` |
-| **Also in SQL (not charted)** | `median_seconds_to_first_scan` = median seconds from first_open timestamp → first success |
+| **Median time** | Median seconds from first_open timestamp → first success (KPI card averages daily medians in the range) |
 
 Longer time / lower day-0 rate ⇒ permission, camera, paywall, or confusion.
 
@@ -227,12 +263,13 @@ SQL also returns **user-level** `paying_users ÷ users_saw_paywall` (`user_paywa
 
 | | |
 |--|--|
-| **Chart** | Line: **`d1_retention_rate` only** vs `cohort_date` |
-| **Shows** | Of people who installed on day D, who came back on D+1 |
+| **Chart 1** | Line: `d1_retention_rate` vs `cohort_date` |
+| **Chart 2** | Line: `d7_retention_rate` vs `cohort_date` (same query, separate chart) |
+| **Shows** | Of people who installed on day D, who came back on D+1 / D+7 |
 | **Cohort** | `first_open` (min date per user) |
 | **Return** | Any event on `cohort_date + 1 day` (D7: +7; D30: +30) |
 | **Formula** | `retained_dN ÷ cohort_size` |
-| **SQL also has** | `d7_retention_rate`, `d30_retention_rate` (same query; D7/D30 are **not** the drawn line) |
+| **SQL also has** | `d30_retention_rate` (not drawn) |
 
 View SQL waits until the cohort is mature enough for D7 (`cohort_date ≤ today − 7`). Explorer D1/D7 tabs use dedicated queries.
 
@@ -282,7 +319,7 @@ Detail events: Banknote `banknote_details_*` · Coinzy `Coin_details*`.
 
 ---
 
-## 8. Funnel tabs (Identify, Catalogue, Marketplace, Paywall)
+## 8. Funnel tabs (Identify, Catalogue, Marketplace, Paywall, Expert)
 
 These pages share one layout. Data comes from **raw** `events_*` built in `funnel-registry.js` (`buildFunnelSql`).
 
@@ -340,51 +377,74 @@ gained  = max(0, to − from)   → “joined without prior step”
 
 ---
 
-### 8.1 Identify funnel (`/funnels/identify`)
+### 8.1 Identify funnels
 
-**Core path:** Entry → Camera screen → Photo → Crop → Submit → Success
+Three routes share the same step mapping except **entry**:
+
+| Route | Entry events |
+|-------|----------------|
+| `/funnels/identify` | `Identify_bottom_nav` ∪ `Identify_home` |
+| `/funnels/identify-nav` | `Identify_bottom_nav` only (bottom nav scan) |
+| `/funnels/identify-home` | `Identify_home` only (home / banner scan) |
+
+**Core path:** Entry → Camera → First image → Second image → Submit → Success
+
+Crop is a **side** step (still listed in All steps). Crop unique users often exceed photo-click users (crop overlay / `Photo_clicked` without `photo_clicked_1`), which hid first/second-image hops when crop was in the core chain.
+
+Identify requires **both** images. Coinzy crop slots are 0-indexed (`photo_cropping_screen_0` = first, `_1` = second). Banknote is 1-indexed (`_1` / `_2`).
 
 | Step | Kind | Events (shared unless noted) |
 |------|------|------------------------------|
-| Identify entry | core | `Identify_bottom_nav`, `Identify_home` |
+| Identify entry | core | See table above |
 | Camera / photo screen | core | `Identification_screen`, `photo_screen` |
 | Camera permission popup | side | `Camera_permission_popup` |
 | Permission granted | side | `camera_permission_granted` |
 | Permission denied | drop | `camera_permission_denied` (Banknote also `camer_permission_denied`) |
-| Photo click | core | `photo_clicked_1/2`, `Photo_clicked` (+ Banknote gallery `photo_uploaded_*`) |
-| Crop screen | core | `photo_cropping_screen_*` |
-| Crop confirmed | side | `photo_crop_tick_*` |
+| First image (camera or gallery) | core | `photo_clicked_1` ∪ `photo_uploaded_1` |
+| First image · camera | side | `photo_clicked_1` |
+| First image · gallery | side | `photo_uploaded_1` |
+| Crop first image | side | Banknote `photo_cropping_screen_1` · Coinzy `photo_cropping_screen_0` |
+| Second image (camera or gallery) | core | `photo_clicked_2` ∪ `photo_uploaded_2` |
+| Second image · camera | side | `photo_clicked_2` |
+| Second image · gallery | side | `photo_uploaded_2` |
+| Crop second image | side | Banknote `photo_cropping_screen_2` · Coinzy `photo_cropping_screen_1` |
+| Photo (unspecified) | side | `Photo_clicked` (no 1/2 suffix) |
+| Crop confirmed | side | matching `photo_crop_tick_*` per image |
 | Submit | core | `photo_submit_button`, `photos_submitted` (Coinzy also `Identification_done`) |
 | Quota / limit block | drop | `Identified_limit_reached`, … (Coinzy adds `free_scan_*`) |
 | Success | core | `identification_done_success` |
 | Failure | drop | `identification_done_failure` (+ Coinzy aliases) |
+| View all other options | side | `identification_view_all` |
+| All options screen | side | `identification_all_options_screen` |
+| Option chosen | side | `idetnification_option_chosen` (app typo) |
 | Details / add to collection | side | `identification_details_screen`, `Added_to_collection_*` |
 
 ---
 
-### 8.2 Catalogue / Collection (`/funnels/catalogue`)
+### 8.2 Catalogue paths
 
-**Two core paths** (the page splits when a new path starts):
+Combined view: `/funnels/catalogue`. Split tabs:
 
-1. **Private collection:** Collection screen → card → sub-collection → details  
-2. **Global catalogue:** Global screen → item → details  
+| Tab | Route | Core path |
+|-----|-------|-----------|
+| Private collection | `/funnels/collection` | Collection nav → screen → card → sub-collection → details |
+| Global catalogue | `/funnels/global` | Global screen → item → details |
 
 | Path | Core steps | Key events |
 |------|------------|------------|
-| Collection | screen → clicked → sub-collection → details | `Collection_screen`, `Collection_clicked`, `Sub_collection_Screen`, Banknote `banknote_details_collection` / Coinzy `Coin_details_collection` |
+| Collection | nav (core on split tab) → screen → clicked → sub-collection → details | `private_collection_bottom_nav` / `collection_bottom_nav`, `Collection_screen`, `Collection_clicked`, `Sub_collection_Screen`, Banknote `banknote_details_collection` / Coinzy `Coin_details_collection` |
 | Global | screen → item → details | `Global_catalogue_screen`, `global_catalogue_item`, `banknote_details_global` / `Coin_details_global` |
-| KPI union (Banknote extra / Coinzy core) | Catalogue open | `Collection_screen` ∪ `Global_catalogue_screen` |
-
-Bottom nav (`private_collection_bottom_nav` / `collection_bottom_nav`) is a side step, not always core.
 
 ---
 
-### 8.3 Marketplace + Feed (`/funnels/marketplace`)
+### 8.3 Marketplace and Feed
 
-**Two core paths:**
+These are **separate tabs** (no longer one mixed funnel):
 
-1. **Marketplace:** tab → screen → listing tap → sale details → contact seller  
-2. **Feed:** Feed screen (likes/comments/posts are side steps)
+| Tab | Route | Core path |
+|-----|-------|-----------|
+| Marketplace | `/funnels/marketplace` | Nav → screen → listing tap → sale details → contact seller |
+| Feed | `/funnels/feed` | Feed nav → screen → like/comment (create post is a side step) |
 
 | Core step | Events |
 |-----------|--------|
@@ -393,9 +453,11 @@ Bottom nav (`private_collection_bottom_nav` / `collection_bottom_nav`) is a side
 | Listing tap | `market_item_expolre` (**typo is the real event name**) |
 | Sale details | `sale_Details_screen` |
 | Contact seller | `market_contact`, `market_contact_button` |
+| Feed nav | `feed_bottom_nav` |
 | Feed screen | `Feed_screen` |
+| Feed engage | `feed_like`, `feed_comment` |
 
-Side: add-for-sale CTAs, `market_add`, `feed_like`, `feed_comment`, `feed_add`.
+Side: add-for-sale CTAs, `market_add`, `feed_add`.
 
 ---
 
@@ -413,6 +475,37 @@ Side: add-for-sale CTAs, `market_add`, `feed_like`, `feed_comment`, `feed_add`.
 | Fail | drop (Coinzy) | `subs_fail` / `Subs_fail` |
 
 This funnel is **user-unique per step**. MVP 5 is **event-count** conversion. They will not match exactly.
+
+---
+
+### 8.5 Expert evaluation (`/funnels/expert`) — Coinzy only
+
+Banknote has **no** `expert_*` events. The tab is hidden unless Coinzy is selected; opening it on Banknote shows insufficient instrumentation.
+
+**Core booking path:** Landing → upload photos → continue (credit **or** pay) → request queued → report  
+**Core credits path:** Buy credits → continue payment → token received → token consumed  
+
+Start, list, item click, status, rating, and PDF share/download are **side** steps (still in All steps). Cancel / fail / refund / PDF fail / token verification fail are **drops**.
+
+Verified in Coinzy BigQuery (`analytics_487601380`, May–Aug 2026). These listed events had **no hits** in that window and are still mapped so they appear if they start firing: `expert_book_new_evaluation`, `expert_outbox_retry`, `expert_outbox_retry_after_credits`, `expert_status_buy_credits_continue_payment`, `expert_report_pdf_failed`.
+
+| Step | Kind | Events |
+|------|------|--------|
+| Expert landing | core | `expert_evaluation_landing` |
+| Start evaluation | side | `expert_evaluation_start` |
+| Evaluations list / view all / item | side | `expert_evaluations_list`, `expert_evaluation_view_all`, `expert_evaluation_item_click` |
+| Upload photos | core | `expert_upload_photos` |
+| Continue (credit or pay) | core | `expert_upload_continue_with_credit`, `expert_upload_continue_payment` |
+| Request queued | core | `expert_request_queued` |
+| Status | side | `expert_evaluation_status` |
+| Expert report | core | `expert_evaluation_report` |
+| Rating / PDF | side | `expert_rating_submitted`, `expert_report_pdf_download`, `expert_report_pdf_share` |
+| Buy credits | core (2nd path) | `expert_evaluation_buy_credits` |
+| Credits → payment | core | `expert_buy_credits_continue_payment`, `expert_status_buy_credits_continue_payment` |
+| Token received / consumed | core | `expert_token_purchase_received`, `expert_token_purchase_consumed` |
+| Token pending | side | `expert_token_purchase_pending` |
+| Token cancel / fail / verify fail | drop | `expert_token_purchase_cancelled`, `expert_token_purchase_failed`, `expert_token_verification_failed` |
+| Refund / PDF fail | drop | `expert_refund_requested`, `expert_report_pdf_failed` |
 
 ---
 
@@ -468,9 +561,15 @@ Full mapping and limitations: [09-cohort-ltv.md](./09-cohort-ltv.md).
 | | |
 |--|--|
 | **Chart** | Line: `dau` vs `event_date` |
-| **Formula** | Distinct users with **any** event that day |
+| **Formula** | Distinct users who **opened the app or started a session** that day (`app_open_dau`) |
+| **Events** | `session_start`, `App_open` (`App_open_android` / `App_open_ios`), `first_open` |
+| **Not counted** | `notification_display`, other notification delivery, `firebase_campaign`, `os_update`, analytics-only background events |
+| **Separate fields** | `notification_dau` (push display/receive/tap), `any_event_dau` (any Firebase event). Stored on `product_daily_signals`; Compare charts them separately. |
+| **Identity** | GA4 `user_id` → event param `user_id` (skip `anonymous`) → `user_pseudo_id` |
+| **Filters** | Country/platform change the result. Unfiltered DAU may read `product_daily_signals` (date grain). Filtered DAU always runs on `events_*` because that summary table has no country/platform columns. |
+| **Incomplete dates** | Latest complete day = latest `events_YYYYMMDD` table. Dates after that are omitted, not shown as 0. |
 
-Same definition as MVP 1.
+Same definition as MVP 1. Do not treat a drop in `dau` as a usage crash until you check `notification_dau` and `any_event_dau` (Coinzy 18→19 Aug 2026 was a definition change, not an open-app cliff).
 
 ### Monthly Active Users (`/mau`)
 
@@ -584,7 +683,7 @@ Does not change dashboard KPI definitions. Use it to inspect views or debug an e
 ## 14. Quick formula cheat sheet
 
 ```text
-DAU                         = distinct users with any event that day
+DAU                         = distinct users with session_start, App_open, or first_open that day
 New users                   = distinct first_open that day
 MAU                         = distinct users in calendar month
 D1 / D7                     = returned on D+1 / D+7 ÷ first_open cohort

@@ -37,7 +37,8 @@ SQL files: `sql/scheduled/`
 | `platform_metrics.sql` | `platform_metrics` | 09:05 daily | KB |
 | `top_events.sql` | `top_events` | 09:10 daily | 1–3 GB |
 | `product_daily_signals.sql` | `product_daily_signals` | with product refresh | 1–8 GB |
-| `cohort_ltv.sql` | `cohort_ltv` | with product refresh; lookback `LTV_DAYS` (default 210) | 5–20 GB |
+
+> Cohort LTV: `npm run refresh-ltv:mongo` writes aggregated rows to MongoDB (`cohort_ltv`). BigQuery is read-only (`sql/scheduled/cohort_ltv_mongo.sql`).
 
 ### Console setup (each file)
 

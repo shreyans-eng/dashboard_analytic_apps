@@ -5,17 +5,24 @@ export const PAGE_CATALOG = [
     { id: 'home', label: 'Home', path: '/' },
     { id: 'product', label: 'Product Analytics', path: '/product' },
     { id: 'compare', label: 'Compare Apps', path: '/compare' },
+    { id: 'report', label: 'Health report', path: '/report' },
   ]},
   { section: 'Funnels', items: [
-    { id: 'funnels.identify', label: 'Identify', path: '/funnels/identify' },
-    { id: 'funnels.catalogue', label: 'Catalogue', path: '/funnels/catalogue' },
+    { id: 'funnels.identify', label: 'Identify (all)', path: '/funnels/identify' },
+    { id: 'funnels.identify-nav', label: 'Scan · bottom nav', path: '/funnels/identify-nav' },
+    { id: 'funnels.identify-home', label: 'Scan · home / banner', path: '/funnels/identify-home' },
+    { id: 'funnels.catalogue', label: 'Catalogue (all)', path: '/funnels/catalogue' },
+    { id: 'funnels.collection', label: 'Private collection', path: '/funnels/collection' },
+    { id: 'funnels.global', label: 'Global catalogue', path: '/funnels/global' },
     { id: 'funnels.marketplace', label: 'Marketplace', path: '/funnels/marketplace' },
+    { id: 'funnels.feed', label: 'Feed', path: '/funnels/feed' },
     { id: 'funnels.paywall', label: 'Paywall', path: '/funnels/paywall' },
+    { id: 'funnels.expert', label: 'Expert evaluation', path: '/funnels/expert' },
     { id: 'events-explorer', label: 'Event inventory', path: '/events-explorer' },
   ]},
   { section: 'MVP KPIs', items: [
-    { id: 'mvp.dau', label: '1. DAU', path: '/mvp/dau' },
-    { id: 'mvp.time-to-first-scan', label: '2. Time to first scan', path: '/mvp/time-to-first-scan' },
+    { id: 'mvp.dau', label: '1. DAU (opened app)', path: '/mvp/dau' },
+    { id: 'mvp.time-to-first-scan', label: '2. Install → first scan', path: '/mvp/time-to-first-scan' },
     { id: 'mvp.identify-success', label: '3. Identify success', path: '/mvp/identify-success' },
     { id: 'mvp.quota-hit', label: '4. Quota hit', path: '/mvp/quota-hit' },
     { id: 'mvp.paywall', label: '5. Paywall → purchase', path: '/mvp/paywall' },
@@ -28,6 +35,7 @@ export const PAGE_CATALOG = [
   { section: 'Explorer', items: [
     { id: 'explorer.ltv', label: 'Cohort LTV', path: '/ltv' },
     { id: 'explorer.dau', label: 'Daily Active Users', path: '/dau' },
+    { id: 'explorer.user-mix', label: 'Unique vs repeat', path: '/user-mix' },
     { id: 'explorer.mau', label: 'Monthly Active Users', path: '/mau' },
     { id: 'explorer.new-users', label: 'New Users', path: '/new-users' },
     { id: 'explorer.d1', label: 'D1 Retention', path: '/d1-retention' },
@@ -76,10 +84,17 @@ const PATH_TO_PAGE: Record<string, PageId> = {
   '/': 'home',
   '/product': 'product',
   '/compare': 'compare',
+  '/report': 'report',
   '/funnels/identify': 'funnels.identify',
+  '/funnels/identify-nav': 'funnels.identify-nav',
+  '/funnels/identify-home': 'funnels.identify-home',
   '/funnels/catalogue': 'funnels.catalogue',
+  '/funnels/collection': 'funnels.collection',
+  '/funnels/global': 'funnels.global',
   '/funnels/marketplace': 'funnels.marketplace',
+  '/funnels/feed': 'funnels.feed',
   '/funnels/paywall': 'funnels.paywall',
+  '/funnels/expert': 'funnels.expert',
   '/events-explorer': 'events-explorer',
   '/mvp/dau': 'mvp.dau',
   '/mvp/time-to-first-scan': 'mvp.time-to-first-scan',
@@ -93,6 +108,7 @@ const PATH_TO_PAGE: Record<string, PageId> = {
   '/mvp/marketplace': 'mvp.marketplace',
   '/ltv': 'explorer.ltv',
   '/dau': 'explorer.dau',
+  '/user-mix': 'explorer.user-mix',
   '/mau': 'explorer.mau',
   '/new-users': 'explorer.new-users',
   '/d1-retention': 'explorer.d1',
@@ -113,7 +129,38 @@ export function canAccessPage(user: AuthUser | null | undefined, pageId: string)
   if (isAdmin(user)) return true;
   if (pageId === 'admin.users') return false;
   const pages = user.permissions?.pages || [];
-  return pages.includes('*') || pages.includes(pageId);
+  if (pages.includes('*') || pages.includes(pageId)) return true;
+  if (
+    (pageId === 'funnels.identify-nav' || pageId === 'funnels.identify-home') &&
+    pages.includes('funnels.identify')
+  ) {
+    return true;
+  }
+  if (
+    (pageId === 'funnels.collection' || pageId === 'funnels.global') &&
+    pages.includes('funnels.catalogue')
+  ) {
+    return true;
+  }
+  if (pageId === 'funnels.feed' && pages.includes('funnels.marketplace')) {
+    return true;
+  }
+  if (pageId === 'funnels.expert' && pages.some((p) => p.startsWith('funnels.'))) {
+    return true;
+  }
+  if (
+    pageId === 'explorer.user-mix'
+    && (pages.includes('explorer.dau') || pages.includes('mvp.dau'))
+  ) {
+    return true;
+  }
+  if (
+    pageId === 'report'
+    && (pages.includes('product') || pages.includes('compare') || pages.includes('home'))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function canAccessProduct(user: AuthUser | null | undefined, productId: string): boolean {

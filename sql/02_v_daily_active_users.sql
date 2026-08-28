@@ -1,7 +1,8 @@
 -- =============================================================================
 -- v_daily_active_users
--- One row per resolved_user_id per active day.
--- Active = any event OR explicit session-start events.
+-- One row per resolved_user_id × user_pseudo_id per active day (any event).
+-- Dashboard DAU does NOT use this grain for "opened the app"; see
+-- sql/dashboard/raw/01_dau.sql (session_start / App_open / first_open).
 -- Depends on: v_events_normalized
 -- =============================================================================
 
@@ -12,7 +13,7 @@ SELECT
   resolved_user_id,
   user_pseudo_id,
 
-  -- Most common dimension values that day (for Metabase filters)
+  -- Common dimension values that day (for dashboard filters)
   APPROX_TOP_COUNT(platform, 1)[OFFSET(0)].value   AS platform,
   APPROX_TOP_COUNT(country, 1)[OFFSET(0)].value     AS country,
   APPROX_TOP_COUNT(app_version, 1)[OFFSET(0)].value AS app_version,

@@ -1,14 +1,14 @@
 -- Single lightweight KPI query from analytics_summary tables
+-- Latest DAU from date-grain product_daily_signals (do not SUM country×platform slices).
+-- Country/platform filters: the API skips this file and uses raw DAU instead.
 WITH latest_dau AS (
-  SELECT SUM(dau) AS dau
-  FROM `{PROJECT}.{SUMMARY_DATASET}.daily_active_users`
+  SELECT dau
+  FROM `{PROJECT}.{SUMMARY_DATASET}.product_daily_signals`
   WHERE event_date = (
     SELECT MAX(event_date)
-    FROM `{PROJECT}.{SUMMARY_DATASET}.daily_active_users`
+    FROM `{PROJECT}.{SUMMARY_DATASET}.product_daily_signals`
     WHERE event_date BETWEEN {{start_date}} AND {{end_date}}
   )
-  [[AND country = {{country}}]]
-  [[AND platform = {{platform}}]]
 ),
 latest_mau AS (
   SELECT SUM(mau) AS mau

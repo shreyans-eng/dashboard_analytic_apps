@@ -83,13 +83,24 @@ async function main() {
       SELECT
         PARSE_DATE('%Y%m%d', event_date) AS event_date,
         COALESCE(
-          user_id,
-          (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
+          IF(user_id IS NULL OR TRIM(user_id) = '' OR LOWER(TRIM(user_id)) IN (
+            'anonymous', 'null', 'undefined', '(not set)', '(anonymous)'
+          ), NULL, TRIM(user_id)),
+          (SELECT TRIM(ep.value.string_value)
+           FROM UNNEST(event_params) ep
+           WHERE ep.key = 'user_id'
+             AND ep.value.string_value IS NOT NULL
+             AND TRIM(ep.value.string_value) != ''
+             AND LOWER(TRIM(ep.value.string_value)) NOT IN (
+               'anonymous', 'null', 'undefined', '(not set)', '(anonymous)'
+             )
+           LIMIT 1),
           user_pseudo_id
         ) AS resolved_user_id
       FROM \`${P}.${D}.events_*\`
       WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
         AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\\d{8}$')
+        AND REGEXP_REPLACE(event_name, r'_(android|ios)$', '') IN ('session_start', 'App_open', 'first_open')
     )
     GROUP BY event_date ORDER BY event_date
   `,

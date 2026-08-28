@@ -15,6 +15,7 @@ export const TTL = {
 
 export const METRIC_TTL = {
   dau: TTL.DAILY,
+  'user-mix': TTL.DAILY,
   mau: TTL.DAILY,
   'new-users': TTL.DAILY,
   countries: TTL.COUNTRY,

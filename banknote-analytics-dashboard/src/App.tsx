@@ -9,6 +9,8 @@ import SqlEditorPage from '@/pages/SqlEditorPage';
 import FunnelPage from '@/pages/FunnelPage';
 import EventsExplorerPage from '@/pages/EventsExplorerPage';
 import LtvPage from '@/pages/LtvPage';
+import UserMixPage from '@/pages/UserMixPage';
+import ReportPage from '@/pages/ReportPage';
 import LoginPage from '@/pages/LoginPage';
 import AdminUsersPage from '@/pages/AdminUsersPage';
 import { defaultDateRange, QueryParams } from '@/lib/api';
@@ -43,12 +45,19 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="product" element={<ProductAnalyticsPage />} />
         <Route path="compare" element={<ComparePage />} />
+        <Route path="report" element={<ReportPage {...shared} />} />
 
         {/* Funnels */}
         <Route path="funnels/identify" element={<FunnelPage funnelId="identify" {...shared} />} />
+        <Route path="funnels/identify-nav" element={<FunnelPage funnelId="identify-nav" {...shared} />} />
+        <Route path="funnels/identify-home" element={<FunnelPage funnelId="identify-home" {...shared} />} />
         <Route path="funnels/catalogue" element={<FunnelPage funnelId="catalogue" {...shared} />} />
+        <Route path="funnels/collection" element={<FunnelPage funnelId="collection" {...shared} />} />
+        <Route path="funnels/global" element={<FunnelPage funnelId="global" {...shared} />} />
         <Route path="funnels/marketplace" element={<FunnelPage funnelId="marketplace" {...shared} />} />
+        <Route path="funnels/feed" element={<FunnelPage funnelId="feed" {...shared} />} />
         <Route path="funnels/paywall" element={<FunnelPage funnelId="paywall" {...shared} />} />
+        <Route path="funnels/expert" element={<FunnelPage funnelId="expert" {...shared} />} />
         <Route path="events-explorer" element={<EventsExplorerPage {...shared} />} />
 
         {/* MVP product KPIs (10) */}
@@ -66,6 +75,7 @@ export default function App() {
         {/* Executive / explorer tabs */}
         <Route path="ltv" element={<LtvPage {...shared} />} />
         <Route path="dau" element={<MetricRoute metricKey="dau" {...shared} />} />
+        <Route path="user-mix" element={<UserMixPage {...shared} />} />
         <Route path="mau" element={<MetricRoute metricKey="mau" {...shared} />} />
         <Route path="new-users" element={<MetricRoute metricKey="new-users" {...shared} />} />
         <Route path="d1-retention" element={<MetricRoute metricKey="d1" {...shared} />} />

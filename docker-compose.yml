@@ -17,7 +17,7 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/banknote-sa.json
       COINZY_GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/coinzy-sa.json
     volumes:
-      - ./secrets/bigquery-metabase-sa.json:/app/secrets/banknote-sa.json:ro
+      - ./secrets/bigquery-banknote-sa.json:/app/secrets/banknote-sa.json:ro
       - ./secrets/coinzy-analytics-dashboard-sa.json:/app/secrets/coinzy-sa.json:ro
     healthcheck:
       test:

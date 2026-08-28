@@ -27,7 +27,7 @@ Dashboard still shows numbers for most MVP cards because it falls back to `sql/d
 ```bash
 export GCP_PROJECT=banknote-app-4f3fd
 export BQ_DATASET=analytics_488476338
-export GOOGLE_APPLICATION_CREDENTIALS=secrets/bigquery-metabase-sa.json
+export GOOGLE_APPLICATION_CREDENTIALS=secrets/bigquery-banknote-sa.json
 
 # Product metric views (identify, engagement, subs, time-to-first-scan, kpi daily)
 ./scripts/deploy-product-metrics.sh

@@ -55,6 +55,12 @@ export async function connectDb() {
     await nextDb.collection('users').createIndex({ username: 1 }, { unique: true });
     client = next;
     db = nextDb;
+    try {
+      const { ensureCohortLtvIndexes } = await import('./services/analytics/cohort-ltv-mongo.js');
+      await ensureCohortLtvIndexes();
+    } catch (e) {
+      console.warn(`  MongoDB: cohort_ltv indexes skipped (${e.message})`);
+    }
     console.log(`  MongoDB: connected (${dbName})`);
     return db;
   })();

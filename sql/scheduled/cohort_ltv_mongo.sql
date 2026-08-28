@@ -1,38 +1,10 @@
 -- =============================================================================
--- Scheduled / refresh: cohort_ltv
+-- Cohort LTV SELECT for MongoDB refresh (BigQuery READ ONLY — no DDL/DML)
 -- Grain: cohort_date × country × install_channel × platform
--- Source: raw Firebase events_* (never mutates raw)
--- Placeholders: {PROJECT} {DATASET} {SUMMARY_DATASET} {START_SUFFIX} {END_SUFFIX}
+-- Placeholders: {PROJECT} {DATASET} {START_SUFFIX} {END_SUFFIX}
+-- Scans events_* only between cohort_start and purchase_end (cohort_end + 180d).
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS `{PROJECT}.{SUMMARY_DATASET}.cohort_ltv` (
-  cohort_date       DATE      NOT NULL,
-  country           STRING    NOT NULL,
-  install_channel   STRING    NOT NULL,
-  platform          STRING,
-  installs          INT64     NOT NULL,
-  revenue_30        FLOAT64,
-  revenue_90        FLOAT64,
-  revenue_180       FLOAT64,
-  ltv_30            FLOAT64,
-  ltv_90            FLOAT64,
-  ltv_180           FLOAT64,
-  payers_30         INT64,
-  payers_90         INT64,
-  payers_180        INT64,
-  paid_rate_30      FLOAT64,
-  paid_rate_90      FLOAT64,
-  paid_rate_180     FLOAT64,
-  refreshed_at      TIMESTAMP NOT NULL
-)
-PARTITION BY cohort_date
-CLUSTER BY install_channel, country;
-
-DELETE FROM `{PROJECT}.{SUMMARY_DATASET}.cohort_ltv`
-WHERE cohort_date BETWEEN PARSE_DATE('%Y%m%d', '{START_SUFFIX}')
-                     AND PARSE_DATE('%Y%m%d', '{END_SUFFIX}');
-
-INSERT INTO `{PROJECT}.{SUMMARY_DATASET}.cohort_ltv`
 WITH bounds AS (
   SELECT
     PARSE_DATE('%Y%m%d', '{START_SUFFIX}') AS cohort_start,
@@ -47,20 +19,14 @@ events_in_window AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
     TIMESTAMP_MICROS(event_timestamp) AS event_timestamp,
-    COALESCE(
-      user_id,
-      (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-      user_pseudo_id
-    ) AS resolved_user_id,
+    COALESCE(user_id, user_pseudo_id) AS resolved_user_id,
     REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base,
     event_name,
-    event_value_in_usd,
     geo.country AS geo_country,
     device.operating_system AS device_os,
     platform,
     traffic_source.source AS ts_source,
     traffic_source.medium AS ts_medium,
-    traffic_source.name AS ts_campaign,
     collected_traffic_source.manual_source AS cts_source,
     collected_traffic_source.manual_medium AS cts_medium,
     collected_traffic_source.gclid AS cts_gclid,
@@ -99,7 +65,6 @@ installs AS (
     )) AS platform,
     LOWER(COALESCE(NULLIF(ts_source, ''), NULLIF(cts_source, ''), NULLIF(utm_source, ''), '')) AS src,
     LOWER(COALESCE(NULLIF(ts_medium, ''), NULLIF(cts_medium, ''), NULLIF(utm_medium, ''), '')) AS medium,
-    LOWER(COALESCE(NULLIF(ts_campaign, ''), '')) AS campaign,
     COALESCE(cts_gclid, '') AS gclid,
     event_timestamp
   FROM events_in_window
@@ -110,7 +75,7 @@ cohorts AS (
   SELECT
     resolved_user_id,
     ARRAY_AGG(
-      STRUCT(cohort_date, country, platform, src, medium, campaign, gclid)
+      STRUCT(cohort_date, country, platform, src, medium, gclid)
       ORDER BY event_timestamp
       LIMIT 1
     )[OFFSET(0)] AS touch
@@ -202,7 +167,7 @@ SELECT
   IF(MAX(cohort_age_days) >= 180, COUNTIF(revenue_180 > 0), NULL) AS payers_180,
   IF(MAX(cohort_age_days) >= 30, SAFE_DIVIDE(COUNTIF(revenue_30 > 0), COUNT(*)), NULL) AS paid_rate_30,
   IF(MAX(cohort_age_days) >= 90, SAFE_DIVIDE(COUNTIF(revenue_90 > 0), COUNT(*)), NULL) AS paid_rate_90,
-  IF(MAX(cohort_age_days) >= 180, SAFE_DIVIDE(COUNTIF(revenue_180 > 0), COUNT(*)), NULL) AS paid_rate_180,
-  CURRENT_TIMESTAMP() AS refreshed_at
+  IF(MAX(cohort_age_days) >= 180, SAFE_DIVIDE(COUNTIF(revenue_180 > 0), COUNT(*)), NULL) AS paid_rate_180
 FROM user_ltv
-GROUP BY cohort_date, country, install_channel, platform;
+GROUP BY cohort_date, country, install_channel, platform
+ORDER BY cohort_date, country, install_channel, platform;

@@ -69,20 +69,53 @@ export function useExecutive(params: QueryParams, enabled = true) {
 
 export function useDashboardMetric(name: string, params: QueryParams, enabled = true) {
   const { productId } = useProduct();
+  // compare-* and LTV/subscriptions while on Compare must hit the multi-product facade.
   const product =
-    name.startsWith('compare') || productId === 'compare'
-      ? name.startsWith('compare')
-        ? 'compare'
-        : productId
+    name.startsWith('compare')
+    || (name === 'ltv' && productId === 'compare')
+    || (name === 'subscription-tiers' && productId === 'compare')
+      ? 'compare'
       : productId;
   const p = withProduct(params, product);
   const staleTime = name === 'events' ? STALE_TIME.EVENTS : STALE_TIME.DAILY;
   return useQuery({
-    queryKey: queryKey(`dashboard:${name}`, p),
+    queryKey: queryKey(`dashboard:${name}:v3`, p),
     queryFn: () => runDashboardQuery(name, p),
     staleTime,
     enabled,
     select: (data) => data.rows,
+  });
+}
+
+export function useCompareSubscriptions(params: QueryParams, enabled = true) {
+  const p = withProduct(params, 'compare');
+  return useQuery({
+    queryKey: queryKey('dashboard:compare-subscriptions:v1', p),
+    queryFn: () => runDashboardQuery('compare-subscriptions', p),
+    staleTime: STALE_TIME.DAILY,
+    enabled,
+  });
+}
+
+/** Full LTV payload from MongoDB (`source: mongodb`) with server pagination. */
+export function useLtv(params: QueryParams, enabled = true) {
+  const { productId } = useProduct();
+  const p = withProduct(params, productId);
+  return useQuery({
+    queryKey: queryKey('dashboard:ltv:v5', p),
+    queryFn: () => runDashboardQuery('ltv', p),
+    staleTime: STALE_TIME.DAILY,
+    enabled: enabled && productId !== 'compare',
+  });
+}
+
+export function useCompareLtv(params: QueryParams, enabled = true) {
+  const p = withProduct({ ...params, paginate: false }, 'compare');
+  return useQuery({
+    queryKey: queryKey('dashboard:compare-ltv:v5', p),
+    queryFn: () => runDashboardQuery('compare-ltv', p),
+    staleTime: STALE_TIME.DAILY,
+    enabled,
   });
 }
 
@@ -94,10 +127,53 @@ export function useFunnel(funnelId: string, params: QueryParams, enabled = true)
   const { productId } = useProduct();
   const p = withProduct(params, productId);
   return useQuery({
-    queryKey: queryKey(`funnel:${funnelId}`, p),
+    queryKey: queryKey(`funnel:${funnelId}:v2`, p),
     queryFn: () => fetchFunnel(funnelId, p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && productId !== 'compare',
+  });
+}
+
+/** Fetch a dashboard metric for an explicit app, ignoring the sidebar product switcher. */
+export function useScopedDashboardMetric(
+  name: string,
+  params: QueryParams,
+  productId: string | undefined,
+  enabled = true,
+) {
+  const p = withProduct(params, productId || '');
+  const staleTime = name === 'events' ? STALE_TIME.EVENTS : STALE_TIME.DAILY;
+  return useQuery({
+    queryKey: queryKey(`dashboard:${name}:v3`, p),
+    queryFn: () => runDashboardQuery(name, p),
+    staleTime,
+    enabled: enabled && Boolean(productId) && productId !== 'compare',
+    select: (data) => data.rows,
+  });
+}
+
+export function useScopedFunnel(
+  funnelId: string,
+  params: QueryParams,
+  productId: string | undefined,
+  enabled = true,
+) {
+  const p = withProduct(params, productId || '');
+  return useQuery({
+    queryKey: queryKey(`funnel:${funnelId}:v2`, p),
+    queryFn: () => fetchFunnel(funnelId, p),
+    staleTime: STALE_TIME.DAILY,
+    enabled: enabled && Boolean(productId) && productId !== 'compare',
+  });
+}
+
+export function useScopedKpi(params: QueryParams, productId: string | undefined, enabled = true) {
+  const p = withProduct(params, productId || '');
+  return useQuery({
+    queryKey: queryKey('kpi', p),
+    queryFn: () => fetchKpi(p),
+    staleTime: STALE_TIME.DAILY,
+    enabled: enabled && Boolean(productId) && productId !== 'compare',
   });
 }
 

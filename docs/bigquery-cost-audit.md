@@ -62,7 +62,7 @@
 | KPI + individual dau/mau/d1/d7 | Executive + Engagement + Retention | Executive = KPI only; tabs lazy-load |
 | d1 + d7 retention | Retention | Shared `daily_retention` table; combined `09_retention.sql` available |
 | `/api/kpi` + 5 parallel queries (fallback) | Executive | Single `kpi.sql` on summary tables |
-| `dashboard/*.sql` ↔ `queries/*.sql` ↔ `metabase-starter/*` | SQL Editor library | Document: use `dashboard/summary/` only for prod |
+| `sql/dashboard/summary/` + `sql/dashboard/raw/` | SQL Editor library | Document: use `dashboard/summary/` only for prod |
 
 ---
 

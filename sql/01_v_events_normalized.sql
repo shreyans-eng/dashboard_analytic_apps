@@ -101,6 +101,7 @@ params_flat AS (
 
     CASE
       WHEN r.event_name IN (
+        'session_start',
         'first_open', 'first_open_android', 'first_open_ios',
         'App_open', 'App_open_android', 'App_open_ios'
       ) THEN TRUE
@@ -122,7 +123,15 @@ SELECT
   user_pseudo_id,
   ga4_user_id,
   param_user_id,
-  COALESCE(ga4_user_id, param_user_id, user_pseudo_id) AS resolved_user_id,
+  COALESCE(
+    IF(ga4_user_id IS NULL OR TRIM(ga4_user_id) = '' OR LOWER(TRIM(ga4_user_id)) IN (
+      'anonymous', 'null', 'undefined', '(not set)', '(anonymous)'
+    ), NULL, TRIM(ga4_user_id)),
+    IF(param_user_id IS NULL OR TRIM(param_user_id) = '' OR LOWER(TRIM(param_user_id)) IN (
+      'anonymous', 'null', 'undefined', '(not set)', '(anonymous)'
+    ), NULL, TRIM(param_user_id)),
+    user_pseudo_id
+  ) AS resolved_user_id,
 
   -- Dimensions
   platform_resolved                                              AS platform,

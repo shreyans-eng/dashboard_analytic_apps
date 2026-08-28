@@ -99,8 +99,8 @@ daily_funnel AS (
 
     COUNTIF(event_name_base IN (
       'Identified_limit_reached', 'identified_limit_reached',
-      'scan_quota_exhausted', 'Scan_quota_exhausted',
-      'limit_exceeded', 'Limit_exceeded',
+      'identiifcation_limit_exceeded', 'identification_limit_exceeded',
+      'scan_quota_exhausted', 'Scan_quota_exhausted', 'limit_exceeded', 'Limit_exceeded',
       'free_scan_limit_exceeded', 'free_scan_blocked',
       'free_scan_success_quota_exhausted',
       'Identification_unsuccessful_limit_reached'
@@ -109,6 +109,7 @@ daily_funnel AS (
     COUNT(DISTINCT CASE
       WHEN event_name_base IN (
         'Identified_limit_reached', 'identified_limit_reached',
+        'identiifcation_limit_exceeded', 'identification_limit_exceeded',
         'scan_quota_exhausted', 'Scan_quota_exhausted',
         'limit_exceeded', 'Limit_exceeded',
         'free_scan_limit_exceeded', 'free_scan_blocked',

@@ -12,6 +12,7 @@ import {
   Target,
   Users,
   BookOpen,
+  Award,
 } from 'lucide-react';
 import { useProduct } from '@/lib/product';
 
@@ -31,13 +32,22 @@ const AREAS = [
     metrics: 'DAU · Installs / first_open · Attribution (utm) · Onboarding completion',
   },
   {
+    id: 'user-mix',
+    label: 'Who comes back',
+    title: 'Unique, new, returning, repeat',
+    icon: Users,
+    to: '/user-mix',
+    why: 'New vs already-users, one-day visitors vs people who return. Fix people who never come back first.',
+    metrics: 'Unique · New · Returning · One day only · Opened again',
+  },
+  {
     id: 'identify',
     label: 'Identify',
     title: 'Core product value + funnel',
     icon: ScanLine,
     to: '/mvp/identify-funnel',
     why: 'Aha = first successful ID. Funnel shows where it breaks (permission → photo → submit → result).',
-    metrics: 'Time to first scan · Funnel conversion · Success / failure · No-match',
+    metrics: 'Install → first scan · Funnel conversion · Success / failure · No-match',
   },
   {
     id: 'limits',
@@ -68,50 +78,60 @@ const AREAS = [
   },
   {
     id: 'catalogue',
-    label: 'Catalogue',
+    label: 'Global catalogue',
     title: 'Browse & detail',
     icon: BookOpen,
-    to: '/mvp/catalogue',
-    why: 'Catalogue/collection opens and detail views — second product surface after Identify.',
-    metrics: 'Catalogue open rate · Detail views · Filters',
+    to: '/funnels/global',
+    why: 'World / global catalogue opens and item details — browse beyond owned items.',
+    metrics: 'Global screen · Item tap · Details',
   },
   {
     id: 'collection',
-    label: 'Collection',
+    label: 'Private collection',
     title: 'Identify → habit',
     icon: Layers,
-    to: '/mvp/catalogue',
-    why: 'Add-to-collection after successful ID. One-off tool vs collecting habit.',
-    metrics: 'Add-after-ID rate · Collection engagement',
+    to: '/funnels/collection',
+    why: 'Owned collection screen, cards, sub-collections, and details.',
+    metrics: 'Collection screen · Card · Sub-collection · Details',
   },
   {
     id: 'marketplace',
     label: 'Marketplace',
     title: 'Commerce loop',
     icon: ShoppingBag,
-    to: '/mvp/marketplace',
+    to: '/funnels/marketplace',
     why: 'Listing views and contact seller — commerce stickiness once core Identify is healthy.',
-    metrics: 'Marketplace engagement · Contact seller',
+    metrics: 'Marketplace screen · Listing tap · Contact seller',
   },
   {
     id: 'feed',
     label: 'Feed',
     title: 'Secondary social',
     icon: Filter,
-    to: '/product',
+    to: '/funnels/feed',
     why: 'Posts / likes — secondary engagement after Identify + Pro + catalogue are healthy.',
     metrics: 'Feed open · Posts · Likes',
+  },
+  {
+    id: 'expert',
+    label: 'Expert evaluation',
+    title: 'Paid expert review',
+    icon: Award,
+    to: '/funnels/expert',
+    products: ['coinzy'],
+    why: 'Coinzy-only. Landing → upload → queued request → report, plus buying expert credits.',
+    metrics: 'Landing · Upload · Queued · Report · Credits / tokens',
   },
 ];
 
 const MVP = [
   {
     name: 'DAU',
-    why: 'Baseline health. Every other rate is relative to active users.',
+    why: 'People who opened the app. Notifications are not mixed in.',
     to: '/mvp/dau',
   },
   {
-    name: 'Time to first scan',
+    name: 'Install → first scan',
     why: 'Core aha. Longer = friction (permission, camera, paywall, confusion).',
     to: '/mvp/time-to-first-scan',
   },
@@ -142,7 +162,7 @@ const MVP = [
   },
   {
     name: 'Identify funnel conversion',
-    why: 'Open → permission → photo → submit → success. Shows where Identify breaks.',
+    why: 'Open → permission → first image → second image → submit → success. Split scan paths live under Funnels.',
     to: '/mvp/identify-funnel',
   },
   {
@@ -198,7 +218,7 @@ export default function ProductAnalyticsPage() {
 
         <h3 style={{ fontSize: 15, marginBottom: 12 }}>Key areas</h3>
         <div className="area-grid">
-          {AREAS.map(({ id, label, title, icon: Icon, why, metrics, to }) => (
+          {AREAS.filter((a) => !('products' in a) || (!isCompare && a.products?.includes(product.id))).map(({ id, label, title, icon: Icon, why, metrics, to }) => (
             <NavLink key={id} to={to} className="area-card" style={{ display: 'block' }}>
               <div className="area-label">{label}</div>
               <h4 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -244,7 +264,10 @@ export default function ProductAnalyticsPage() {
             Switch apps in the sidebar to inspect each separately. SQL under{' '}
             <code>sql/dashboard/product/01</code>–<code>10</code> is shared;
             entity params differ per app. Use{' '}
-            <NavLink to="/compare" style={{ color: 'var(--accent)' }}>Compare Apps</NavLink> for side-by-side.
+            <NavLink to="/compare" style={{ color: 'var(--accent)' }}>Compare Apps</NavLink> for side-by-side
+            charts, and{' '}
+            <NavLink to="/report" style={{ color: 'var(--accent)' }}>Health report</NavLink> for Combined
+            plus a separate Banknote / Coinzy write-up of what to pick first.
           </p>
           <p style={{ marginTop: 8 }}>
             Registered apps: {products.map((p) => p.shortName).join(', ')}
@@ -277,6 +300,12 @@ export default function ProductAnalyticsPage() {
                 <td colSpan={2}><code>sql/dashboard/product/01–10_*.sql</code></td>
                 <td>Identical formulas</td>
               </tr>
+              <tr>
+                <td>Expert evaluation</td>
+                <td>Not instrumented</td>
+                <td><code>expert_*</code> funnel</td>
+                <td>Coinzy only — sidebar tab when Coinzy is selected</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -294,6 +323,7 @@ export default function ProductAnalyticsPage() {
             <li>Strong Identify, weak catalogue/collection → post-ID browse / add CTA.</li>
             <li>Strong Identify, weak marketplace → listing discovery / commerce entry.</li>
             <li>Rising DAU, falling scans/user → shallow opens, not growth success.</li>
+            <li>Coinzy Expert: high landing, few reports → leak at upload, pay, or queue.</li>
           </ul>
         </div>
       </div>

@@ -2,6 +2,9 @@
 SELECT
   event_date,
   dau,
+  COALESCE(app_open_dau, dau) AS app_open_dau,
+  notification_dau,
+  any_event_dau,
   installs,
   success_scans,
   failure_scans,

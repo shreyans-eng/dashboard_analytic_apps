@@ -1,84 +1,70 @@
-# Cohort LTV (Explorer)
+# Cohort LTV — MongoDB read model
 
 LTV-30 / LTV-90 / LTV-180 by **install cohort date × country × Organic / Paid / Direct**.
 
-Dashboard: **Explorer → Cohort LTV** (`/ltv`). Banknote and Coinzy stay on separate BigQuery projects.
+```text
+Firebase → BigQuery events_* (READ ONLY)
+        → daily refresh (SELECT only)
+        → MongoDB collection `cohort_ltv`
+        → API filters + pagination
+        → optional Redis/memory cache
+        → Explorer /ltv + Compare
+```
 
-## Formula
+| Product | BigQuery source (read) | MongoDB |
+|---------|------------------------|---------|
+| Banknote | `banknote-app-4f3fd.analytics_488476338.events_*` | `cohort_ltv` docs with `product: "banknote"` |
+| Coinzy | `coinzy-26a4d.analytics_487601380.events_*` | `cohort_ltv` docs with `product: "coinzy"` |
+
+API `source: "mongodb"`. Normal requests **do not** query BigQuery.
+
+## Formula (unchanged)
 
 ```text
 LTV-N = revenue in the N days after install ÷ installs in the cohort
 ```
 
-Windows are inclusive of install day:
+Immature windows → NULL. Windows: 30 / 90 / 180 only.
 
-| Metric | Revenue window | Mature when |
-|--------|----------------|-------------|
-| LTV-30 | Day 0–29 | cohort age ≥ 30 days |
-| LTV-90 | Day 0–89 | cohort age ≥ 90 days |
-| LTV-180 | Day 0–179 | cohort age ≥ 180 days |
+## Daily refresh
 
-Immature windows are **NULL**, not partial LTV. The dashboard date range is **install (cohort) dates**, not calendar revenue.
+```bash
+cd banknote-analytics-dashboard
+PRODUCTS=banknote,coinzy DAYS=30 LTV_DAYS=210 npm run refresh-ltv:mongo
+```
 
-Grain stored: `cohort_date × country × install_channel × platform`. The Explorer page rolls platform up unless you filter it.
+- Scans only the cohort window (expanded by `LTV_DAYS`, default 210) through `cohort_end + 180` purchase days.
+- Upserts by deleting the product’s window then inserting (idempotent).
+- Requires `MONGODB_URI` — **no** BigQuery table create permission.
 
-## What was reused
+## API filters & pagination
 
-- Same identity as the rest of analytics: `COALESCE(user_id, event_params.user_id, user_pseudo_id)`.
-- Same country-at-event rule as explorer tabs: `COALESCE(event_params.country, geo.country, 'Unknown')`, taken from the user’s **first** `first_open` (not later purchases).
-- Same `first_open` cohort idea as New Users / D1 / D7 (earliest `first_open` per user).
-- Same summary → raw fallback as other Explorer metrics (`analytics_summary.cohort_ltv`, then `sql/dashboard/raw/10_cohort_ltv.sql`).
-- **Not** reused: `v_attribution_metrics` (UTM-first; `collected_traffic_source` on `first_open` is empty here) and `v_subscription_metrics` / `Subs_confirm` (confirmation counts, not USD).
+| Param | Role |
+|-------|------|
+| `start_date` / `end_date` | Cohort date range |
+| `country` | Exact country |
+| `install_channel` | Organic \| Paid \| Direct |
+| `platform` | Optional |
+| `search` | Substring on country / channel / date |
+| `page` / `page_size` | Server pagination (default 25) |
+| `paginate=false` | Return all rows (Compare) |
 
-## Organic / Paid / Direct
+Response includes `rows`, `total`, `page`, `page_size`, `daily`, `by_channel`, `totals`, `countries`, `source: "mongodb"`.
 
-Frozen on the **first** `first_open` only (`traffic_source`, then `collected_traffic_source`, then UTM). Later sessions and `session_traffic_source_last_click` do not change the channel.
+## Emergency BigQuery
 
-Verified on Coinzy + Banknote `first_open` (Aug 2026):
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `LTV_FORCE_RAW` | off | Always hit events_* (debug) |
+| `LTV_ALLOW_RAW_FALLBACK` | **off** | If Mongo empty for product, allow one raw scan only when set to `true` |
 
-| Channel | Typical `traffic_source` |
-|---------|--------------------------|
-| **Organic** | `google-play` / `organic`, `google` / `organic` |
-| **Paid** | `google` / `cpc` (and other paid media: cpc, ppc, cpm, display, uac, … or a `gclid`) |
-| **Direct** | `(direct)` / `(none)` |
-
-Empty UTM is **not** treated as Direct when `traffic_source` is present. Residual rows with no source/medium at all are classified Direct so every install is Organic, Paid, or Direct (no fourth bucket).
-
-## Revenue
-
-USD from GA4 monetary fields on `in_app_purchase` / `purchase` only:
-
-1. `event_value_in_usd`
-2. else `event_params.value` (double / float / int)
-
-`refund` subtracts when present. **Not used:** `Subs_confirm` / `subs_confirm`, Coinzy `paid_purchase` / `paid_purchase_ga4` (not verified as USD). Pack prices are not invented.
-
-Trials and renewals appear only if Play/App Store reports them as those purchase events with a value. There is no separate trial flag in this export.
-
-## SQL & refresh
+## SQL / code
 
 | Piece | Path |
 |-------|------|
-| Raw fallback | `sql/dashboard/raw/10_cohort_ltv.sql` |
-| Dashboard read | `sql/dashboard/summary/10_cohort_ltv.sql` |
-| Materialize | `sql/scheduled/cohort_ltv.sql` → `{project}.analytics_summary.cohort_ltv` |
-| Checks | `sql/validation/06_cohort_ltv.sql` |
+| BQ SELECT (refresh) | `sql/scheduled/cohort_ltv_mongo.sql` |
+| Emergency raw | `sql/dashboard/raw/10_cohort_ltv.sql` |
+| Mongo store | `server/services/analytics/cohort-ltv-mongo.js` |
+| Refresh script | `scripts/refresh-cohort-ltv-mongo.js` |
 
-```bash
-# LTV lookback defaults to 210 days even if DAYS is smaller (needed for LTV-180)
-PRODUCT=coinzy DAYS=30 npm run refresh-summaries:product
-PRODUCT=banknote LTV_DAYS=210 npm run refresh-summaries:product
-```
-
-Explicit `START=` is respected (no auto-expand) so you can backfill a slice.
-
-## Dashboard
-
-Filters: cohort date range, country (including Unknown), platform, channel. Compare-apps mode is disabled on this page (pick Banknote or Coinzy). Default 30-day range will show LTV-30 for mature days only; widen the install-date range for LTV-90 / LTV-180.
-
-## Limitations
-
-- Windowed `first_open` scans cannot see an earlier install *before* the scanned event range; same constraint as other cohort SQL.
-- Users who only get a `user_id` after install may still split across a pseudo-id and a later id.
-- IAP volume is low vs installs; many mature cohorts will have LTV $0.00, which is valid.
-- If `event_value_in_usd` and `value` are both missing, that purchase is skipped (not filled with a guessed pack price).
+See [10-cohort-ltv-full-flow.md](./10-cohort-ltv-full-flow.md).
