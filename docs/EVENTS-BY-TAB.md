@@ -240,7 +240,8 @@ Whatever event you pick. Hits + unique users. Use this to check an event actuall
 | Unique vs repeat | Any event (new vs returning) |
 | Monthly Active Users | Any event in the calendar month |
 | New Users | `first_open` |
-| Installs + time used | `first_open` + same-day `user_engagement` / `session_start` / `App_open` (≥10s = “went in”) |
+| Installs + time used | `first_open` + same-day `user_engagement` / `session_start` / `App_open` (≥10s = “went in”). Time P10–P99 |
+| D0 / D1 percentiles | Install cohort (`first_open`). D0 went-in 10s+ · D1 opened (DAU events). Scans = `identification_done_success` (+ Coinzy `Identification_done`). P10, P25, P50, P75, P90, P95, P99 |
 | Scan limits | Quota events (MVP 4) split free vs subscribed using `Subs_confirm` / `subs_confirm` / `paid_purchase` / `in_app_purchase` |
 | Free-scan success quota | Coinzy only. **Hit** = `free_scan_success_quota_exhausted` (success remaining → 0). After: `free_scan_blocked` · `free_scan_limit_exceeded` · `free_scan_go_premium_tapped` · `free_scan_not_now_tapped`. Informational: `free_scan_fail_quota_exhausted` · `free_scan_quota_reset`. Not a hit: `free_scan_success_consumed`. Do **not** use `Identified_limit_reached` / `Collection_limit_Reached`. Banknote events TBD. |
 | D1 / D7 Retention | Same as MVP 6 |

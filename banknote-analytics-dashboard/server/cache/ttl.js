@@ -13,6 +13,7 @@ export const METRIC_TTL = {
   dau: TTL.DAILY,
   'user-mix': TTL.DAILY,
   'install-day-usage': TTL.DAILY,
+  'd0-d1-percentiles': TTL.DAILY,
   'scan-limits': TTL.DAILY,
   'free-scan-quota': TTL.DAILY,
   mau: TTL.DAILY,

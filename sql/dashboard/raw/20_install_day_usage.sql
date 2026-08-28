@@ -56,18 +56,33 @@ installers AS (
     GREATEST(engagement_seconds, session_length_seconds) AS time_seconds
   FROM per_device_day
   WHERE is_install
+),
+daily AS (
+  SELECT
+    event_date,
+    COUNT(*) AS installs,
+    COUNTIF(time_seconds >= 10) AS went_in,
+    SAFE_DIVIDE(COUNTIF(time_seconds >= 10), COUNT(*)) AS went_in_rate,
+    SUM(IF(time_seconds >= 10, time_seconds, 0)) AS total_seconds_went_in,
+    AVG(IF(time_seconds >= 10, time_seconds, NULL)) AS avg_seconds,
+    APPROX_QUANTILES(IF(time_seconds >= 10, time_seconds, NULL), 100) AS time_q
+  FROM installers
+  GROUP BY event_date
 )
 SELECT
   event_date,
-  COUNT(*) AS installs,
-  COUNTIF(time_seconds >= 10) AS went_in,
-  SAFE_DIVIDE(COUNTIF(time_seconds >= 10), COUNT(*)) AS went_in_rate,
-  SUM(IF(time_seconds >= 10, time_seconds, 0)) AS total_seconds_went_in,
-  AVG(IF(time_seconds >= 10, time_seconds, NULL)) AS avg_seconds,
-  APPROX_QUANTILES(
-    IF(time_seconds >= 10, time_seconds, NULL),
-    100
-  )[OFFSET(50)] AS median_seconds
-FROM installers
-GROUP BY event_date
+  installs,
+  went_in,
+  went_in_rate,
+  total_seconds_went_in,
+  avg_seconds,
+  time_q[OFFSET(50)] AS median_seconds,
+  time_q[OFFSET(10)] AS time_p10,
+  time_q[OFFSET(25)] AS time_p25,
+  time_q[OFFSET(50)] AS time_p50,
+  time_q[OFFSET(75)] AS time_p75,
+  time_q[OFFSET(90)] AS time_p90,
+  time_q[OFFSET(95)] AS time_p95,
+  time_q[OFFSET(99)] AS time_p99
+FROM daily
 ORDER BY event_date;

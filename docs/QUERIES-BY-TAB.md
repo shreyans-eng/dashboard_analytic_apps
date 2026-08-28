@@ -186,6 +186,7 @@ Code: same `funnel-registry.js`. Refresh that fills summary: `scheduled/event_in
 | Monthly Active Users | `mau` | `summary/02_mau.sql` | `dashboard/02_monthly_active_users.sql` → `v_monthly_active_users` | `raw/02_mau.sql` |
 | New Users | `new-users` | `summary/03_new_users.sql` | `dashboard/03_new_users.sql` | `raw/03_new_users.sql` |
 | Installs + time used | `install-day-usage` | — | — | `raw/20_install_day_usage.sql` |
+| D0 / D1 percentiles | `d0-d1-percentiles` | — | — | `raw/23_install_d0_d1_percentiles.sql` |
 | Scan limits | `scan-limits` | — | — | `raw/21_scan_limits.sql` |
 | Free-scan success quota | `free-scan-quota` | — | — | `product/coinzy/22_free_scan_success_quota.sql` (Coinzy only) |
 | D1 Retention | `d1` | `summary/05_d1_retention.sql` | `dashboard/05_d1_retention.sql` | `raw/05_d1_retention.sql` |
@@ -269,6 +270,7 @@ Dashboard tabs read those stores; they do not run the scheduled files on click.
 | Explorer DAU | `dashboard/raw/01_dau.sql` |
 | Unique vs repeat | `dashboard/raw/19_user_mix.sql` |
 | Installs + time | `dashboard/raw/20_install_day_usage.sql` |
+| D0 / D1 percentiles | `dashboard/raw/23_install_d0_d1_percentiles.sql` |
 | Scan limits | `dashboard/raw/21_scan_limits.sql` |
 | Free-scan success quota | `dashboard/product/coinzy/22_free_scan_success_quota.sql` |
 | Cohort LTV | Mongo · emergency `dashboard/raw/10_cohort_ltv.sql` |

@@ -141,6 +141,7 @@ SELECT
   d.scan_q[OFFSET(25)] AS scans_p25,
   d.scan_q[OFFSET(50)] AS scans_p50,
   d.scan_q[OFFSET(75)] AS scans_p75,
+  d.scan_q[OFFSET(90)] AS scans_p90,
   d.scan_q[OFFSET(95)] AS scans_p95,
   d.scan_q[OFFSET(99)] AS scans_p99,
 

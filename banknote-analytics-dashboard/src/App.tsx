@@ -13,6 +13,7 @@ import UserMixPage from '@/pages/UserMixPage';
 import InstallDayUsagePage from '@/pages/InstallDayUsagePage';
 import ScanLimitsPage from '@/pages/ScanLimitsPage';
 import FreeScanQuotaPage from '@/pages/FreeScanQuotaPage';
+import PercentilesPage from '@/pages/PercentilesPage';
 import ReportPage from '@/pages/ReportPage';
 import LoginPage from '@/pages/LoginPage';
 import AdminUsersPage from '@/pages/AdminUsersPage';
@@ -103,6 +104,7 @@ export default function App() {
         <Route path="ltv" element={<LtvPage {...shared} />} />
         <Route path="user-mix" element={<UserMixPage {...shared} />} />
         <Route path="install-day-usage" element={<InstallDayUsagePage {...shared} />} />
+        <Route path="percentiles" element={<PercentilesPage {...shared} />} />
         <Route path="scan-limits" element={<ScanLimitsPage {...shared} />} />
         <Route path="free-scan-quota" element={<FreeScanQuotaPage {...shared} />} />
         <Route path="sql" element={<SqlEditorPage {...shared} />} />

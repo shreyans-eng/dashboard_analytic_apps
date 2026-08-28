@@ -40,6 +40,7 @@ SELECT
   q[OFFSET(25)] AS scans_p25,
   q[OFFSET(50)] AS scans_p50,
   q[OFFSET(75)] AS scans_p75,
+  q[OFFSET(90)] AS scans_p90,
   q[OFFSET(95)] AS scans_p95,
   q[OFFSET(99)] AS scans_p99
 FROM daily

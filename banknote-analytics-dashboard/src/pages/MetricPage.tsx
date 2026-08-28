@@ -365,6 +365,7 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
                   <th>P25</th>
                   <th>P50</th>
                   <th>P75</th>
+                  <th>P90</th>
                   <th>P95</th>
                   <th>P99</th>
                 </tr>
@@ -379,6 +380,7 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
                     <td>{fmtScanCell(r.scans_p25)}</td>
                     <td>{fmtScanCell(r.scans_p50)}</td>
                     <td>{fmtScanCell(r.scans_p75)}</td>
+                    <td>{fmtScanCell(r.scans_p90)}</td>
                     <td>{fmtScanCell(r.scans_p95)}</td>
                     <td>{fmtScanCell(r.scans_p99)}</td>
                   </tr>
@@ -600,7 +602,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     xKey: 'event_date',
     yKey: 'scans_per_dau',
     color: '#fb7185',
-    guide: 'The average includes people who opened the app and did not Identify. Percentiles (P10–P99) are only among people who got at least one successful ID that day, so a few heavy scanners cannot hide what a typical scanner does.',
+    guide: 'The average includes people who opened the app and did not Identify. Percentiles (P10, P25, P50, P75, P90, P95, P99) are only among people who got at least one successful ID that day, so a few heavy scanners cannot hide what a typical scanner does.',
     stats: [
       { key: 'scans_per_dau', label: 'Average / person', format: 'avg' },
       { key: 'scans_per_scanning_user', label: 'Average / scanner', format: 'avg' },
@@ -608,12 +610,13 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
       { key: 'scans_p25', label: 'P25', format: 'avg' },
       { key: 'scans_p50', label: 'P50', format: 'avg' },
       { key: 'scans_p75', label: 'P75', format: 'avg' },
+      { key: 'scans_p90', label: 'P90', format: 'avg' },
       { key: 'scans_p95', label: 'P95', format: 'avg' },
       { key: 'scans_p99', label: 'P99', format: 'avg' },
     ],
     extraCharts: [
       {
-        title: 'Successful IDs per scanning person (P10, P25, P50, P75, P95, P99)',
+        title: 'Successful IDs per scanning person (P10, P25, P50, P75, P90, P95, P99)',
         yKey: 'scans_p50',
         color: '#4f8cff',
         type: 'multi',
@@ -622,6 +625,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
           { yKey: 'scans_p25', name: 'P25', color: '#67e8f9' },
           { yKey: 'scans_p50', name: 'P50 (typical)', color: '#4f8cff', strokeWidth: 2.5 },
           { yKey: 'scans_p75', name: 'P75', color: '#34d399' },
+          { yKey: 'scans_p90', name: 'P90', color: '#fb923c' },
           { yKey: 'scans_p95', name: 'P95', color: '#fbbf24' },
           { yKey: 'scans_p99', name: 'P99', color: '#f87171' },
         ],

@@ -32,6 +32,13 @@ type Row = {
   total_seconds_went_in?: number;
   avg_seconds?: number;
   median_seconds?: number;
+  time_p10?: number;
+  time_p25?: number;
+  time_p50?: number;
+  time_p75?: number;
+  time_p90?: number;
+  time_p95?: number;
+  time_p99?: number;
 };
 
 function n(v: unknown) {
@@ -134,8 +141,8 @@ export default function InstallDayUsagePage({ params, setParams, applyFilters }:
                   the same day (Firebase <code>user_engagement</code> time, or app <code>session_length_seconds</code>).
                 </li>
                 <li>
-                  <strong>Time used</strong> is how long those people stayed on the install day — typical (median)
-                  and average.
+                  <strong>Time used</strong> is how long those people stayed on the install day.
+                  P10–P99 (including P90) are among people who went in 10s+.
                 </li>
                 <li>
                   Opening the store listing is not enough. <code>first_open</code> means they launched the app;
@@ -212,9 +219,65 @@ export default function InstallDayUsagePage({ params, setParams, applyFilters }:
                       strokeWidth={2}
                       dot={false}
                     />
+                    <Line
+                      type="monotone"
+                      dataKey="time_p10"
+                      name="P10"
+                      stroke="#94a3b8"
+                      strokeWidth={1.5}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="time_p90"
+                      name="P90"
+                      stroke="#fb923c"
+                      strokeWidth={1.5}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="time_p99"
+                      name="P99"
+                      stroke="#f87171"
+                      strokeWidth={1.5}
+                      dot={false}
+                    />
                   </ComposedChart>
                 </ResponsiveContainer>
               </ChartCard>
+            </div>
+
+            <h3 className="section-label">Time used on install day (P10–P99, among 10s+)</h3>
+            <div className="results-table-wrap">
+              <table className="results-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>P10</th>
+                    <th>P25</th>
+                    <th>P50</th>
+                    <th>P75</th>
+                    <th>P90</th>
+                    <th>P95</th>
+                    <th>P99</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={String(r.event_date)}>
+                      <td>{String(r.event_date ?? '').slice(0, 10)}</td>
+                      <td>{fmtDuration(n(r.time_p10))}</td>
+                      <td>{fmtDuration(n(r.time_p25))}</td>
+                      <td>{fmtDuration(n(r.time_p50 || r.median_seconds))}</td>
+                      <td>{fmtDuration(n(r.time_p75))}</td>
+                      <td>{fmtDuration(n(r.time_p90))}</td>
+                      <td>{fmtDuration(n(r.time_p95))}</td>
+                      <td>{fmtDuration(n(r.time_p99))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </>
         )}

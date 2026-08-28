@@ -45,6 +45,7 @@ export const PAGE_CATALOG = [
     { id: 'explorer.mau', label: 'Monthly Active Users', path: '/mau' },
     { id: 'explorer.new-users', label: 'New Users', path: '/new-users' },
     { id: 'explorer.install-day-usage', label: 'Installs + time used', path: '/install-day-usage' },
+    { id: 'explorer.percentiles', label: 'D0 / D1 percentiles', path: '/percentiles' },
     { id: 'explorer.scan-limits', label: 'Scan limits', path: '/scan-limits' },
     { id: 'explorer.free-scan-quota', label: 'Free-scan success quota', path: '/free-scan-quota' },
     { id: 'explorer.d1', label: 'D1 Retention', path: '/d1-retention' },
@@ -112,6 +113,15 @@ export function canAccessPage(user, pageId) {
   if (
     pageId === 'explorer.install-day-usage'
     && (pages.includes('explorer.new-users') || pages.includes('mvp.time-to-first-scan'))
+  ) {
+    return true;
+  }
+  if (
+    pageId === 'explorer.percentiles'
+    && (pages.includes('explorer.install-day-usage')
+      || pages.includes('mvp.scans-per-user')
+      || pages.includes('mvp.retention')
+      || pages.includes('explorer.d1'))
   ) {
     return true;
   }

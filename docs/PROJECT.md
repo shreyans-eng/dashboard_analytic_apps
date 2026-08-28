@@ -201,7 +201,7 @@ SQL: `sql/dashboard/product/01`–`10_*.sql` (Coinzy override under `product/coi
 | 4 | Quota hit | `free_quota_hit_rate` | Distinct scan-quota users ÷ scan-attempt users (not collection limit) |
 | 5 | Paywall → purchase | `paywall_to_confirm_rate` | Confirm **events** ÷ paywall **events**. Unique people, pack mix, and onboarding → purchase are Funnels → Paywall / Onboarding → subs |
 | 6 | D1 / D4 / D7 | `d1_retention_rate` / `d4` / `d7` / `d4_d7` | Returned any event on D+1 / D+4 / D+7; D4–D7 = any of days 4–7. Cohort = `first_open` |
-| 7 | Scans / user | `scans_per_dau` + `scans_p10`…`scans_p99` | Mean = success events ÷ DAU. Percentiles = successful IDs per **scanning** user-day (P10, P25, P50, P75, P95, P99) |
+| 7 | Scans / user | `scans_per_dau` + `scans_p10`…`scans_p99` | Mean = success events ÷ DAU. Percentiles = successful IDs per **scanning** user-day (P10, P25, P50, P75, **P90**, P95, P99) |
 | 8 | Identify funnel | `open_to_success_rate` | Banknote: success ÷ (`Identify_bottom_nav` ∪ `Identify_home`). Coinzy: success (`identification_done_success` ∪ `Identification_done`) ÷ camera (`Identification_screen` ∪ `photo_screen`) — nav is not open |
 | 9 | Collection vs catalogue | `private_collection_open_rate` · `global_catalogue_open_rate` | Separate rates of DAU — **not** mixed |
 | 10 | Marketplace | `marketplace_engagement_rate` | Market nav / `marketplace_screen` / `market_item_expolre` ÷ DAU. **Feed is a separate tab**, not mixed in |
@@ -245,7 +245,8 @@ Prefer summary → view → raw.
 |-----|---------|
 | DAU | Same as MVP 1. Country/platform filter always hits raw (summary has no that grain) |
 | Unique vs repeat | New vs returning, one-day vs 2+ days |
-| Installs + time used | `first_open` devices; “went in” = ≥10s (`engagement_time_msec` or `session_length_seconds`) |
+| Installs + time used | `first_open` devices; “went in” = ≥10s (`engagement_time_msec` or `session_length_seconds`). Time P10–P99 among went-in |
+| D0 / D1 percentiles | Install cohort. D0 went-in + D1 opened (DAU events). Time and scans P10, P25, P50, P75, P90, P95, P99 on each day |
 | Scan limits | Free vs subscribed (purchase on/before that day, 180-day lookback). Success cap vs unsuccessful cap. No separate Pro limit event |
 | Free-scan success quota | Coinzy only. Hit = `free_scan_success_quota_exhausted` (success remaining → 0). Unique people + hits. After-hit: blocked / popup / go premium / not now. Fail exhausted does not block. Banknote TBD |
 | MAU | Distinct users in calendar month |

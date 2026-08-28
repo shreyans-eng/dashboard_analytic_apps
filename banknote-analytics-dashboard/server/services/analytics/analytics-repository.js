@@ -115,6 +115,10 @@ const QUERY_MAP = {
     raw: 'dashboard/raw/20_install_day_usage.sql',
     metric: 'install-day-usage',
   },
+  'd0-d1-percentiles': {
+    raw: 'dashboard/raw/23_install_d0_d1_percentiles.sql',
+    metric: 'd0-d1-percentiles',
+  },
   'scan-limits': {
     raw: 'dashboard/raw/21_scan_limits.sql',
     metric: 'scan-limits',
@@ -475,11 +479,19 @@ export class AnalyticsRepository {
   }
 
   async getInstallDayUsage(params) {
-    const key = cacheKey(`${this.productId}:dashboard:install-day-usage:v1`, params);
+    const key = cacheKey(`${this.productId}:dashboard:install-day-usage:v2`, params);
     const result = await cached('install-day-usage', key, () =>
       this._executeSql('dashboard/raw/20_install_day_usage.sql', params, 'raw'),
     );
     return this._attachCompleteness(result, params);
+  }
+
+  async getD0D1Percentiles(params) {
+    const key = cacheKey(`${this.productId}:dashboard:d0-d1-percentiles:v1`, params);
+    const result = await cached('d0-d1-percentiles', key, () =>
+      this._executeSql('dashboard/raw/23_install_d0_d1_percentiles.sql', params, 'raw'),
+    );
+    return this._attachCompleteness(result, params, 'cohort_date');
   }
 
   async getScanLimits(params) {
@@ -739,6 +751,7 @@ export class AnalyticsRepository {
       dau: () => this.getDailyUsers(params),
       'user-mix': () => this.getUserMix(params),
       'install-day-usage': () => this.getInstallDayUsage(params),
+      'd0-d1-percentiles': () => this.getD0D1Percentiles(params),
       'scan-limits': () => this.getScanLimits(params),
       'free-scan-quota': () => this.getFreeScanQuota(params),
       mau: () => this.getMonthlyUsers(params),
@@ -772,7 +785,7 @@ export class AnalyticsRepository {
     const spec = MVP_KPI_MAP[name];
     if (!spec) throw new Error(`Unknown MVP metric: ${name}`);
 
-    const key = cacheKey(`${this.productId}:mvp:v10:${name}`, params);
+    const key = cacheKey(`${this.productId}:mvp:v11:${name}`, params);
     const result = await cached('kpi', key, async () => {
       if (spec.useRetention) {
         return this.getRetention(params);

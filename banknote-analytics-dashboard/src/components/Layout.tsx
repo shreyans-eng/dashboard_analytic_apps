@@ -41,6 +41,7 @@ import {
   Clock,
   Gauge,
   ShieldAlert,
+  Percent,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchConfig, AppConfig } from '@/lib/api';
@@ -90,6 +91,7 @@ const NAV = [
   { to: '/mau', pageId: 'explorer.mau', label: 'Monthly Active Users', icon: Calendar },
   { to: '/new-users', pageId: 'explorer.new-users', label: 'New Users', icon: UserPlus },
   { to: '/install-day-usage', pageId: 'explorer.install-day-usage', label: 'Installs + time used', icon: Clock },
+  { to: '/percentiles', pageId: 'explorer.percentiles', label: 'D0 / D1 percentiles', icon: Percent },
   { to: '/scan-limits', pageId: 'explorer.scan-limits', label: 'Scan limits', icon: Gauge },
   { to: '/free-scan-quota', pageId: 'explorer.free-scan-quota', label: 'Free-scan success quota', icon: ShieldAlert, products: ['coinzy'] },
   { to: '/d1-retention', pageId: 'explorer.d1', label: 'D1 Retention', icon: TrendingUp },

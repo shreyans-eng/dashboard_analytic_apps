@@ -15,6 +15,7 @@ import {
   Clock,
   Gauge,
   ShieldAlert,
+  Percent,
 } from 'lucide-react';
 import { useProduct } from '@/lib/product';
 import { useAuth } from '@/lib/auth';
@@ -68,6 +69,12 @@ const METRICS = [
     icon: Clock,
     title: 'Installs + time used',
     description: 'How many people installed each day, how many stayed in the app, and for how long.',
+  },
+  {
+    to: '/percentiles',
+    icon: Percent,
+    title: 'D0 / D1 percentiles',
+    description: 'Install cohort: time, scans per day, and retain on D0 vs D1 (P10–P99).',
   },
   {
     to: '/scan-limits',
