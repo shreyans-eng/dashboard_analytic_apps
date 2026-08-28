@@ -1,6 +1,6 @@
 -- =============================================================================
--- Coinzy MVP #9 — Private collection vs global catalogue (raw events)
--- These are separate rates. Do not union Collection_screen with Global_catalogue_screen.
+-- Banknote MVP #9 — Private collection vs global catalogue (raw events)
+-- Separate rates. Collection_screen is NOT mixed with Global_catalogue_screen.
 -- =============================================================================
 
 WITH bounds AS (
@@ -28,28 +28,19 @@ flags AS (
     event_date,
     resolved_user_id,
     MAX(IF(event_name_base IN (
-      'Collection_screen', 'collection_bottom_nav'
+      'Collection_screen', 'private_collection_bottom_nav'
     ), 1, 0)) AS opened_private,
     MAX(IF(event_name_base IN (
       'Global_catalogue_screen', 'Global_catalogue'
     ), 1, 0)) AS opened_global,
     MAX(IF(event_name_base IN (
-      'Coin_details', 'Coin_details_collection', 'Coin_details_global',
-      'Coin_details_identification', 'identification_details_screen'
+      'banknote_details_collection', 'banknote_details_global',
+      'banknote_details_identification', 'identification_details_screen'
     ), 1, 0)) AS viewed_detail,
-    MAX(IF(event_name_base IN (
-      'Filter_button_private', 'Filter_button_global',
-      'filter_field_selected_collection', 'filter_sub_collection',
-      'Predefined_filter_private', 'Predefined_filter_global'
-    ), 1, 0)) AS used_filter,
     MAX(IF(event_name_base IN (
       'identification_done_success', 'Identification_done_success'
     ), 1, 0)) AS had_success,
-    MAX(IF(
-      STARTS_WITH(event_name_base, 'Added_to_collection')
-      OR event_name_base IN ('Added _to_collection_owned', 'add_to_wishlist'),
-      1, 0
-    )) AS added
+    MAX(IF(STARTS_WITH(event_name_base, 'Added_to_collection'), 1, 0)) AS added
   FROM base
   GROUP BY event_date, resolved_user_id
 )
@@ -59,7 +50,6 @@ SELECT
   COUNTIF(opened_private = 1) AS users_opened_private_collection,
   COUNTIF(opened_global = 1) AS users_opened_global_catalogue,
   COUNTIF(viewed_detail = 1) AS users_viewed_detail,
-  COUNTIF(used_filter = 1) AS users_used_filter,
   COUNTIF(had_success = 1) AS users_with_success_id,
   COUNTIF(had_success = 1 AND added = 1) AS users_added_after_id,
   SAFE_DIVIDE(COUNTIF(opened_private = 1), COUNT(*)) AS private_collection_open_rate,

@@ -50,13 +50,19 @@ cohort_flags AS (
     c.cohort_date,
     c.resolved_user_id,
     MAX(IF(a.activity_date = DATE_ADD(c.cohort_date, INTERVAL 1 DAY), 1, 0)) AS returned_d1,
-    MAX(IF(a.activity_date = DATE_ADD(c.cohort_date, INTERVAL 7 DAY), 1, 0)) AS returned_d7
+    MAX(IF(a.activity_date = DATE_ADD(c.cohort_date, INTERVAL 4 DAY), 1, 0)) AS returned_d4,
+    MAX(IF(a.activity_date = DATE_ADD(c.cohort_date, INTERVAL 7 DAY), 1, 0)) AS returned_d7,
+    MAX(IF(a.activity_date BETWEEN DATE_ADD(c.cohort_date, INTERVAL 4 DAY)
+                             AND DATE_ADD(c.cohort_date, INTERVAL 7 DAY), 1, 0)) AS returned_d4_d7
   FROM cohorts c
   CROSS JOIN params p
   LEFT JOIN activity a
     ON c.resolved_user_id = a.resolved_user_id
    AND a.activity_date IN (
      DATE_ADD(c.cohort_date, INTERVAL 1 DAY),
+     DATE_ADD(c.cohort_date, INTERVAL 4 DAY),
+     DATE_ADD(c.cohort_date, INTERVAL 5 DAY),
+     DATE_ADD(c.cohort_date, INTERVAL 6 DAY),
      DATE_ADD(c.cohort_date, INTERVAL 7 DAY)
    )
   WHERE c.cohort_date BETWEEN p.start_date AND p.end_date
@@ -67,9 +73,13 @@ SELECT
   cohort_date,
   COUNT(*) AS cohort_size,
   SUM(returned_d1) AS retained_d1,
+  SUM(returned_d4) AS retained_d4,
   SUM(returned_d7) AS retained_d7,
+  SUM(returned_d4_d7) AS retained_d4_d7,
   SAFE_DIVIDE(SUM(returned_d1), COUNT(*)) AS d1_retention_rate,
-  SAFE_DIVIDE(SUM(returned_d7), COUNT(*)) AS d7_retention_rate
+  SAFE_DIVIDE(SUM(returned_d4), COUNT(*)) AS d4_retention_rate,
+  SAFE_DIVIDE(SUM(returned_d7), COUNT(*)) AS d7_retention_rate,
+  SAFE_DIVIDE(SUM(returned_d4_d7), COUNT(*)) AS d4_d7_retention_rate
 FROM cohort_flags
 WHERE DATE_ADD(cohort_date, INTERVAL 1 DAY) <= CURRENT_DATE()
 GROUP BY cohort_date

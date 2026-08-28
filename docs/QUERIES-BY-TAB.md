@@ -107,10 +107,14 @@ Shared product file `dashboard/product/06_retention_d1_d7.sql` reads `v_retentio
 
 ### 7. Scans / user
 
+**Never** uses `product_daily_signals` (needs user-day grain for percentiles).
+
 | App | Product SQL | Reads |
 |-----|-------------|--------|
-| Banknote | `dashboard/product/07_scans_per_user.sql` | `v_engagement_metrics` (`10_v_engagement_metrics.sql`) |
+| Banknote | `dashboard/product/07_scans_per_user.sql` | `v_daily_active_users` (`02_v_daily_active_users.sql`) |
 | Coinzy | `dashboard/product/coinzy/07_scans_per_user.sql` | `events_*` |
+
+Columns: `scans_per_dau` (mean including zeros), `scans_per_scanning_user`, `scans_p10` / `p25` / `p50` / `p75` / `p95` / `p99` among people with ≥1 successful ID.
 
 ### 8. Identify funnel (open → success)
 
@@ -151,7 +155,8 @@ This tab is the **rate chart**. Step drop-off is the Identify **funnel** pages, 
 | Global catalogue | `global` | subset of catalogue |
 | Marketplace | `marketplace` | market steps only (no Feed) |
 | Feed | `feed` | feed steps only |
-| Paywall | `paywall` | `BANKNOTE_PAYWALL` / `COINZY_PAYWALL` |
+| Paywall | `paywall` | `BANKNOTE_PAYWALL` / `COINZY_PAYWALL` + pack mix (`pack_name`) |
+| Onboarding → subs | `paywall-onboarding` | onboarding cohort, then pack / CTA / confirm |
 | Expert evaluation | `expert` | `COINZY_EXPERT` (Coinzy only) |
 
 Copies under `dashboard/product/{app}/*_funnel_steps.sql` and `*_event_volume.sql` are for the **SQL Editor** only. The live funnel tabs do not run them.
@@ -252,8 +257,10 @@ Dashboard tabs read those stores; they do not run the scheduled files on click.
 | MVP 4 quota | `product/{app}/04_quota_hit_rate.sql` |
 | MVP 5 paywall | Banknote `07_v_subscription_metrics.sql` · Coinzy `product/coinzy/05_…` |
 | MVP 6 / Explorer D1 D7 | `dashboard/raw/09_retention.sql` |
-| MVP 7–10 Banknote | `10_v_engagement_metrics.sql` |
-| MVP 7–10 Coinzy | `product/coinzy/07` / `09` / `10` + `08_identify_funnel_conversion.sql` |
+| MVP 7 Banknote | `product/07_scans_per_user.sql` → `v_daily_active_users` |
+| MVP 7 Coinzy | `product/coinzy/07_scans_per_user.sql` |
+| MVP 8–10 Banknote | `10_v_engagement_metrics.sql` |
+| MVP 8–10 Coinzy | `product/coinzy/09` / `10` + `08_identify_funnel_conversion.sql` |
 | Any funnel | `server/services/analytics/funnel-registry.js` |
 | Event inventory | same file (`buildEventInventorySql`) |
 | Explorer DAU | `dashboard/raw/01_dau.sql` |

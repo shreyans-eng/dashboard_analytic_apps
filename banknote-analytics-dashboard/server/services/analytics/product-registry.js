@@ -10,6 +10,7 @@ import {
   listFunnels,
   getFunnelSteps,
   buildFunnelSql,
+  buildPackMixSql,
   buildEventInventorySql,
   buildEventInventoryFromSummarySql,
   buildEventDailySql,
@@ -674,21 +675,36 @@ export class ProductAnalyticsFacade {
     };
 
     if (mapped.status !== 'ok') {
-      return { ...meta, rows: [], count: 0, steps: [] };
+      return { ...meta, rows: [], packs: [], count: 0, steps: [] };
     }
 
     const repo = this.registry.getRepo(product);
-    const sql = buildFunnelSql(repo.project, repo.dataset, mapped.steps, start, end);
-    const key = cacheKey(`${product}:funnel:v9:${funnelId}`, { start, end });
+    const sql = buildFunnelSql(repo.project, repo.dataset, mapped.steps, start, end, {
+      cohortEvents: mapped.cohortEvents || [],
+    });
+    const packSql = mapped.packMix
+      ? buildPackMixSql(repo.project, repo.dataset, {
+        ...mapped.packMix,
+        cohortEvents: mapped.cohortEvents || [],
+        startDate: start,
+        endDate: end,
+      })
+      : null;
+    const key = cacheKey(`${product}:funnel:v11:${funnelId}`, { start, end });
 
     return cached('funnel', key, async () => {
-      const { rows, bytesProcessed } = await runQuery(repo.bigquery, sql);
+      const [funnelResult, packResult] = await Promise.all([
+        runQuery(repo.bigquery, sql),
+        packSql ? runQuery(repo.bigquery, packSql) : Promise.resolve({ rows: [], bytesProcessed: 0 }),
+      ]);
       return {
         ...meta,
         sql,
-        rows,
-        count: rows.length,
-        bytesProcessed,
+        packSql,
+        rows: funnelResult.rows,
+        packs: packResult.rows || [],
+        count: funnelResult.rows.length,
+        bytesProcessed: (funnelResult.bytesProcessed || 0) + (packResult.bytesProcessed || 0),
         steps: mapped.steps.map((s) => ({
           id: s.id,
           label: s.label,

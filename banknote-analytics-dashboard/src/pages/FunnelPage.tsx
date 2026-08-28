@@ -13,12 +13,12 @@ import {
 import FilterBar from '@/components/FilterBar';
 import ChartCard from '@/components/ChartCard';
 import { useFunnel } from '@/hooks/useAnalytics';
-import { fmtNumber, fmtPercent, QueryParams, FunnelRow } from '@/lib/api';
+import { fmtNumber, fmtPercent, QueryParams, FunnelRow, FunnelPackRow } from '@/lib/api';
 import { useProduct } from '@/lib/product';
 import { useTheme } from '@/lib/theme';
 
 interface Props {
-  funnelId: 'identify' | 'identify-nav' | 'identify-home' | 'catalogue' | 'collection' | 'global' | 'marketplace' | 'feed' | 'paywall' | 'expert';
+  funnelId: 'identify' | 'identify-nav' | 'identify-home' | 'catalogue' | 'collection' | 'global' | 'marketplace' | 'feed' | 'paywall' | 'paywall-onboarding' | 'expert';
   params: QueryParams;
   setParams: (p: QueryParams) => void;
   applyFilters: () => void;
@@ -34,6 +34,7 @@ const PATH_STARTS: Record<Props['funnelId'], string[]> = {
   marketplace: [],
   feed: [],
   paywall: [],
+  'paywall-onboarding': [],
   expert: ['buy_credits'],
 };
 
@@ -56,16 +57,19 @@ const PATH_TITLES: Record<string, string> = {
   photo_upload_2: 'Second photo · gallery',
   crop_1: 'Cropped first photo',
   crop_2: 'Cropped second photo',
-  paywall: 'Paywall',
+  paywall: 'Paywall shown',
   pack: 'Paywall',
+  button: 'Paywall',
+  native: 'Paywall',
+  onboarding: 'Onboarding',
   landing: 'Book an evaluation',
   buy_credits: 'Buy credits',
 };
 
 const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }> = {
   identify: {
-    question: 'Of everyone who starts a scan, how many get a successful ID?',
-    how: 'Follow the main steps: open Identify → camera → first image (camera or gallery) → second image → submit → success. Side rows split camera click vs gallery upload so you can see which source people used.',
+    question: 'Of everyone who starts a scan, how many get a successful ID — and then open details / add to collection?',
+    how: 'Main steps: open Identify → camera → permission → first image → second image → scan attempted → submit → success → top 5 results → details → add to collection. Side rows split camera vs gallery. Failure and quota are blocked outcomes, not success.',
   },
   'identify-nav': {
     question: 'When people tap Identify on the bottom bar, where do they drop off?',
@@ -96,8 +100,12 @@ const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }>
     how: 'Feed tab → feed screen → like/comment. Posting is extra, not required.',
   },
   paywall: {
-    question: 'Of people who see the paywall, how many confirm a purchase?',
-    how: 'Paywall shown → purchase confirmed. Cancel / fail are blocked outcomes, not success.',
+    question: 'Of people who see the in-app paywall, how many pick a pack, tap subscribe, and confirm — and which packs do they choose?',
+    how: 'Banknote: paywall shown → pack click → CTA (trial / subscribe / purchase) → Google Play sheet (subs_native) → confirm. Coinzy: shown → pack → CTA → confirm. The table below is unique people per pack name × discounted / non-discounted. Onboarding is a separate tab.',
+  },
+  'paywall-onboarding': {
+    question: 'Of people who go through onboarding, how many take a subscription from there?',
+    how: 'Only people who saw an onboarding page are in this funnel. Coinzy: any onboarding page → pack → CTA → confirm. Skip is a blocked outcome. Pack mix is unique people per pack among that onboarding group.',
   },
   expert: {
     question: 'Of people who open Expert Evaluation, how many get a report — and how many buy credits?',
@@ -474,6 +482,8 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
 
   const isIdentify =
     funnelId === 'identify' || funnelId === 'identify-nav' || funnelId === 'identify-home';
+  const isPaywall = funnelId === 'paywall' || funnelId === 'paywall-onboarding';
+  const packs = (data?.packs || []) as FunnelPackRow[];
 
   const photoMix = useMemo(() => {
     if (!isIdentify) return null;
@@ -664,6 +674,74 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                   </div>
                 </ChartCard>
               </>
+            )}
+
+            {isPaywall && packs.length === 0 && (
+              <div className="page-hint">
+                No pack click events in this date range, so there is no pack mix to show.
+              </div>
+            )}
+
+            {isPaywall && packs.length > 0 && (
+              <ChartCard title="Pack mix — unique people per pack">
+                <p className="funnel-note" style={{ marginTop: 0 }}>
+                  Each row is distinct people who tapped that pack ({funnelId === 'paywall-onboarding' ? 'among onboarding users only' : 'Banknote: Subs_pack with pack name + discounted/non-discounted'}).
+                  Confirmed = those same people also fired a purchase confirm in this date range.
+                </p>
+                <div className="funnel-recharts" style={{ height: Math.min(360, 80 + packs.length * 36) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={packs.map((p) => ({
+                        pack: `${p.pack_name || '(unnamed)'} · ${p.discount_type || 'non-discounted'}`,
+                        Users: num(p.users),
+                        Confirmed: num(p.confirmed_users),
+                      }))}
+                      layout="vertical"
+                      margin={{ top: 8, right: 16, left: 8, bottom: 8 }}
+                    >
+                      <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" tick={{ fill: chart.tick, fontSize: 11 }} />
+                      <YAxis
+                        type="category"
+                        dataKey="pack"
+                        width={180}
+                        tick={{ fill: chart.tick, fontSize: 11 }}
+                      />
+                      <Tooltip contentStyle={tipStyle} />
+                      <Bar dataKey="Users" fill="#4f8cff" radius={[0, 4, 4, 0]} maxBarSize={22} />
+                      <Bar dataKey="Confirmed" fill="#34d399" radius={[0, 4, 4, 0]} maxBarSize={22} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="funnel-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Pack</th>
+                        <th>Discount</th>
+                        <th>People</th>
+                        <th>Taps</th>
+                        <th>Taps / person</th>
+                        <th>Also confirmed</th>
+                        <th>Confirm rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {packs.map((p) => (
+                        <tr key={`${p.pack_name}-${p.discount_type}`}>
+                          <td>{String(p.pack_name || '(unnamed pack)')}</td>
+                          <td>{String(p.discount_type || 'non-discounted')}</td>
+                          <td>{fmtNumber(num(p.users))}</td>
+                          <td>{fmtNumber(num(p.hits))}</td>
+                          <td>{num(p.hits_per_user) ? num(p.hits_per_user).toFixed(2) : '—'}</td>
+                          <td>{fmtNumber(num(p.confirmed_users))}</td>
+                          <td>{pct(p.confirm_rate)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </ChartCard>
             )}
 
             <div className="chart-grid">

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Banknote &amp; Coinzy analytics — tabs, formulas, events</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; line-height: 1.45; color: #111; max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 20pt; margin: 0 0 8px; }
+    h2 { font-size: 14pt; margin: 28px 0 8px; border-bottom: 1px solid #222; padding-bottom: 4px; }
+    h3 { font-size: 12pt; margin: 18px 0 6px; }
+    p, li { margin: 0 0 8px; }
+    .meta { color: #555; font-size: 10pt; margin-bottom: 16px; }
+    .box { background: #f4f6f8; border-left: 4px solid #1a73e8; padding: 10px 12px; margin: 12px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; font-size: 10pt; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #f0f0f0; }
+    code { font-family: Consolas, Menlo, monospace; font-size: 9.5pt; }
+    .ok { color: #0b7a3b; font-weight: 700; }
+    .fix { color: #b06000; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<h1>Banknote &amp; Coinzy analytics — tabs, formulas, events</h1>
+<p class="meta">
+  Product dashboard for Banknote and Coinzy. Paste this file into Google Docs
+  (<strong>File → Open</strong> or select all → copy → paste) so comments can sit on each section.
+  Last updated 28 Aug 2026.
+</p>
+
+<div class="box">
+  <strong>How to comment:</strong> Open in Google Docs, then comment on the numbered rows
+  (5.1, 5.5, 5.6, 5.8, 5.9) or on any tab table below. Event names are the Firebase names after
+  stripping <code>_android</code> / <code>_ios</code>.
+</div>
+
+<h2>Aayushya comments — what we changed</h2>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Comment</th><th>Status</th><th>What the dashboard does now</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>5.1</td>
+      <td>Same-day scan should be checked against <code>first_open</code></td>
+      <td class="ok">Already correct</td>
+      <td>
+        Tab <strong>2. Install → first scan</strong>.<br>
+        Rate = devices with <code>identification_done_success</code> that calendar day
+        ÷ devices with <code>first_open</code> that calendar day.<br>
+        Join is <code>user_pseudo_id</code> only (same device, same day). Not vs DAU. Not vs <code>user_id</code>.
+      </td>
+    </tr>
+    <tr>
+      <td>5.5</td>
+      <td>Onboarding subs page — discount and non-discount? Also pack click, CTA, drop-off before payment</td>
+      <td class="ok">Done</td>
+      <td>
+        Impression bucket (KPI 5) includes in-app screens:
+        <code>Subs_page</code>, <code>Subs_page_discount</code>, <code>Subscription_screen</code>.<br>
+        <strong>Funnels → Paywall</strong> (unique people): shown → pack click → CTA (<code>subs_button</code>)
+        → Banknote Google sheet (<code>subs_native</code>) → confirm.<br>
+        Pack mix table = unique people per <code>pack_name</code> × discounted / non-discounted.<br>
+        <strong>Funnels → Onboarding → subs</strong>: only people who saw onboarding; confirm = subscription taken from that group.
+        Coinzy pages <code>subs_page_onboarding_1/2/3</code> + skip.
+      </td>
+    </tr>
+    <tr>
+      <td>5.6</td>
+      <td>D1 and D7 must be different. Also create D4–D7</td>
+      <td class="ok">Done</td>
+      <td>
+        Tab <strong>6</strong> now has four separate charts (not one mixed series):<br>
+        <strong>D1</strong> = opened the app on install day + 1.<br>
+        <strong>D4</strong> = opened on install day + 4.<br>
+        <strong>D7</strong> = opened on install day + 7.<br>
+        <strong>D4–D7</strong> = opened on at least one of days 4, 5, 6, or 7.<br>
+        Cohort is always <code>first_open</code>. Return = any Firebase event that day.
+      </td>
+    </tr>
+    <tr>
+      <td>5.8</td>
+      <td>Not only success/(success+failure). Need scan attempted, permission, photo 1/2, submit, 5 results, details, add to collection</td>
+      <td class="ok">Done — two different tabs</td>
+      <td>
+        <strong>Tab 3 Identify success</strong> stays quality-only:
+        success events ÷ (success + failure events). That is AI / photo quality, not the funnel.<br>
+        <strong>Funnels → Identify</strong> is the step path. Core steps now include:
+        entry → camera → permission → photo 1 → photo 2 → scan attempted → submit → success
+        → top 5 results → details → add to collection.
+      </td>
+    </tr>
+    <tr>
+      <td>5.9</td>
+      <td>Catalogue mixed collection and global catalogue</td>
+      <td class="ok">Fixed</td>
+      <td>
+        Tab <strong>9</strong> is now two rates, not a union.<br>
+        Chart 1 = private collection (<code>Collection_screen</code> / collection nav).<br>
+        Chart 2 = global catalogue (<code>Global_catalogue_screen</code>).<br>
+        Step drop-off: <strong>Funnels → Private collection</strong> and
+        <strong>Funnels → Global catalogue</strong>. Do not use Catalogue (all) as the KPI.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>How to read a number</h2>
+<ul>
+  <li><strong>Events</strong> = how many times it fired. One person can count many times.</li>
+  <li><strong>Users</strong> = distinct people that day. Funnel steps are user counts, not ordered sessions.</li>
+  <li>If a later step has more people than an earlier step, they joined from another entry (or a missing event).</li>
+  <li>Banknote and Coinzy are never mixed in one query.</li>
+</ul>
+
+<h2>MVP KPIs (10)</h2>
+
+<h3>1. DAU (opened the app)</h3>
+<p><strong>Formula:</strong> distinct users with an open/session that day.</p>
+<table>
+  <tr><th>Counts</th><td><code>session_start</code> · <code>App_open</code> · <code>first_open</code></td></tr>
+  <tr><th>Does not count</th><td>Notification display / receive / interact</td></tr>
+</table>
+
+<h3>2. Install → first scan (comment 5.1)</h3>
+<p><strong>Formula:</strong> same-day successful ID ÷ <code>first_open</code> devices.</p>
+<table>
+  <tr><th>Install (denominator)</th><td><code>first_open</code> on that calendar day, distinct <code>user_pseudo_id</code></td></tr>
+  <tr><th>Same-day scan (numerator)</th><td>That same device also fired <code>identification_done_success</code> the same day</td></tr>
+  <tr><th>Join</th><td><code>user_pseudo_id</code> only — empty <code>user_id</code> is ignored</td></tr>
+  <tr><th>Does not count</th><td>Scan on day 2+. Open without <code>first_open</code></td></tr>
+</table>
+
+<h3>3. Identify success (quality)</h3>
+<p><strong>Formula:</strong> success events ÷ (success + failure events). Not unique users.</p>
+<table>
+  <tr><th></th><th>Banknote</th><th>Coinzy</th></tr>
+  <tr><th>Success</th><td><code>identification_done_success</code></td><td>same</td></tr>
+  <tr><th>Failure</th><td><code>identification_done_failure</code></td><td>+ <code>Identification_failed</code></td></tr>
+</table>
+<p>This is <em>not</em> the Identify funnel. See tab 8 and Funnels → Identify for the step path (comment 5.8).</p>
+
+<h3>4. Quota hit</h3>
+<p><strong>Formula:</strong> users who hit scan quota ÷ users who attempted a scan. Not collection limit.</p>
+<table>
+  <tr><th></th><th>Banknote</th><th>Coinzy</th></tr>
+  <tr><th>Quota</th><td><code>identiifcation_limit_exceeded</code></td><td><code>Identified_limit_reached</code> · <code>free_scan_*</code></td></tr>
+  <tr><th>Attempt</th><td>success + failure</td><td>success + failure + <code>Identification_failed</code></td></tr>
+</table>
+
+<h3>5. Paywall → purchase (comment 5.5)</h3>
+<p><strong>KPI formula (event counts):</strong> confirm events ÷ in-app paywall-shown events.</p>
+<table>
+  <tr><th>Step</th><th>Banknote</th><th>Coinzy</th></tr>
+  <tr>
+    <th>Paywall shown</th>
+    <td colspan="2"><code>Subs_page</code> · <code>Subs_page_discount</code> · <code>Subscription_screen</code></td>
+  </tr>
+  <tr>
+    <th>Pack click</th>
+    <td><code>Subs_pack</code> (params: pack name, discounted/non-discounted)</td>
+    <td><code>subs_pack</code> · <code>subs_pack_discount</code></td>
+  </tr>
+  <tr>
+    <th>CTA</th>
+    <td><code>subs_button</code></td>
+    <td><code>subs_button</code> (home banner <code>subs_discount_banner</code> is a side row)</td>
+  </tr>
+  <tr>
+    <th>Native billing</th>
+    <td><code>subs_native</code></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <th>Confirm</th>
+    <td><code>Subs_confirm</code></td>
+    <td><code>subs_confirm</code> · <code>subs_confirm_discount</code> · <code>paid_purchase</code> · <code>trial_purchase</code></td>
+  </tr>
+  <tr>
+    <th>Cancel / fail</th>
+    <td><code>Subs_cancel</code> · <code>Subs_fail</code></td>
+    <td><code>subs_cancel</code> · <code>subs_fail</code></td>
+  </tr>
+</table>
+<p>
+  Unique people and pack mix live on <strong>Funnels → Paywall</strong>.
+  Onboarding → subscription is <strong>Funnels → Onboarding → subs</strong>
+  (only people who saw onboarding; Coinzy <code>subs_page_onboarding_1/2/3</code> + skip).
+  KPI 5 will not match the funnel because KPI 5 is event counts.
+</p>
+
+<h3>6. D1 / D4 / D7 retention (comment 5.6)</h3>
+<p>Cohort = <code>first_open</code>. Returned = any event on that offset day.</p>
+<table>
+  <tr><th>Metric</th><th>Meaning</th></tr>
+  <tr><td>D1</td><td>Came back tomorrow (day + 1 only)</td></tr>
+  <tr><td>D4</td><td>Came back on day + 4 only</td></tr>
+  <tr><td>D7</td><td>Came back on day + 7 only</td></tr>
+  <tr><td>D4–D7</td><td>Came back on at least one of days 4, 5, 6, 7</td></tr>
+</table>
+<p>D1 and D7 are different charts. Empty recent days on D7 are normal (installs not a week old).</p>
+
+<h3>7. Scans / user</h3>
+<p><strong>Average / person</strong> = successful IDs ÷ DAU (includes people who did not scan).</p>
+<p><strong>P10 / P25 / P50 / P75 / P95 / P99</strong> = successful IDs among people who scanned that day.</p>
+<p>Event: <code>identification_done_success</code>.</p>
+
+<h3>8. Identify funnel rate (comment 5.8)</h3>
+<p><strong>KPI formula:</strong> distinct success users ÷ distinct Identify-open users, same day.</p>
+<p>Open events: <code>Identify_bottom_nav</code> ∪ <code>Identify_home</code> (camera screen is not “open”).</p>
+<p>The <strong>step-by-step path</strong> is Funnels → Identify (table below). Do not use tab 3 for that.</p>
+
+<h3>9. Collection vs global catalogue (comment 5.9)</h3>
+<p>Two rates of DAU. They are <strong>not</strong> mixed.</p>
+<table>
+  <tr><th>Chart</th><th>Banknote</th><th>Coinzy</th></tr>
+  <tr>
+    <th>Private collection</th>
+    <td><code>Collection_screen</code> · <code>private_collection_bottom_nav</code></td>
+    <td><code>Collection_screen</code> · <code>collection_bottom_nav</code></td>
+  </tr>
+  <tr>
+    <th>Global catalogue</th>
+    <td colspan="2"><code>Global_catalogue_screen</code> · <code>Global_catalogue</code></td>
+  </tr>
+</table>
+
+<h3>10. Marketplace</h3>
+<p><strong>Formula:</strong> marketplace users ÷ DAU. Feed is not mixed in.</p>
+<p>Events: <code>marketplace_screen</code> · <code>Marketplace_bottom_nav</code> / <code>marketplace_bottom_nav</code> · <code>market_item_expolre</code>.</p>
+
+<h2>Funnels — step events</h2>
+<p>Each row = distinct users who fired that step’s events (not ordered sessions).</p>
+
+<h3>Identify (all) · Scan · bottom nav · Scan · home / banner</h3>
+<p>Same steps. Entry differs: all = nav ∪ home; nav-only; home-only.</p>
+<table>
+  <tr><th>Core step</th><th>Events</th></tr>
+  <tr><td>Identify entry</td><td><code>Identify_bottom_nav</code> · <code>Identify_home</code></td></tr>
+  <tr><td>Camera / photo screen</td><td><code>Identification_screen</code> · <code>photo_screen</code></td></tr>
+  <tr><td>Camera permission</td><td><code>Camera_permission_popup</code> (granted / denied are side rows)</td></tr>
+  <tr><td>First image</td><td><code>photo_clicked_1</code> ∪ <code>photo_uploaded_1</code></td></tr>
+  <tr><td>Second image</td><td><code>photo_clicked_2</code> ∪ <code>photo_uploaded_2</code></td></tr>
+  <tr><td>Scan attempted</td><td>Banknote: <code>Identification_attempted</code> · <code>Identification_done</code> · Coinzy: <code>Identification_attempted</code></td></tr>
+  <tr><td>Submit</td><td><code>photo_submit_button</code> · <code>photos_submitted</code> (Coinzy also <code>Identification_done</code>)</td></tr>
+  <tr><td>Success</td><td><code>identification_done_success</code></td></tr>
+  <tr><td>Top 5 results</td><td><code>identification_top5_matches</code></td></tr>
+  <tr><td>Details opened</td><td>Banknote <code>identification_details_screen</code> · <code>banknote_details_identification</code> · Coinzy <code>Coin_details_identification</code></td></tr>
+  <tr><td>Added to collection</td><td><code>Added_to_collection_identified</code> · <code>Added_to_collection_owned</code></td></tr>
+</table>
+<p>Side / drop rows (not “success”): crop, quota block, failure, view all options, option chosen.</p>
+
+<h3>Private collection</h3>
+<table>
+  <tr><th>Step</th><th>Banknote</th><th>Coinzy</th></tr>
+  <tr><td>Nav</td><td><code>private_collection_bottom_nav</code></td><td><code>collection_bottom_nav</code></td></tr>
+  <tr><td>Screen</td><td><code>Collection_screen</code></td><td>same</td></tr>
+  <tr><td>Card</td><td><code>Collection_clicked</code></td><td>same</td></tr>
+  <tr><td>Sub-collection</td><td><code>Sub_collection_Screen</code></td><td>same</td></tr>
+  <tr><td>Details</td><td><code>banknote_details_collection</code></td><td><code>Coin_details_collection</code></td></tr>
+</table>
+
+<h3>Global catalogue</h3>
+<p><code>Global_catalogue</code> → <code>Global_catalogue_screen</code> → <code>global_catalogue_item</code> → <code>banknote_details_global</code> / <code>Coin_details_global</code></p>
+
+<h3>Paywall</h3>
+<p>In-app only. Core: shown → pack → CTA → (Banknote: <code>subs_native</code>) → confirm. Pack mix = unique people per pack name × discount flag.</p>
+
+<h3>Onboarding → subscription</h3>
+<p>Cohort = people who saw onboarding. Pack / CTA / confirm only count that group. Coinzy also shows pages 1/2/3 and skip.</p>
+
+<h3>Marketplace · Feed · Expert (Coinzy)</h3>
+<table>
+  <tr><th>Tab</th><th>Path</th></tr>
+  <tr><td>Marketplace</td><td>nav → <code>marketplace_screen</code> → <code>market_item_expolre</code> → <code>sale_Details_screen</code> → <code>market_contact</code></td></tr>
+  <tr><td>Feed</td><td>nav → <code>Feed_screen</code> → like/comment → <code>feed_add</code></td></tr>
+  <tr><td>Expert</td><td><code>expert_evaluation_landing</code> → upload → continue → queued → <code>expert_evaluation_report</code></td></tr>
+</table>
+
+<h2>Compare Apps · Health report · Explorer</h2>
+<table>
+  <tr><th>Surface</th><th>What it uses</th></tr>
+  <tr><td>Compare Apps</td><td>Same daily signals as the MVP KPIs (one query per app). Scans / user-day is a decimal (e.g. 0.32), not rounded to 0.</td></tr>
+  <tr><td>Health report</td><td>Same signals + Identify leak + same-day first scan + paywall funnel + Coinzy Expert</td></tr>
+  <tr><td>Explorer DAU</td><td>Same as MVP 1</td></tr>
+  <tr><td>Unique vs repeat</td><td>Any event — new vs returning, one-day vs 2+ days</td></tr>
+  <tr><td>Installs + time used</td><td><code>first_open</code> devices; “went in” = ≥10 seconds same day</td></tr>
+  <tr><td>Scan limits</td><td>Free vs subscribed quota (success cap vs fail cap)</td></tr>
+  <tr><td>D1 / D7 Explorer</td><td>Same definitions as MVP 6 (D1 and D7 are separate pages there)</td></tr>
+  <tr><td>Cohort LTV</td><td>Install = <code>first_open</code>. Revenue = store <code>in_app_purchase</code> / <code>purchase</code> USD — not <code>Subs_confirm</code></td></tr>
+  <tr><td>Event inventory</td><td>Pick any event — hits + unique users. Use this to prove an event fires.</td></tr>
+</table>
+
+<h2>Do not mix these up</h2>
+<table>
+  <tr><th>Looks similar</th><th>What we actually use</th></tr>
+  <tr><td>Identify “open”</td><td>Nav ∪ home — not <code>Identification_screen</code></td></tr>
+  <tr><td>Tab 3 vs Identify funnel</td><td>Tab 3 = quality rate. Funnel = step path including permission, photos, results, details, add</td></tr>
+  <tr><td>Collection vs catalogue</td><td>Separate rates and separate funnel tabs</td></tr>
+  <tr><td>Marketplace KPI</td><td>Market only — not Feed</td></tr>
+  <tr><td>Scan quota</td><td>Scan limit events — not <code>Collection_limit_Reached</code></td></tr>
+  <tr><td>Coinzy confirm</td><td><code>subs_confirm</code> — not Banknote’s <code>Subs_confirm</code></td></tr>
+  <tr><td>Same-day first ID</td><td>vs <code>first_open</code> on <code>user_pseudo_id</code> only</td></tr>
+  <tr><td>LTV revenue</td><td>Store purchase events — not paywall confirm</td></tr>
+</table>
+
+<p class="meta">Live dashboard: MVP tabs 1–10 and Funnels in the sidebar. SQL lives under <code>sql/dashboard/</code>. Funnel step lists live in <code>funnel-registry.js</code>.</p>
+
+</body>
+</html>

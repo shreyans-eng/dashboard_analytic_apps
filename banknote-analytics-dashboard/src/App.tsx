@@ -35,6 +35,7 @@ const FUNNELS = [
   'marketplace',
   'feed',
   'paywall',
+  'paywall-onboarding',
   'expert',
 ] as const;
 

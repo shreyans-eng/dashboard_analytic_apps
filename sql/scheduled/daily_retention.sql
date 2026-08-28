@@ -8,18 +8,42 @@ CREATE TABLE IF NOT EXISTS `{PROJECT}.analytics_summary.daily_retention` (
   country             STRING,
   cohort_size         INT64     NOT NULL,
   retained_d1         INT64     NOT NULL,
+  retained_d4         INT64,
   retained_d7         INT64     NOT NULL,
+  retained_d4_d7      INT64,
   retention_d1_rate   FLOAT64   NOT NULL,
+  retention_d4_rate   FLOAT64,
   retention_d7_rate   FLOAT64   NOT NULL,
+  retention_d4_d7_rate FLOAT64,
   refreshed_at        TIMESTAMP NOT NULL
 )
 PARTITION BY cohort_date
 CLUSTER BY platform, country;
 
+ALTER TABLE `{PROJECT}.analytics_summary.daily_retention`
+  ADD COLUMN IF NOT EXISTS retained_d4 INT64,
+  ADD COLUMN IF NOT EXISTS retained_d4_d7 INT64,
+  ADD COLUMN IF NOT EXISTS retention_d4_rate FLOAT64,
+  ADD COLUMN IF NOT EXISTS retention_d4_d7_rate FLOAT64;
+
 DELETE FROM `{PROJECT}.analytics_summary.daily_retention`
 WHERE cohort_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY);
 
-INSERT INTO `{PROJECT}.analytics_summary.daily_retention`
+INSERT INTO `{PROJECT}.analytics_summary.daily_retention` (
+  cohort_date,
+  platform,
+  country,
+  cohort_size,
+  retained_d1,
+  retained_d4,
+  retained_d7,
+  retained_d4_d7,
+  retention_d1_rate,
+  retention_d4_rate,
+  retention_d7_rate,
+  retention_d4_d7_rate,
+  refreshed_at
+)
 WITH raw_events AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
@@ -78,15 +102,27 @@ SELECT
   c.country,
   COUNT(DISTINCT c.resolved_user_id) AS cohort_size,
   COUNT(DISTINCT IF(a.event_date = DATE_ADD(c.cohort_date, INTERVAL 1 DAY), c.resolved_user_id, NULL)) AS retained_d1,
+  COUNT(DISTINCT IF(a.event_date = DATE_ADD(c.cohort_date, INTERVAL 4 DAY), c.resolved_user_id, NULL)) AS retained_d4,
   COUNT(DISTINCT IF(a.event_date = DATE_ADD(c.cohort_date, INTERVAL 7 DAY), c.resolved_user_id, NULL)) AS retained_d7,
+  COUNT(DISTINCT IF(a.event_date BETWEEN DATE_ADD(c.cohort_date, INTERVAL 4 DAY)
+                                    AND DATE_ADD(c.cohort_date, INTERVAL 7 DAY), c.resolved_user_id, NULL)) AS retained_d4_d7,
   SAFE_DIVIDE(
     COUNT(DISTINCT IF(a.event_date = DATE_ADD(c.cohort_date, INTERVAL 1 DAY), c.resolved_user_id, NULL)),
     COUNT(DISTINCT c.resolved_user_id)
   ) AS retention_d1_rate,
   SAFE_DIVIDE(
+    COUNT(DISTINCT IF(a.event_date = DATE_ADD(c.cohort_date, INTERVAL 4 DAY), c.resolved_user_id, NULL)),
+    COUNT(DISTINCT c.resolved_user_id)
+  ) AS retention_d4_rate,
+  SAFE_DIVIDE(
     COUNT(DISTINCT IF(a.event_date = DATE_ADD(c.cohort_date, INTERVAL 7 DAY), c.resolved_user_id, NULL)),
     COUNT(DISTINCT c.resolved_user_id)
   ) AS retention_d7_rate,
+  SAFE_DIVIDE(
+    COUNT(DISTINCT IF(a.event_date BETWEEN DATE_ADD(c.cohort_date, INTERVAL 4 DAY)
+                                     AND DATE_ADD(c.cohort_date, INTERVAL 7 DAY), c.resolved_user_id, NULL)),
+    COUNT(DISTINCT c.resolved_user_id)
+  ) AS retention_d4_d7_rate,
   CURRENT_TIMESTAMP() AS refreshed_at
 FROM cohorts c
 LEFT JOIN activity a ON c.resolved_user_id = a.resolved_user_id

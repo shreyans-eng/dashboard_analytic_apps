@@ -9,7 +9,7 @@ import FilterBar from '@/components/FilterBar';
 import ChartCard from '@/components/ChartCard';
 import { useTheme } from '@/lib/theme';
 import { useDashboardMetric, useCompareLtv, useCompareSubscriptions } from '@/hooks/useAnalytics';
-import { fmtNumber, fmtPercent, fmtUsd, QueryParams, defaultDateRange } from '@/lib/api';
+import { fmtNumber, fmtPercent, fmtUsd, fmtDecimal, QueryParams, defaultDateRange } from '@/lib/api';
 import { useProduct } from '@/lib/product';
 
 type SummaryRow = {
@@ -50,7 +50,7 @@ type DailyRow = {
 const COMPARE_METRICS: {
   key: string;
   label: string;
-  format: 'number' | 'percent' | 'usd';
+  format: 'number' | 'percent' | 'usd' | 'decimal';
   why: string;
   higherIsBetter: boolean;
   source?: 'signals' | 'ltv';
@@ -61,7 +61,7 @@ const COMPARE_METRICS: {
   { key: 'installs', label: 'Installs (period)', format: 'number', why: 'Top of funnel', higherIsBetter: true },
   { key: 'identification_success_rate', label: 'Identify success', format: 'percent', why: 'AI + photo quality', higherIsBetter: true },
   { key: 'open_to_success_rate', label: 'Identify funnel', format: 'percent', why: 'Open → success conversion', higherIsBetter: true },
-  { key: 'scans_per_user_day', label: 'Scans / user-day', format: 'number', why: 'Engagement depth', higherIsBetter: true },
+  { key: 'scans_per_user_day', label: 'Scans / user-day', format: 'decimal', why: 'Successful IDs ÷ people who opened the app that day', higherIsBetter: true },
   { key: 'free_quota_hit_rate', label: 'Quota hit rate', format: 'percent', why: 'Free-limit pressure (context-dependent)', higherIsBetter: false },
   { key: 'paywall_to_confirm_rate', label: 'Paywall → purchase', format: 'percent', why: 'Monetization conversion', higherIsBetter: true },
   { key: 'catalogue_open_rate', label: 'Catalogue engagement', format: 'percent', why: 'Browse / collection loop', higherIsBetter: true },
@@ -284,6 +284,10 @@ export default function ComparePage() {
     () => pivotDaily(daily, 'marketplace_engagement_rate', labels),
     [daily, labels],
   );
+  const scansSeries = useMemo(
+    () => pivotDaily(daily, 'scans_per_dau', labels),
+    [daily, labels],
+  );
   const paywallSeries = useMemo(
     () => pivotDaily(daily, 'paywall_to_confirm_rate', labels),
     [daily, labels],
@@ -332,6 +336,7 @@ export default function ComparePage() {
     { title: 'Any Firebase event', data: anyEventDauSeries, percent: false, usd: false, loading: dailyQ.isLoading, error: dailyQ.error?.message },
     { title: 'Identify success', data: successSeries, percent: true, usd: false, loading: dailyQ.isLoading, error: dailyQ.error?.message },
     { title: 'Identify funnel (open → success)', data: funnelSeries, percent: true, usd: false, loading: dailyQ.isLoading, error: dailyQ.error?.message },
+    { title: 'Scans / user-day', data: scansSeries, percent: false, usd: false, decimal: true, loading: dailyQ.isLoading, error: dailyQ.error?.message },
     { title: 'Paywall → purchase', data: paywallSeries, percent: true, usd: false, loading: dailyQ.isLoading, error: dailyQ.error?.message },
     { title: 'Catalogue engagement', data: catalogueSeries, percent: true, usd: false, loading: dailyQ.isLoading, error: dailyQ.error?.message },
     { title: 'Marketplace engagement', data: marketplaceSeries, percent: true, usd: false, loading: dailyQ.isLoading, error: dailyQ.error?.message },
@@ -441,7 +446,9 @@ export default function ComparePage() {
                               ? fmtPercent(v.value)
                               : m.format === 'usd'
                                 ? fmtUsd(v.value)
-                                : fmtNumber(v.value)}
+                                : m.format === 'decimal'
+                                  ? fmtDecimal(v.value)
+                                  : fmtNumber(v.value)}
                       </td>
                     ))}
                     <td className={lead === 'tie' || lead === '—' ? 'muted' : ''}>
@@ -541,7 +548,9 @@ export default function ComparePage() {
                         ? (v) => `${(Number(v) * 100).toFixed(0)}%`
                         : c.usd
                           ? (v) => `$${Number(v).toFixed(2)}`
-                          : undefined
+                          : c.decimal
+                            ? (v) => Number(v).toFixed(2)
+                            : undefined
                     }
                   />
                   <Tooltip
@@ -550,7 +559,9 @@ export default function ComparePage() {
                         ? (v: number) => fmtPercent(v)
                         : c.usd
                           ? (v: number) => fmtUsd(v)
-                          : undefined
+                          : c.decimal
+                            ? (v: number) => fmtDecimal(Number(v))
+                            : undefined
                     }
                     contentStyle={tipStyle}
                   />

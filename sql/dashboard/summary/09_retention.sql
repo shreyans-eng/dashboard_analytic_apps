@@ -3,9 +3,13 @@ SELECT
   cohort_date,
   SUM(cohort_size) AS cohort_size,
   SUM(retained_d1) AS retained_d1,
+  SUM(retained_d4) AS retained_d4,
   SUM(retained_d7) AS retained_d7,
+  SUM(retained_d4_d7) AS retained_d4_d7,
   SAFE_DIVIDE(SUM(retained_d1), SUM(cohort_size)) AS d1_retention_rate,
-  SAFE_DIVIDE(SUM(retained_d7), SUM(cohort_size)) AS d7_retention_rate
+  SAFE_DIVIDE(SUM(retained_d4), SUM(cohort_size)) AS d4_retention_rate,
+  SAFE_DIVIDE(SUM(retained_d7), SUM(cohort_size)) AS d7_retention_rate,
+  SAFE_DIVIDE(SUM(retained_d4_d7), SUM(cohort_size)) AS d4_d7_retention_rate
 FROM `{PROJECT}.{SUMMARY_DATASET}.daily_retention`
 WHERE cohort_date BETWEEN {{start_date}} AND {{end_date}}
   [[AND country = {{country}}]]

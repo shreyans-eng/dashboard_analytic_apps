@@ -20,6 +20,7 @@ export const PAGE_CATALOG = [
     { id: 'funnels.marketplace', label: 'Marketplace', path: '/funnels/marketplace' },
     { id: 'funnels.feed', label: 'Feed', path: '/funnels/feed' },
     { id: 'funnels.paywall', label: 'Paywall', path: '/funnels/paywall' },
+    { id: 'funnels.paywall-onboarding', label: 'Onboarding → subs', path: '/funnels/paywall-onboarding' },
     { id: 'funnels.expert', label: 'Expert evaluation', path: '/funnels/expert' },
     { id: 'events-explorer', label: 'Event inventory', path: '/events-explorer' },
   ]},
@@ -29,10 +30,10 @@ export const PAGE_CATALOG = [
     { id: 'mvp.identify-success', label: '3. Identify success', path: '/mvp/identify-success' },
     { id: 'mvp.quota-hit', label: '4. Quota hit', path: '/mvp/quota-hit' },
     { id: 'mvp.paywall', label: '5. Paywall → purchase', path: '/mvp/paywall' },
-    { id: 'mvp.retention', label: '6. D1 / D7 retention', path: '/mvp/retention' },
+    { id: 'mvp.retention', label: '6. D1 / D4 / D7 retention', path: '/mvp/retention' },
     { id: 'mvp.scans-per-user', label: '7. Scans / user', path: '/mvp/scans-per-user' },
     { id: 'mvp.identify-funnel', label: '8. Identify funnel', path: '/mvp/identify-funnel' },
-    { id: 'mvp.catalogue', label: '9. Catalogue', path: '/mvp/catalogue' },
+    { id: 'mvp.catalogue', label: '9. Collection vs catalogue', path: '/mvp/catalogue' },
     { id: 'mvp.marketplace', label: '10. Marketplace', path: '/mvp/marketplace' },
   ]},
   { section: 'Explorer', items: [
@@ -99,6 +100,7 @@ const PATH_TO_PAGE: Record<string, PageId> = {
   '/funnels/marketplace': 'funnels.marketplace',
   '/funnels/feed': 'funnels.feed',
   '/funnels/paywall': 'funnels.paywall',
+  '/funnels/paywall-onboarding': 'funnels.paywall-onboarding',
   '/funnels/expert': 'funnels.expert',
   '/events-explorer': 'events-explorer',
   '/mvp/dau': 'mvp.dau',
@@ -150,6 +152,9 @@ export function canAccessPage(user: AuthUser | null | undefined, pageId: string)
     return true;
   }
   if (pageId === 'funnels.feed' && pages.includes('funnels.marketplace')) {
+    return true;
+  }
+  if (pageId === 'funnels.paywall-onboarding' && pages.includes('funnels.paywall')) {
     return true;
   }
   if (pageId === 'funnels.expert' && pages.some((p) => p.startsWith('funnels.'))) {

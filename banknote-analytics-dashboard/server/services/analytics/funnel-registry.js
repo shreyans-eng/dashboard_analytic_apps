@@ -6,7 +6,8 @@
 import { dauEventPredicateSql, resolvedUserIdSql } from './dau-definition.js';
 
 /** @typedef {{ id: string, label: string, events: string[], isDrop?: boolean, core?: boolean }} FunnelStep */
-/** @typedef {{ id: string, title: string, description: string, products: Record<string, FunnelStep[]> }} FunnelDef */
+/** @typedef {{ packEvents: string[], confirmEvents: string[], discountEventNames?: string[] }} PackMixDef */
+/** @typedef {{ id: string, title: string, description: string, products: Record<string, FunnelStep[]>, cohortEvents?: Record<string, string[]>, packMix?: Record<string, PackMixDef> }} FunnelDef */
 
 /**
  * Combined “got an image” (core) plus separate camera vs gallery rows.
@@ -64,6 +65,7 @@ const BANKNOTE_IDENTIFY = [
     id: 'permission_popup',
     label: 'Camera permission popup',
     events: ['Camera_permission_popup'],
+    core: true,
   },
   {
     id: 'permission_granted',
@@ -94,6 +96,12 @@ const BANKNOTE_IDENTIFY = [
     events: ['Photo_clicked'],
   },
   {
+    id: 'attempt',
+    label: 'Scan attempted',
+    events: ['Identification_attempted', 'Identification_done'],
+    core: true,
+  },
+  {
     id: 'submit',
     label: 'Submit photos',
     events: ['photo_submit_button', 'photos_submitted'],
@@ -119,8 +127,9 @@ const BANKNOTE_IDENTIFY = [
   },
   {
     id: 'top_matches',
-    label: 'Top matches screen',
+    label: 'Top 5 results displayed',
     events: ['identification_top5_matches'],
+    core: true,
   },
   {
     id: 'view_all',
@@ -141,11 +150,13 @@ const BANKNOTE_IDENTIFY = [
     id: 'details',
     label: 'ID / banknote details',
     events: ['identification_details_screen', 'banknote_details_identification'],
+    core: true,
   },
   {
     id: 'add_collection',
     label: 'Add to collection after ID',
     events: ['Added_to_collection_identified', 'Added_to_collection_owned'],
+    core: true,
   },
 ];
 
@@ -171,6 +182,7 @@ const COINZY_IDENTIFY = [
     id: 'permission_popup',
     label: 'Camera permission popup',
     events: ['Camera_permission_popup'],
+    core: true,
   },
   {
     id: 'permission_granted',
@@ -211,6 +223,12 @@ const COINZY_IDENTIFY = [
     events: ['photo_crop_tick_2'],
   },
   {
+    id: 'attempt',
+    label: 'Scan attempted',
+    events: ['Identification_attempted'],
+    core: true,
+  },
+  {
     id: 'submit',
     label: 'Submit photos',
     events: ['photo_submit_button', 'photos_submitted', 'Identification_done'],
@@ -248,6 +266,12 @@ const COINZY_IDENTIFY = [
     isDrop: true,
   },
   {
+    id: 'top_matches',
+    label: 'Top 5 results displayed',
+    events: ['identification_top5_matches'],
+    core: true,
+  },
+  {
     id: 'view_all',
     label: 'View all other options',
     events: ['identification_view_all'],
@@ -266,6 +290,7 @@ const COINZY_IDENTIFY = [
     id: 'details',
     label: 'ID / coin details after ID',
     events: ['identification_details_screen', 'Coin_details_identification'],
+    core: true,
   },
   {
     id: 'add_collection',
@@ -275,6 +300,7 @@ const COINZY_IDENTIFY = [
       'Added_to_collection_owned',
       'Added _to_collection_owned',
     ],
+    core: true,
   },
 ];
 
@@ -560,63 +586,249 @@ const COINZY_MARKETPLACE = [
   },
 ];
 
-/** Paywall — Banknote uses Subs_confirm; Coinzy Android fires lowercase subs_confirm */
+/**
+ * Banknote in-app paywall (tracking sheet):
+ * pack click (pack_name + discounted/non-discounted) → button → Google native → confirm / cancel / fail.
+ * Impression is Subs_page (+ discount / Subscription_screen). Onboarding is a separate funnel.
+ */
 const BANKNOTE_PAYWALL = [
   {
     id: 'paywall',
-    label: 'Paywall (Subs_page)',
-    events: ['Subs_page', 'Subs_page_discount', 'Subscription_screen', 'Subs_page_onboarding'],
-    core: true,
-  },
-  {
-    id: 'confirm',
-    label: 'Purchase confirm (Subs_confirm)',
-    events: ['Subs_confirm'],
-    core: true,
-  },
-  {
-    id: 'cancel',
-    label: 'Subs cancel',
-    events: ['subs_cancel', 'Subs_cancel'],
-    isDrop: true,
-  },
-];
-
-/**
- * Coinzy paywall — verified from CoinzyAndroid BillingViewModel.kt + SubscriptionDialog.kt
- * Confirm is lowercase `subs_confirm` (not Subs_confirm). Pack click is `subs_pack`.
- */
-const COINZY_PAYWALL = [
-  {
-    id: 'paywall',
-    label: 'Paywall (Subs_page)',
-    events: ['Subs_page', 'Subs_page_discount', 'Subscription_screen', 'Subs_page_onboarding'],
+    label: 'Paywall shown (standard + discount)',
+    events: ['Subs_page', 'Subs_page_discount', 'Subscription_screen'],
     core: true,
   },
   {
     id: 'pack',
     label: 'Pack click',
-    events: ['subs_pack', 'subs_pack_discount', 'subs_button'],
+    events: ['Subs_pack', 'subs_pack'],
+    core: true,
+  },
+  {
+    id: 'button',
+    label: 'CTA click (trial / subscribe / purchase)',
+    events: ['subs_button'],
+    core: true,
+  },
+  {
+    id: 'native',
+    label: 'Google Play billing sheet opened',
+    events: ['subs_native'],
+    core: true,
   },
   {
     id: 'confirm',
-    label: 'Purchase confirm (subs_confirm)',
-    events: ['subs_confirm', 'subs_confirm_discount', 'Subs_confirm', 'paid_purchase', 'trial_purchase'],
+    label: 'Purchase confirm',
+    events: ['Subs_confirm'],
     core: true,
   },
   {
     id: 'cancel',
-    label: 'Subs cancel',
+    label: 'Cancelled Google popup',
+    events: ['Subs_cancel', 'subs_cancel'],
+    isDrop: true,
+  },
+  {
+    id: 'fail',
+    label: 'Purchase failed',
+    events: ['Subs_fail', 'subs_fail'],
+    isDrop: true,
+  },
+];
+
+/**
+ * Coinzy in-app paywall. Onboarding pages (Subs_page_onboarding / _1/_2/_3) are a separate funnel.
+ * Pack click is unique people per pack_name on Funnels → Paywall (pack mix table).
+ */
+const COINZY_PAYWALL = [
+  {
+    id: 'paywall',
+    label: 'Paywall shown (standard + discount)',
+    events: ['Subs_page', 'Subs_page_discount', 'Subscription_screen'],
+    core: true,
+  },
+  {
+    id: 'banner',
+    label: 'Discount banner (home)',
+    events: ['subs_discount_banner'],
+  },
+  {
+    id: 'pack',
+    label: 'Pack click',
+    events: ['subs_pack', 'subs_pack_discount'],
+    core: true,
+  },
+  {
+    id: 'button',
+    label: 'CTA click (trial / subscribe / purchase)',
+    events: ['subs_button'],
+    core: true,
+  },
+  {
+    id: 'confirm',
+    label: 'Purchase confirm',
+    events: ['subs_confirm', 'subs_confirm_discount', 'paid_purchase', 'trial_purchase'],
+    core: true,
+  },
+  {
+    id: 'trial_started',
+    label: 'Trial started',
+    events: ['Trial_started'],
+  },
+  {
+    id: 'cancel',
+    label: 'Cancelled purchase',
     events: ['subs_cancel', 'Subs_cancel'],
     isDrop: true,
   },
   {
     id: 'fail',
-    label: 'Subs fail',
+    label: 'Purchase failed',
+    events: ['subs_fail', 'Subs_fail'],
+    isDrop: true,
+  },
+  {
+    id: 'blocked',
+    label: 'Already purchased (blocked)',
+    events: ['subs_blocked_already_purchased'],
+    isDrop: true,
+  },
+  {
+    id: 'duplicate',
+    label: 'Duplicate tap ignored',
+    events: ['subs_duplicate_tap_ignored'],
+  },
+];
+
+const BANKNOTE_ONBOARDING_PAYWALL = [
+  {
+    id: 'onboarding',
+    label: 'Onboarding paywall shown',
+    events: ['Subs_page_onboarding'],
+    core: true,
+  },
+  {
+    id: 'pack',
+    label: 'Pack click (from onboarding)',
+    events: ['Subs_pack', 'subs_pack'],
+    core: true,
+  },
+  {
+    id: 'button',
+    label: 'CTA click (from onboarding)',
+    events: ['subs_button'],
+    core: true,
+  },
+  {
+    id: 'native',
+    label: 'Google Play billing sheet opened',
+    events: ['subs_native'],
+    core: true,
+  },
+  {
+    id: 'confirm',
+    label: 'Purchase confirm (from onboarding)',
+    events: ['Subs_confirm'],
+    core: true,
+  },
+  {
+    id: 'cancel',
+    label: 'Cancelled Google popup',
+    events: ['Subs_cancel', 'subs_cancel'],
+    isDrop: true,
+  },
+  {
+    id: 'fail',
+    label: 'Purchase failed',
+    events: ['Subs_fail', 'subs_fail'],
+    isDrop: true,
+  },
+];
+
+const COINZY_ONBOARDING_EVENTS = [
+  'Subs_page_onboarding',
+  'subs_page_onboarding_1',
+  'subs_page_onboarding_2',
+  'subs_page_onboarding_3',
+  'Subs_page_onboarding_skip',
+];
+
+/** Coinzy value-flow onboarding → subscription. Later steps count only people who saw onboarding. */
+const COINZY_ONBOARDING_PAYWALL = [
+  {
+    id: 'onboarding',
+    label: 'Onboarding started (any page)',
+    events: ['Subs_page_onboarding', 'subs_page_onboarding_1', 'subs_page_onboarding_2', 'subs_page_onboarding_3'],
+    core: true,
+  },
+  {
+    id: 'onboarding_1',
+    label: 'Onboarding page 1',
+    events: ['subs_page_onboarding_1'],
+  },
+  {
+    id: 'onboarding_2',
+    label: 'Onboarding page 2',
+    events: ['subs_page_onboarding_2'],
+  },
+  {
+    id: 'onboarding_3',
+    label: 'Onboarding page 3',
+    events: ['subs_page_onboarding_3'],
+  },
+  {
+    id: 'onboarding_skip',
+    label: 'Skipped onboarding subscription',
+    events: ['Subs_page_onboarding_skip'],
+    isDrop: true,
+  },
+  {
+    id: 'pack',
+    label: 'Pack click (from onboarding)',
+    events: ['subs_pack', 'subs_pack_discount'],
+    core: true,
+  },
+  {
+    id: 'button',
+    label: 'CTA click (from onboarding)',
+    events: ['subs_button'],
+    core: true,
+  },
+  {
+    id: 'confirm',
+    label: 'Subscription taken (from onboarding)',
+    events: ['subs_confirm', 'subs_confirm_discount', 'paid_purchase', 'trial_purchase'],
+    core: true,
+  },
+  {
+    id: 'trial_started',
+    label: 'Trial started',
+    events: ['Trial_started'],
+  },
+  {
+    id: 'cancel',
+    label: 'Cancelled purchase',
+    events: ['subs_cancel', 'Subs_cancel'],
+    isDrop: true,
+  },
+  {
+    id: 'fail',
+    label: 'Purchase failed',
     events: ['subs_fail', 'Subs_fail'],
     isDrop: true,
   },
 ];
+
+const BANKNOTE_PACK_MIX = {
+  packEvents: ['Subs_pack', 'subs_pack'],
+  confirmEvents: ['Subs_confirm'],
+};
+
+const COINZY_PACK_MIX = {
+  packEvents: ['subs_pack', 'subs_pack_discount'],
+  confirmEvents: ['subs_confirm', 'subs_confirm_discount', 'paid_purchase', 'trial_purchase'],
+  discountEventNames: ['subs_pack_discount', 'subs_confirm_discount'],
+};
 
 /**
  * Coinzy Expert Evaluation — events verified in BigQuery (Jul–Aug 2026).
@@ -923,10 +1135,31 @@ export const FUNNELS = {
   paywall: {
     id: 'paywall',
     title: 'Paywall → purchase funnel',
-    description: 'Subscription page impressions → confirm / cancel',
+    description: 'In-app paywall shown → pack → CTA → (Banknote: Google sheet) → confirm. Pack mix is unique people per pack name.',
     products: {
       banknote: BANKNOTE_PAYWALL,
       coinzy: COINZY_PAYWALL,
+    },
+    packMix: {
+      banknote: BANKNOTE_PACK_MIX,
+      coinzy: COINZY_PACK_MIX,
+    },
+  },
+  'paywall-onboarding': {
+    id: 'paywall-onboarding',
+    title: 'Onboarding → subscription funnel',
+    description: 'People who saw onboarding, then pack / CTA / confirm. Confirm is only counted among that onboarding cohort.',
+    products: {
+      banknote: BANKNOTE_ONBOARDING_PAYWALL,
+      coinzy: COINZY_ONBOARDING_PAYWALL,
+    },
+    cohortEvents: {
+      banknote: ['Subs_page_onboarding'],
+      coinzy: COINZY_ONBOARDING_EVENTS,
+    },
+    packMix: {
+      banknote: BANKNOTE_PACK_MIX,
+      coinzy: COINZY_PACK_MIX,
     },
   },
   expert: {
@@ -952,15 +1185,19 @@ export function getFunnelSteps(funnelId, productId) {
   const funnel = FUNNELS[funnelId];
   if (!funnel) return null;
   const steps = funnel.products[productId];
+  const cohortEvents = funnel.cohortEvents?.[productId] || [];
+  const packMix = funnel.packMix?.[productId] || null;
   if (!steps || !steps.length) {
     return {
       funnel,
       steps: [],
       status: 'insufficient_instrumentation',
       message: `No verified event mapping for ${funnelId} on ${productId}`,
+      cohortEvents,
+      packMix,
     };
   }
-  return { funnel, steps, status: 'ok', message: null };
+  return { funnel, steps, status: 'ok', message: null, cohortEvents, packMix };
 }
 
 export function sqlStringLiteral(s) {
@@ -980,11 +1217,20 @@ const DAU_EVENT = dauEventPredicateSql('event_name');
  * One events_* scan (event_name + user_id + user_pseudo_id only).
  * Aggregates every step in a single SELECT so BigQuery cannot inline N copies of the CTE.
  */
-export function buildFunnelSql(project, dataset, steps, startDate, endDate) {
+export function buildFunnelSql(project, dataset, steps, startDate, endDate, options = {}) {
   const startS = startDate.replace(/-/g, '');
   const endS = endDate.replace(/-/g, '');
-  const allEvents = [...new Set(steps.flatMap((s) => s.events || []))];
+  const cohortEvents = options.cohortEvents || [];
+  const allEvents = [...new Set([
+    ...steps.flatMap((s) => s.events || []),
+    ...cohortEvents,
+  ])];
   const allList = allEvents.map(sqlStringLiteral).join(', ');
+  const cohortList = cohortEvents.map(sqlStringLiteral).join(', ');
+  const cohortHits = cohortList
+    ? `COUNTIF(${EVENT_BASE} IN (${cohortList})) AS cohort_hits,`
+    : '';
+  const cohortFilter = cohortList ? 'AND cohort_hits > 0' : '';
 
   const userHits = steps.map((step, i) => {
     const evList = step.events.map(sqlStringLiteral).join(', ');
@@ -1017,6 +1263,7 @@ WITH per_user AS (
   SELECT
     ${CHEAP_USER} AS uid,
     COUNTIF(${DAU_EVENT}) AS dau_hits,
+    ${cohortHits}
     ${userHits}
   FROM \`${project}.${dataset}.events_*\`
   WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
@@ -1030,6 +1277,7 @@ agg AS (
     ${aggCols.trim()}
   FROM per_user
   WHERE uid IS NOT NULL
+    ${cohortFilter}
 ),
 steps AS (
 ${unpack}
@@ -1070,6 +1318,105 @@ SELECT
 FROM steps s
 LEFT JOIN core_chain c ON c.step_id = s.step_id
 ORDER BY s.step_order
+`.trim();
+}
+
+/**
+ * Unique people per pack_name × discounted / non-discounted.
+ * Banknote Subs_pack params: pack name + discounted/non-discounted.
+ * Coinzy uses subs_pack vs subs_pack_discount when the param is missing.
+ * If cohortEvents is set, pack/confirm only count people who also saw those events.
+ */
+export function buildPackMixSql(project, dataset, {
+  packEvents = [],
+  confirmEvents = [],
+  discountEventNames = [],
+  cohortEvents = [],
+  startDate,
+  endDate,
+} = {}) {
+  const startS = String(startDate).replace(/-/g, '');
+  const endS = String(endDate).replace(/-/g, '');
+  const packList = packEvents.map(sqlStringLiteral).join(', ');
+  const confirmList = confirmEvents.map(sqlStringLiteral).join(', ');
+  const discountList = discountEventNames.map(sqlStringLiteral).join(', ');
+  const cohortList = cohortEvents.map(sqlStringLiteral).join(', ');
+  const allEvents = [...new Set([...packEvents, ...confirmEvents, ...cohortEvents])];
+  const allList = allEvents.map(sqlStringLiteral).join(', ');
+  const discountWhen = discountList
+    ? `WHEN event_name_base IN (${discountList}) THEN 'discounted'`
+    : '';
+  const cohortCte = cohortList
+    ? `,
+cohort AS (
+  SELECT DISTINCT uid
+  FROM base
+  WHERE event_name_base IN (${cohortList})
+    AND uid IS NOT NULL
+)`
+    : '';
+  const cohortJoin = cohortList
+    ? 'INNER JOIN cohort c ON c.uid = b.uid'
+    : '';
+
+  return `
+WITH base AS (
+  SELECT
+    ${CHEAP_USER} AS uid,
+    ${EVENT_BASE} AS event_name_base,
+    COALESCE(
+      NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'pack_name'), ''),
+      NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'item_name'), ''),
+      NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'product_id'), ''),
+      '(unnamed pack)'
+    ) AS pack_name,
+    LOWER(COALESCE(
+      NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'discounted_type'), ''),
+      NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'discount'), ''),
+      ''
+    )) AS discount_param
+  FROM \`${project}.${dataset}.events_*\` e
+  WHERE _TABLE_SUFFIX BETWEEN '${startS}' AND '${endS}'
+    AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\\d{8}$')
+    AND ${EVENT_BASE} IN (${allList || "''"})
+),
+tagged AS (
+  SELECT
+    uid,
+    event_name_base,
+    pack_name,
+    CASE
+      WHEN discount_param IN ('discounted', 'discount', 'true', '1', 'yes') THEN 'discounted'
+      WHEN discount_param IN ('non-discounted', 'non_discounted', 'nondiscounted', 'false', '0', 'no') THEN 'non-discounted'
+      ${discountWhen}
+      ELSE 'non-discounted'
+    END AS discount_type
+  FROM base
+  WHERE uid IS NOT NULL
+)${cohortCte},
+confirmed AS (
+  SELECT DISTINCT b.uid
+  FROM tagged b
+  ${cohortJoin}
+  WHERE b.event_name_base IN (${confirmList || "''"})
+)
+SELECT
+  p.pack_name,
+  p.discount_type,
+  COUNT(DISTINCT p.uid) AS users,
+  COUNT(*) AS hits,
+  SAFE_DIVIDE(COUNT(*), COUNT(DISTINCT p.uid)) AS hits_per_user,
+  COUNT(DISTINCT CASE WHEN c.uid IS NOT NULL THEN p.uid END) AS confirmed_users,
+  SAFE_DIVIDE(
+    COUNT(DISTINCT CASE WHEN c.uid IS NOT NULL THEN p.uid END),
+    COUNT(DISTINCT p.uid)
+  ) AS confirm_rate
+FROM tagged p
+${cohortList ? 'INNER JOIN cohort co ON co.uid = p.uid' : ''}
+LEFT JOIN confirmed c ON c.uid = p.uid
+WHERE p.event_name_base IN (${packList || "''"})
+GROUP BY p.pack_name, p.discount_type
+ORDER BY users DESC, hits DESC
 `.trim();
 }
 

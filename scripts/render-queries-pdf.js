@@ -51,7 +51,9 @@ function funnelSql(funnelId, productId) {
   if (!mapped || mapped.status !== 'ok') {
     return `-- no mapping for ${funnelId} / ${productId}`;
   }
-  return buildFunnelSql('{PROJECT}', '{DATASET}', mapped.steps, 'YYYY-MM-DD', 'YYYY-MM-DD');
+  return buildFunnelSql('{PROJECT}', '{DATASET}', mapped.steps, 'YYYY-MM-DD', 'YYYY-MM-DD', {
+    cohortEvents: mapped.cohortEvents || [],
+  });
 }
 
 const html = `<!DOCTYPE html>
@@ -249,6 +251,8 @@ ${section('Funnels — Catalogue · Collection · Global · Marketplace · Feed 
     { label: 'Coinzy · feed', sql: funnelSql('feed', 'coinzy') },
     { label: 'Banknote · paywall', sql: funnelSql('paywall', 'banknote') },
     { label: 'Coinzy · paywall', sql: funnelSql('paywall', 'coinzy') },
+    { label: 'Banknote · onboarding → subs', sql: funnelSql('paywall-onboarding', 'banknote') },
+    { label: 'Coinzy · onboarding → subs', sql: funnelSql('paywall-onboarding', 'coinzy') },
     { label: 'Coinzy · expert evaluation', sql: funnelSql('expert', 'coinzy') },
   ])}
 

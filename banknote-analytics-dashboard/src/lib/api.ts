@@ -111,6 +111,16 @@ export interface FunnelRow {
   drop_off_rate?: number;
 }
 
+export interface FunnelPackRow {
+  pack_name?: string;
+  discount_type?: string;
+  users?: number;
+  hits?: number;
+  hits_per_user?: number;
+  confirmed_users?: number;
+  confirm_rate?: number;
+}
+
 export interface FunnelResult {
   product: string;
   funnelId: string;
@@ -123,10 +133,12 @@ export interface FunnelResult {
   identity?: string;
   source?: string;
   rows: FunnelRow[];
+  packs?: FunnelPackRow[];
   count: number;
   bytesProcessed?: number;
   steps?: { id: string; label: string; events: string[]; core: boolean; isDrop: boolean }[];
   sql?: string;
+  packSql?: string | null;
 }
 
 export interface EventInventoryRow {
@@ -427,6 +439,12 @@ export function fmtNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(Math.round(n));
+}
+
+export function fmtDecimal(n: number, digits = 2): string {
+  if (!Number.isFinite(n)) return '—';
+  if (Math.abs(n) >= 1000) return fmtNumber(n);
+  return n.toFixed(digits);
 }
 
 export function fmtPercent(n: number): string {

@@ -60,38 +60,49 @@ Same daily signals as the 10 MVP KPIs below (one query per app). Health report a
 
 ### 5. Paywall → purchase
 
-**Rate = confirm events ÷ paywall events.**
+**KPI rate = confirm events ÷ paywall events** (not unique people). Impression = in-app `Subs_page` · `Subs_page_discount` · `Subscription_screen`.
+
+**Funnels → Paywall** (unique people): shown → pack click → CTA (`subs_button`) → Banknote `subs_native` (Google sheet) → confirm. Pack mix table = unique people per `pack_name` × discounted / non-discounted.
+
+**Funnels → Onboarding → subs**: only people who saw onboarding. Coinzy pages `subs_page_onboarding_1/2/3` + `Subs_page_onboarding`; skip is a drop. Confirm is subscription taken from that group.
 
 | | Banknote | Coinzy |
 |--|----------|--------|
-| Paywall | `Subs_page` · `Subs_page_discount` | `Subs_page` · `Subs_page_discount` · `Subscription_screen` · `Subs_page_onboarding` |
-| Confirm | `Subs_confirm` | `subs_confirm` · `subs_confirm_discount` · `paid_purchase` |
+| Pack | `Subs_pack` (`pack_name` + discounted/non-discounted) | `subs_pack` · `subs_pack_discount` |
+| CTA | `subs_button` | `subs_button` |
+| Native sheet | `subs_native` | — |
+| Confirm | `Subs_confirm` | `subs_confirm` · `subs_confirm_discount` · `paid_purchase` · `trial_purchase` |
+| Cancel / fail | `Subs_cancel` · `Subs_fail` | `subs_cancel` · `subs_fail` |
 
-### 6. D1 / D7 retention
+### 6. D1 / D4 / D7 retention
 
-Cohort = `first_open`. Returned = **any** Firebase event on D+1 / D+7.
+Cohort = `first_open`. Returned = **any** Firebase event on that offset day. **D1, D4, and D7 are separate.** D4–D7 = returned on at least one of days 4–7.
 
 ### 7. Scans / user
 
-`identification_done_success` events ÷ DAU.
+`identification_done_success` events ÷ DAU (average). Percentiles P10 / P25 / P50 / P75 / P95 / P99 are successful IDs per person who scanned that day.
 
 ### 8. Identify funnel (open → success)
 
-**Rate = distinct success users ÷ Identify entry users, same day.** Camera is not “open”.
+**KPI rate = distinct success users ÷ Identify entry users, same day.** Camera is not “open”.
+
+The **step path** is Funnels → Identify, not this KPI and not tab 3 (quality). Core steps: entry → camera → permission → photo 1 → photo 2 → scan attempted → submit → success → top 5 results (`identification_top5_matches`) → details → add to collection.
 
 | Piece | Events |
 |-------|--------|
 | Open | `Identify_bottom_nav` · `Identify_home` |
 | Success | `identification_done_success` |
 
-### 9. Catalogue
+### 9. Collection vs global catalogue
 
-**Rate = catalogue users ÷ DAU.**
+**Two rates of DAU — not mixed.**
 
-| App | Events counted as “opened catalogue” |
-|-----|--------------------------------------|
-| Banknote | `Collection_screen` · `Global_catalogue_screen` · `private_collection_bottom_nav` |
-| Coinzy | `Collection_screen` · `Global_catalogue_screen` · `collection_bottom_nav` |
+| Chart | Banknote | Coinzy |
+|-------|----------|--------|
+| Private collection | `Collection_screen` · `private_collection_bottom_nav` | `Collection_screen` · `collection_bottom_nav` |
+| Global catalogue | `Global_catalogue_screen` | same |
+
+Step drop-off: Funnels → Private collection / Global catalogue.
 
 ### 10. Marketplace
 
@@ -115,17 +126,22 @@ Same steps. Entry differs:
 | Scan · bottom nav | `Identify_bottom_nav` only |
 | Scan · home / banner | `Identify_home` only |
 
-| Step | Events |
-|------|--------|
-| Camera | `Identification_screen` · `photo_screen` |
-| First image | `photo_clicked_1` ∪ `photo_uploaded_1` (also split camera vs gallery) |
-| Second image | `photo_clicked_2` ∪ `photo_uploaded_2` |
-| Crop (Banknote) | `photo_cropping_screen_1` / `_2` · `photo_crop_tick_1` / `_2` |
-| Crop (Coinzy) | `photo_cropping_screen_0` / `_1` · `photo_crop_tick_0` / `_1` |
-| Submit | `photo_submit_button` · `photos_submitted` (Coinzy also `Identification_done`) |
-| Quota | Banknote `identiifcation_limit_exceeded` · Coinzy `Identified_limit_reached` + `free_scan_*` |
-| Success | `identification_done_success` |
-| Failure | `identification_done_failure` (Coinzy also `Identification_failed`) |
+| Step | Core? | Events |
+|------|-------|--------|
+| Camera | yes | `Identification_screen` · `photo_screen` |
+| Permission | yes | `identification_camera_permission_popup` |
+| First image | yes | `photo_clicked_1` ∪ `photo_uploaded_1` (also split camera vs gallery) |
+| Second image | yes | `photo_clicked_2` ∪ `photo_uploaded_2` |
+| Crop (Banknote) | no | `photo_cropping_screen_1` / `_2` · `photo_crop_tick_1` / `_2` |
+| Crop (Coinzy) | no | `photo_cropping_screen_0` / `_1` · `photo_crop_tick_0` / `_1` |
+| Scan attempted | yes | Banknote `Identification_attempted` ∪ `Identification_done` · Coinzy `Identification_attempted` |
+| Submit | yes | `photo_submit_button` · `photos_submitted` (Coinzy also `Identification_done`) |
+| Quota | no | Banknote `identiifcation_limit_exceeded` · Coinzy `Identified_limit_reached` + `free_scan_*` |
+| Success | yes | `identification_done_success` |
+| Failure | no | `identification_done_failure` (Coinzy also `Identification_failed`) |
+| Top 5 results | yes | `identification_top5_matches` |
+| Details opened | yes | `identification_result_details` |
+| Add to collection | yes | `identification_add_to_collection` |
 
 ### Private collection
 
@@ -155,12 +171,27 @@ Private collection **plus** global catalogue (both paths on one page).
 
 ### Paywall (funnel)
 
-| | Banknote | Coinzy |
-|--|----------|--------|
-| Impression | `Subs_page` · `Subs_page_discount` · `Subscription_screen` · `Subs_page_onboarding` | same |
-| Confirm | `Subs_confirm` | `subs_confirm` · `subs_confirm_discount` · `paid_purchase` |
+In-app only (not onboarding). Unique **users**. Pack mix = people per pack name.
 
-Funnel = unique **users**. MVP 5 = **event counts**. They will not match.
+| Step | Banknote | Coinzy |
+|------|----------|--------|
+| Shown | `Subs_page` · `Subs_page_discount` · `Subscription_screen` | same |
+| Pack | `Subs_pack` | `subs_pack` · `subs_pack_discount` |
+| CTA | `subs_button` | `subs_button` |
+| Native | `subs_native` | — |
+| Confirm | `Subs_confirm` | `subs_confirm` · `subs_confirm_discount` · `paid_purchase` · `trial_purchase` |
+
+### Onboarding → subscription (funnel)
+
+Cohort = people who saw onboarding. Later steps (pack / CTA / confirm) only count that group.
+
+| Step | Banknote | Coinzy |
+|------|----------|--------|
+| Onboarding | `Subs_page_onboarding` | `Subs_page_onboarding` ∪ `subs_page_onboarding_1/2/3` |
+| Skip | — | `Subs_page_onboarding_skip` |
+| Then | pack → `subs_button` → `subs_native` → `Subs_confirm` | pack → `subs_button` → confirm |
+
+MVP 5 = **event counts**. Funnels = unique people. They will not match.
 
 ### Expert evaluation (Coinzy only)
 

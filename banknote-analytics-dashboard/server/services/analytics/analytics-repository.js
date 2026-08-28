@@ -1,8 +1,9 @@
 /**
  * Per-product BigQuery repository.
  * Fallback order: summary table → product view → raw events_*.
- * MVP KPIs 1, 3–5, 7–10 share product_daily_signals when the summary exists.
+ * MVP KPIs 1, 3–5, 8–10 share product_daily_signals when the summary exists.
  * MVP 2 (same-day first ID) always uses dedicated SQL joined on user_pseudo_id.
+ * MVP 7 (scans / user) uses dedicated SQL so P10–P99 can be computed at user-day grain.
  * Cohort LTV reads Mongo; BigQuery only if LTV_FORCE_RAW or empty + fallback flag.
  */
 import fs from 'fs';
@@ -175,9 +176,9 @@ const MVP_KPI_MAP = {
   },
   'mvp-catalogue': {
     productSql: 'dashboard/product/09_catalogue_engagement.sql',
-    signalKey: 'catalogue_open_rate',
+    signalKey: null,
     xKey: 'event_date',
-    yKey: 'catalogue_open_rate',
+    yKey: 'private_collection_open_rate',
   },
   'mvp-marketplace': {
     productSql: 'dashboard/product/10_marketplace_engagement.sql',
@@ -505,10 +506,18 @@ export class AnalyticsRepository {
   }
 
   async getRetention(params) {
-    const key = cacheKey(`${this.productId}:dashboard:retention`, params);
+    const key = cacheKey(`${this.productId}:dashboard:retention:v2`, params);
     return cached('retention', key, async () => {
       try {
-        return await this._runNamed('retention', params);
+        const result = await this._runNamed('retention', params);
+        const hasD4 = (result.rows || []).some(
+          (r) => r.d4_retention_rate != null || r.d4_d7_retention_rate != null,
+        );
+        if (hasD4 || !this._sqlExists('dashboard/raw/09_retention.sql')) {
+          return result;
+        }
+        console.warn(`[${this.productId}] Retention summary has no D4/D4–D7; using raw`);
+        return await this._executeSql('dashboard/raw/09_retention.sql', params, 'raw');
       } catch (e) {
         // Summary may be missing, or combined retention may have no legacy path.
         // Fall back to merging D1 + D7 (views or raw).
@@ -729,20 +738,22 @@ export class AnalyticsRepository {
   /**
    * Run one of the 10 MVP product KPIs.
    * Prefer summary product_daily_signals (one cheap table, shared cache).
-   * Product-folder / view SQL only when there is no signal column (time-to-first-scan).
+   * Product-folder / view SQL when there is no signal column (time-to-first-scan,
+   * scans / user percentiles).
    */
   async getMvpMetric(name, params) {
     const spec = MVP_KPI_MAP[name];
     if (!spec) throw new Error(`Unknown MVP metric: ${name}`);
 
-    const key = cacheKey(`${this.productId}:mvp:v8:${name}`, params);
+    const key = cacheKey(`${this.productId}:mvp:v9:${name}`, params);
     const result = await cached('kpi', key, async () => {
       if (spec.useRetention) {
         return this.getRetention(params);
       }
 
       const skipSignals = name === 'mvp-dau' && !shouldUseSummaryForDau(params);
-      if (spec.signalKey && !this.preferRaw && !skipSignals) {
+      const needUserDayGrain = name === 'mvp-scans-per-user';
+      if (spec.signalKey && !this.preferRaw && !skipSignals && !needUserDayGrain) {
         try {
           const fromSignals = await this._mvpFromSignals(spec, params);
           if (!this._mvpSignalsEmpty(fromSignals.rows, spec.yKey)) {

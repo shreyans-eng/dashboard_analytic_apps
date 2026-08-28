@@ -8,17 +8,29 @@
 
 CREATE OR REPLACE VIEW `{PROJECT}.{DATASET}.v_engagement_metrics` AS
 
-WITH dau AS (
+WITH user_scans AS (
   SELECT
     event_date,
     platform,
     country,
-    COUNT(DISTINCT resolved_user_id) AS dau,
-    SUM(identifications_success) AS total_success_scans,
-    SUM(identifications) AS total_identifications,
-    COUNT(DISTINCT CASE WHEN identifications_success > 0 THEN resolved_user_id END)
-      AS users_with_scan
+    resolved_user_id,
+    SUM(identifications) AS identifications,
+    SUM(identifications_success) AS scans
   FROM `{PROJECT}.{DATASET}.v_daily_active_users`
+  GROUP BY event_date, platform, country, resolved_user_id
+),
+
+dau AS (
+  SELECT
+    event_date,
+    platform,
+    country,
+    COUNT(*) AS dau,
+    SUM(identifications) AS total_identifications,
+    SUM(scans) AS total_success_scans,
+    COUNTIF(scans > 0) AS users_with_scan,
+    APPROX_QUANTILES(IF(scans > 0, scans, NULL), 100) AS scan_q
+  FROM user_scans
   GROUP BY event_date, platform, country
 ),
 
@@ -38,6 +50,13 @@ user_day_flags AS (
         'Collection_add', 'collection_item_added',
         'Added _to_collection_owned', 'add_to_wishlist'
       ), 1, 0)) AS added_to_collection,
+    MAX(IF(event_name_base IN (
+      'Collection_screen',
+      'collection_bottom_nav', 'private_collection_bottom_nav'
+    ), 1, 0)) AS opened_private_collection,
+    MAX(IF(event_name_base IN (
+      'Global_catalogue_screen', 'Global_catalogue'
+    ), 1, 0)) AS opened_global_catalogue,
     MAX(IF(event_name_base IN (
       'Collection_screen', 'Global_catalogue_screen',
       'collection_bottom_nav', 'private_collection_bottom_nav'
@@ -92,6 +111,8 @@ engagement AS (
     COUNTIF(had_success_id = 1) AS users_with_success_id,
     COUNTIF(had_success_id = 1 AND added_to_collection = 1) AS users_added_after_id,
     COUNTIF(opened_collection = 1) AS users_opened_collection,
+    COUNTIF(opened_private_collection = 1) AS users_opened_private_collection,
+    COUNTIF(opened_global_catalogue = 1) AS users_opened_global_catalogue,
     COUNTIF(viewed_detail = 1) AS users_viewed_detail,
     COUNTIF(used_filter = 1) AS users_used_filter,
     COUNTIF(marketplace_engaged = 1) AS users_marketplace,
@@ -113,19 +134,29 @@ SELECT
   d.total_identifications,
   d.users_with_scan,
 
-  -- #15 Scans per active user
+  -- #15 Scans per active user (mean + percentiles among people who scanned)
   SAFE_DIVIDE(d.total_success_scans, d.dau) AS scans_per_dau,
   SAFE_DIVIDE(d.total_success_scans, d.users_with_scan) AS scans_per_scanning_user,
+  d.scan_q[OFFSET(10)] AS scans_p10,
+  d.scan_q[OFFSET(25)] AS scans_p25,
+  d.scan_q[OFFSET(50)] AS scans_p50,
+  d.scan_q[OFFSET(75)] AS scans_p75,
+  d.scan_q[OFFSET(95)] AS scans_p95,
+  d.scan_q[OFFSET(99)] AS scans_p99,
 
   -- #16 Collection add after identify
   e.users_with_success_id,
   e.users_added_after_id,
   SAFE_DIVIDE(e.users_added_after_id, e.users_with_success_id) AS collection_add_rate_after_id,
 
-  -- #17 Collection / catalogue
+  -- #17 Private collection vs global catalogue (kept separate — do not mix)
   e.users_opened_collection,
+  e.users_opened_private_collection,
+  e.users_opened_global_catalogue,
   e.users_viewed_detail,
   e.users_used_filter,
+  SAFE_DIVIDE(e.users_opened_private_collection, d.dau) AS private_collection_open_rate,
+  SAFE_DIVIDE(e.users_opened_global_catalogue, d.dau) AS global_catalogue_open_rate,
   SAFE_DIVIDE(e.users_opened_collection, d.dau) AS collection_open_rate,
 
   -- #18 Marketplace & Feed

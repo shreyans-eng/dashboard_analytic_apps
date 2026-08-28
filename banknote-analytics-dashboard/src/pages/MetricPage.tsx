@@ -29,18 +29,26 @@ export type MetricId =
   | 'mvp-catalogue'
   | 'mvp-marketplace';
 
+export interface ExtraChartLine {
+  yKey: string;
+  name: string;
+  color: string;
+  strokeWidth?: number;
+}
+
 export interface ExtraChart {
   title: string;
   yKey: string;
   color: string;
   percent?: boolean;
-  type?: 'line' | 'bar';
+  type?: 'line' | 'bar' | 'multi';
+  lines?: ExtraChartLine[];
 }
 
 export interface MetricStat {
   key: string;
   label: string;
-  format?: 'number' | 'percent' | 'seconds';
+  format?: 'number' | 'percent' | 'seconds' | 'avg';
 }
 
 export interface MetricConfig {
@@ -86,6 +94,13 @@ function fmtDuration(seconds: number) {
   return `${h}h ${m % 60}m`;
 }
 
+function fmtScanCell(v: unknown) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '—';
+  if (n >= 100) return fmtNumber(n);
+  return n.toFixed(1);
+}
+
 function sumKey(rows: Record<string, unknown>[], key: string) {
   return rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
 }
@@ -103,6 +118,13 @@ function statValue(rows: Record<string, unknown>[], stat: MetricStat) {
       .filter((n) => Number.isFinite(n) && n >= 0);
     if (!vals.length) return '—';
     return fmtDuration(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }
+  if (stat.format === 'avg') {
+    const vals = rows.map((r) => Number(r[stat.key])).filter((n) => Number.isFinite(n));
+    if (!vals.length) return '—';
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    if (avg >= 100) return fmtNumber(avg);
+    return avg.toFixed(1);
   }
   if (stat.format === 'percent') {
     const vals = rows.map((r) => Number(r[stat.key])).filter((n) => Number.isFinite(n));
@@ -249,6 +271,37 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
             >
               {emptyCompleteRange ? (
                 <div className="empty-data">No matching data in this range.</div>
+              ) : extra.lines ? (
+                <ResponsiveContainer width="100%" height={420}>
+                  <LineChart data={rows}>
+                    <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey={config.xKey}
+                      tick={{ fill: chart.tick, fontSize: 11 }}
+                      tickFormatter={(v) => formatXTick(v, config.xKey)}
+                    />
+                    <YAxis tick={{ fill: chart.tick, fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={tipStyle}
+                      formatter={(v: number, name: string) => [
+                        Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '—',
+                        name,
+                      ]}
+                    />
+                    <Legend />
+                    {extra.lines.map((line) => (
+                      <Line
+                        key={line.yKey}
+                        type="monotone"
+                        dataKey={line.yKey}
+                        name={line.name}
+                        stroke={line.color}
+                        strokeWidth={line.strokeWidth ?? 2}
+                        dot={false}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
               ) : extra.type === 'bar' ? (
                 <ResponsiveContainer width="100%" height={420}>
                   <BarChart data={rows}>
@@ -289,6 +342,40 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
             </ChartCard>
           ))}
         </div>
+        {config.id === 'mvp-scans-per-user' && rows.length > 0 && (
+          <div className="results-table-wrap" style={{ marginTop: 8 }}>
+            <table className="results-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Avg / person</th>
+                  <th>Avg / scanner</th>
+                  <th>P10</th>
+                  <th>P25</th>
+                  <th>P50</th>
+                  <th>P75</th>
+                  <th>P95</th>
+                  <th>P99</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={String(r.event_date)}>
+                    <td>{String(r.event_date ?? '').slice(0, 10)}</td>
+                    <td>{fmtScanCell(r.scans_per_dau)}</td>
+                    <td>{fmtScanCell(r.scans_per_scanning_user)}</td>
+                    <td>{fmtScanCell(r.scans_p10)}</td>
+                    <td>{fmtScanCell(r.scans_p25)}</td>
+                    <td>{fmtScanCell(r.scans_p50)}</td>
+                    <td>{fmtScanCell(r.scans_p75)}</td>
+                    <td>{fmtScanCell(r.scans_p95)}</td>
+                    <td>{fmtScanCell(r.scans_p99)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </>
   );
@@ -459,24 +546,36 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'paywall_to_confirm_rate',
     color: '#a78bfa',
     percent: true,
-    guide: 'If many people see the paywall but few buy, check price, copy, or when we show it. This counts views and confirms, not unique people.',
+    guide: 'Counts views and confirms (not unique people). Standard and discount screens are included. For unique people, pack mix, Google Play sheet, and onboarding → subscription, open Funnels → Paywall and Funnels → Onboarding → subs.',
   },
   'mvp-retention': {
     id: 'mvp-retention',
     title: '6. Do they come back?',
-    subtitle: 'Of people who installed on a day, who opened the app again the next day and after a week',
-    chartTitle: 'Came back the next day',
+    subtitle: 'Of people who installed on a day, who opened the app again — D1, D4, D7, and anytime in D4–D7',
+    chartTitle: 'Came back the next day (D1)',
     type: 'line',
     xKey: 'cohort_date',
     yKey: 'd1_retention_rate',
     color: '#f87171',
     percent: true,
-    guide: 'The first chart is “came back tomorrow”. The second is “came back after 7 days”. Empty recent days on the week chart are normal — those installs are not a week old yet.',
+    guide: 'D1, D4, and D7 are different days (not the same chart). D4–D7 is anyone who came back on at least one of days 4, 5, 6, or 7. Empty recent days are normal — those installs are not old enough yet.',
     extraCharts: [
       {
-        title: 'Came back after 7 days',
-        yKey: 'd7_retention_rate',
+        title: 'Came back on day 4 (D4)',
+        yKey: 'd4_retention_rate',
         color: '#fb923c',
+        percent: true,
+      },
+      {
+        title: 'Came back after 7 days (D7)',
+        yKey: 'd7_retention_rate',
+        color: '#fbbf24',
+        percent: true,
+      },
+      {
+        title: 'Came back anytime in D4–D7',
+        yKey: 'd4_d7_retention_rate',
+        color: '#34d399',
         percent: true,
       },
     ],
@@ -485,12 +584,38 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     id: 'mvp-scans-per-user',
     title: '7. How many scans per person',
     subtitle: 'Successful IDs that day, divided by people who used the app that day',
-    chartTitle: 'Successful IDs per person using the app',
+    chartTitle: 'Successful IDs per person using the app (average)',
     type: 'line',
     xKey: 'event_date',
     yKey: 'scans_per_dau',
     color: '#fb7185',
-    guide: 'Rising people using the app plus falling scans per person usually means shallow opens: they open the app but do not Identify.',
+    guide: 'The average includes people who opened the app and did not Identify. Percentiles (P10–P99) are only among people who got at least one successful ID that day, so a few heavy scanners cannot hide what a typical scanner does.',
+    stats: [
+      { key: 'scans_per_dau', label: 'Average / person', format: 'avg' },
+      { key: 'scans_per_scanning_user', label: 'Average / scanner', format: 'avg' },
+      { key: 'scans_p10', label: 'P10', format: 'avg' },
+      { key: 'scans_p25', label: 'P25', format: 'avg' },
+      { key: 'scans_p50', label: 'P50', format: 'avg' },
+      { key: 'scans_p75', label: 'P75', format: 'avg' },
+      { key: 'scans_p95', label: 'P95', format: 'avg' },
+      { key: 'scans_p99', label: 'P99', format: 'avg' },
+    ],
+    extraCharts: [
+      {
+        title: 'Successful IDs per scanning person (P10, P25, P50, P75, P95, P99)',
+        yKey: 'scans_p50',
+        color: '#4f8cff',
+        type: 'multi',
+        lines: [
+          { yKey: 'scans_p10', name: 'P10', color: '#94a3b8' },
+          { yKey: 'scans_p25', name: 'P25', color: '#67e8f9' },
+          { yKey: 'scans_p50', name: 'P50 (typical)', color: '#4f8cff', strokeWidth: 2.5 },
+          { yKey: 'scans_p75', name: 'P75', color: '#34d399' },
+          { yKey: 'scans_p95', name: 'P95', color: '#fbbf24' },
+          { yKey: 'scans_p99', name: 'P99', color: '#f87171' },
+        ],
+      },
+    ],
   },
   'mvp-identify-funnel': {
     id: 'mvp-identify-funnel',
@@ -502,19 +627,27 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'open_to_success_rate',
     color: '#4f8cff',
     percent: true,
-    guide: 'This is a simple same-day rate. For a step-by-step “where did they stop?” view, open Funnels → Identify.',
+    guide: 'This KPI is a simple same-day rate. Tab 3 is quality only (success ÷ success+failure). The full path — permission, photo 1, photo 2, submit, top 5 results, details, add to collection — is Funnels → Identify.',
   },
   'mvp-catalogue': {
     id: 'mvp-catalogue',
-    title: '9. Opened collection or catalogue',
-    subtitle: 'Of people using the app, what share opened their collection or the global catalogue',
-    chartTitle: 'Share of people who browsed collection or catalogue',
+    title: '9. Collection vs global catalogue',
+    subtitle: 'Private collection and global catalogue are counted separately — they are not mixed',
+    chartTitle: 'Share who opened private collection',
     type: 'line',
     xKey: 'event_date',
-    yKey: 'catalogue_open_rate',
+    yKey: 'private_collection_open_rate',
     color: '#34d399',
     percent: true,
-    guide: 'This is habit beyond a single scan. For where they drop inside collection vs global catalogue, use the funnel tabs.',
+    guide: 'Private collection = Collection_screen / collection nav. Global catalogue is the second chart. For step drop-off, use Funnels → Private collection or Global catalogue — not Catalogue (all).',
+    extraCharts: [
+      {
+        title: 'Share who opened global catalogue',
+        yKey: 'global_catalogue_open_rate',
+        color: '#4f8cff',
+        percent: true,
+      },
+    ],
   },
   'mvp-marketplace': {
     id: 'mvp-marketplace',

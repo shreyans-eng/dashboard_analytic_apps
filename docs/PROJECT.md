@@ -199,11 +199,11 @@ SQL: `sql/dashboard/product/01`–`10_*.sql` (Coinzy override under `product/coi
 | 2 | Install → first scan | `day0_first_scan_rate` | Same-day `identification_done_success` ÷ `first_open` **devices**, join on `user_pseudo_id` only |
 | 3 | Identify success | `identification_success_rate` | Success **events** ÷ (success + failure). Coinzy failure also counts `Identification_failed` |
 | 4 | Quota hit | `free_quota_hit_rate` | Distinct scan-quota users ÷ scan-attempt users (not collection limit) |
-| 5 | Paywall → purchase | `paywall_to_confirm_rate` | Confirm **events** ÷ paywall **events**. Banknote `Subs_confirm` · Coinzy `subs_confirm` / `paid_purchase` |
-| 6 | D1 / D7 | `d1_retention_rate` / `d7` | Returned any event on D+1 / D+7 ÷ `first_open` cohort |
-| 7 | Scans / user | `scans_per_dau` | Success events ÷ DAU |
+| 5 | Paywall → purchase | `paywall_to_confirm_rate` | Confirm **events** ÷ paywall **events**. Unique people, pack mix, and onboarding → purchase are Funnels → Paywall / Onboarding → subs |
+| 6 | D1 / D4 / D7 | `d1_retention_rate` / `d4` / `d7` / `d4_d7` | Returned any event on D+1 / D+4 / D+7; D4–D7 = any of days 4–7. Cohort = `first_open` |
+| 7 | Scans / user | `scans_per_dau` + `scans_p10`…`scans_p99` | Mean = success events ÷ DAU. Percentiles = successful IDs per **scanning** user-day (P10, P25, P50, P75, P95, P99) |
 | 8 | Identify funnel | `open_to_success_rate` | Distinct success users ÷ (`Identify_bottom_nav` ∪ `Identify_home`) same day. Camera screen is **not** open |
-| 9 | Catalogue | `catalogue_open_rate` | `Collection_screen` ∪ `Global_catalogue_screen` (plus each app’s collection nav) ÷ DAU |
+| 9 | Collection vs catalogue | `private_collection_open_rate` · `global_catalogue_open_rate` | Separate rates of DAU — **not** mixed |
 | 10 | Marketplace | `marketplace_engagement_rate` | Market nav / `marketplace_screen` / `market_item_expolre` ÷ DAU. **Feed is a separate tab**, not mixed in |
 
 ### 6.4 Funnels
