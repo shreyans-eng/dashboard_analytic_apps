@@ -119,6 +119,10 @@ const QUERY_MAP = {
     raw: 'dashboard/raw/21_scan_limits.sql',
     metric: 'scan-limits',
   },
+  'free-scan-quota': {
+    raw: 'dashboard/product/coinzy/22_free_scan_success_quota.sql',
+    metric: 'free-scan-quota',
+  },
 };
 
 /**
@@ -486,6 +490,27 @@ export class AnalyticsRepository {
     return this._attachCompleteness(result, params);
   }
 
+  async getFreeScanQuota(params) {
+    const sqlPath = `dashboard/product/${this.productId}/22_free_scan_success_quota.sql`;
+    if (!this._sqlExists(sqlPath)) {
+      return {
+        rows: [],
+        count: 0,
+        sql: null,
+        bytesProcessed: 0,
+        source: 'none',
+        product: this.productId,
+        status: 'insufficient_instrumentation',
+        message: 'Banknote free-scan success quota events are not mapped yet.',
+      };
+    }
+    const key = cacheKey(`${this.productId}:dashboard:free-scan-quota:v1`, params);
+    const result = await cached('free-scan-quota', key, () =>
+      this._executeSql(sqlPath, params, 'raw'),
+    );
+    return this._attachCompleteness(result, params);
+  }
+
   async getMonthlyUsers(params) {
     return this._cachedQuery('mau', 'mau', params);
   }
@@ -715,6 +740,7 @@ export class AnalyticsRepository {
       'user-mix': () => this.getUserMix(params),
       'install-day-usage': () => this.getInstallDayUsage(params),
       'scan-limits': () => this.getScanLimits(params),
+      'free-scan-quota': () => this.getFreeScanQuota(params),
       mau: () => this.getMonthlyUsers(params),
       'new-users': () => this.getNewUsers(params),
       countries: () => this.getCountries(params),

@@ -545,7 +545,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'free_quota_hit_rate',
     color: '#fbbf24',
     percent: true,
-    guide: 'Too high too early can mean frustrated users. Too low can mean little pressure to go Pro. This is only among people who actually tried to scan.',
+    guide: 'Too high too early can mean frustrated users. Too low can mean little pressure to go Pro. This tab mixes several limit events. For the Coinzy free-scan experiment (success remaining → 0), open Explorer → Free-scan success quota — that uses only free_scan_success_quota_exhausted.',
   },
   'mvp-paywall': {
     id: 'mvp-paywall',

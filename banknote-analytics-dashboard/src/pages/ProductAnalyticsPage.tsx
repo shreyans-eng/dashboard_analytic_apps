@@ -56,7 +56,7 @@ const AREAS = [
     icon: Target,
     to: '/mvp/quota-hit',
     why: 'Too early → angry churn. Too late → weak Pro pressure. Track hits and post-limit behavior.',
-    metrics: 'Quota hit rate · Post-limit paywall views',
+    metrics: 'Quota hit rate · Coinzy free-scan success quota (exhausted event) · Post-limit paywall views',
   },
   {
     id: 'monetization',

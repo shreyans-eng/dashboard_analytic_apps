@@ -247,6 +247,7 @@ Prefer summary → view → raw.
 | Unique vs repeat | New vs returning, one-day vs 2+ days |
 | Installs + time used | `first_open` devices; “went in” = ≥10s (`engagement_time_msec` or `session_length_seconds`) |
 | Scan limits | Free vs subscribed (purchase on/before that day, 180-day lookback). Success cap vs unsuccessful cap. No separate Pro limit event |
+| Free-scan success quota | Coinzy only. Hit = `free_scan_success_quota_exhausted` (success remaining → 0). Unique people + hits. After-hit: blocked / popup / go premium / not now. Fail exhausted does not block. Banknote TBD |
 | MAU | Distinct users in calendar month |
 | New users | Distinct `first_open` that day |
 | D1 / D7 | Same as MVP 6; future return days excluded |
@@ -288,7 +289,8 @@ Refresh: `sql/scheduled/cohort_ltv_mongo.sql` → `scripts/refresh-cohort-ltv-mo
 | Photo | Banknote `photo_clicked_1/_2` + gallery `photo_uploaded_1/_2`. Coinzy: shutter = `Photo_clicked`; gallery tap has no event (infer crop/clicked minus shutter); merge = `photo_clicked_1/2` after crop |
 | Submit | `photos_submitted`, `photo_submit_button` (Coinzy: not `Identification_done`) |
 | Success / fail | `identification_done_success` / `identification_done_failure`. Coinzy success also `Identification_done`; fail also `Identification_failed` |
-| Quota | Banknote: `identiifcation_limit_exceeded`. Coinzy: `Identified_limit_reached`, `free_scan_*`. Not `Collection_limit_Reached` |
+| Quota (MVP 4) | Banknote: `identiifcation_limit_exceeded`. Coinzy: mixed `Identified_limit_reached` + `free_scan_*`. Not `Collection_limit_Reached` |
+| Free-scan success quota | Coinzy experiment tab: **only** `free_scan_success_quota_exhausted`. Not consumed, not `Identified_limit_reached` |
 | Paywall | `Subs_page`, `Subs_page_discount`, Coinzy `Subscription_screen` / `Subs_page_onboarding` → Banknote `Subs_confirm` · Coinzy `subs_confirm` / `paid_purchase` |
 | Catalogue | `Collection_screen`, `Global_catalogue_screen`; details `banknote_details_*` / `Coin_details_*` |
 | Marketplace | `marketplace_screen`, `market_item_expolre`, `market_contact` |

@@ -54,6 +54,7 @@ function dashboardQueryVersion(name: string) {
   if (name === 'mvp-catalogue' || name === 'mvp-retention') return 'v6';
   if (name === 'mvp-identify-funnel') return 'v5';
   if (name === 'country-list') return 'v2';
+  if (name === 'free-scan-quota') return 'v1';
   return 'v4';
 }
 

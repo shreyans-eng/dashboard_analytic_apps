@@ -296,6 +296,7 @@
   <tr><td>Unique vs repeat</td><td>Any event — new vs returning, one-day vs 2+ days</td></tr>
   <tr><td>Installs + time used</td><td><code>first_open</code> devices; “went in” = ≥10 seconds same day</td></tr>
   <tr><td>Scan limits</td><td>Free vs subscribed quota (success cap vs fail cap)</td></tr>
+  <tr><td>Free-scan success quota</td><td>Coinzy only. Hit = <code>free_scan_success_quota_exhausted</code> (success remaining → 0). Not consumed, not <code>Identified_limit_reached</code>. Banknote TBD.</td></tr>
   <tr><td>D1 / D7 Explorer</td><td>Same definitions as MVP 6 (D1 and D7 are separate pages there)</td></tr>
   <tr><td>Cohort LTV</td><td>Install = <code>first_open</code>. Revenue = store <code>in_app_purchase</code> / <code>purchase</code> USD — not <code>Subs_confirm</code></td></tr>
   <tr><td>Event inventory</td><td>Pick any event — hits + unique users. Use this to prove an event fires.</td></tr>
@@ -308,7 +309,8 @@
   <tr><td>Tab 3 vs Identify funnel</td><td>Tab 3 = quality rate. Funnel = step path. Coinzy: Camera → Photos → Submit → Success → Details (not add-to-collection)</td></tr>
   <tr><td>Collection vs catalogue</td><td>Separate rates and separate funnel tabs</td></tr>
   <tr><td>Marketplace KPI</td><td>Market only — not Feed</td></tr>
-  <tr><td>Scan quota</td><td>Scan limit events — not <code>Collection_limit_Reached</code></td></tr>
+  <tr><td>Scan quota (MVP 4)</td><td>Mixed scan-limit events — not <code>Collection_limit_Reached</code></td></tr>
+  <tr><td>Free-scan success quota</td><td>Coinzy experiment: only <code>free_scan_success_quota_exhausted</code>. Not <code>free_scan_success_consumed</code>, not <code>Identified_limit_reached</code></td></tr>
   <tr><td>Coinzy confirm</td><td><code>subs_confirm</code> — not Banknote’s <code>Subs_confirm</code></td></tr>
   <tr><td>Same-day first ID</td><td>vs <code>first_open</code> on <code>user_pseudo_id</code> only</td></tr>
   <tr><td>LTV revenue</td><td>Store purchase events — not paywall confirm</td></tr>

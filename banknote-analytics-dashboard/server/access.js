@@ -46,6 +46,7 @@ export const PAGE_CATALOG = [
     { id: 'explorer.new-users', label: 'New Users', path: '/new-users' },
     { id: 'explorer.install-day-usage', label: 'Installs + time used', path: '/install-day-usage' },
     { id: 'explorer.scan-limits', label: 'Scan limits', path: '/scan-limits' },
+    { id: 'explorer.free-scan-quota', label: 'Free-scan success quota', path: '/free-scan-quota' },
     { id: 'explorer.d1', label: 'D1 Retention', path: '/d1-retention' },
     { id: 'explorer.d7', label: 'D7 Retention', path: '/d7-retention' },
     { id: 'explorer.countries', label: 'Top Countries', path: '/countries' },
@@ -117,6 +118,14 @@ export function canAccessPage(user, pageId) {
   if (
     pageId === 'explorer.scan-limits'
     && (pages.includes('mvp.quota-hit') || pages.includes('funnels.identify'))
+  ) {
+    return true;
+  }
+  if (
+    pageId === 'explorer.free-scan-quota'
+    && (pages.includes('mvp.quota-hit')
+      || pages.includes('explorer.scan-limits')
+      || pages.includes('funnels.identify'))
   ) {
     return true;
   }

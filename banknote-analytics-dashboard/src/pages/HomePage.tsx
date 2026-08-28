@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Clock,
   Gauge,
+  ShieldAlert,
 } from 'lucide-react';
 import { useProduct } from '@/lib/product';
 import { useAuth } from '@/lib/auth';
@@ -75,6 +76,13 @@ const METRICS = [
     description: 'Free vs subscribed: who hit the successful-ID cap vs the unsuccessful-ID cap.',
   },
   {
+    to: '/free-scan-quota',
+    icon: ShieldAlert,
+    title: 'Free-scan success quota',
+    description: 'Coinzy experiment: hit = success remaining went to 0 (free_scan_success_quota_exhausted).',
+    products: ['coinzy'],
+  },
+  {
     to: '/d1-retention',
     icon: TrendingUp,
     title: 'D1 Retention',
@@ -107,11 +115,15 @@ const METRICS = [
 ];
 
 export default function HomePage() {
-  const { product } = useProduct();
+  const { product, productId } = useProduct();
   const { canAccessPage } = useAuth();
   const cards = METRICS.filter((m) => {
     const pageId = pageIdFromPath(m.to);
-    return !pageId || canAccessPage(pageId);
+    if (pageId && !canAccessPage(pageId)) return false;
+    if ('products' in m && Array.isArray(m.products) && !m.products.includes(productId)) {
+      return false;
+    }
+    return true;
   });
 
   return (

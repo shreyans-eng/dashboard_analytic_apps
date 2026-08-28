@@ -187,6 +187,7 @@ Code: same `funnel-registry.js`. Refresh that fills summary: `scheduled/event_in
 | New Users | `new-users` | `summary/03_new_users.sql` | `dashboard/03_new_users.sql` | `raw/03_new_users.sql` |
 | Installs + time used | `install-day-usage` | — | — | `raw/20_install_day_usage.sql` |
 | Scan limits | `scan-limits` | — | — | `raw/21_scan_limits.sql` |
+| Free-scan success quota | `free-scan-quota` | — | — | `product/coinzy/22_free_scan_success_quota.sql` (Coinzy only) |
 | D1 Retention | `d1` | `summary/05_d1_retention.sql` | `dashboard/05_d1_retention.sql` | `raw/05_d1_retention.sql` |
 | D7 Retention | `d7` | `summary/06_d7_retention.sql` | `dashboard/06_d7_retention.sql` | `raw/06_d7_retention.sql` |
 | Top Countries | `countries` | `summary/04_countries.sql` | `dashboard/04_top_countries.sql` | `raw/04_countries.sql` |
@@ -269,4 +270,5 @@ Dashboard tabs read those stores; they do not run the scheduled files on click.
 | Unique vs repeat | `dashboard/raw/19_user_mix.sql` |
 | Installs + time | `dashboard/raw/20_install_day_usage.sql` |
 | Scan limits | `dashboard/raw/21_scan_limits.sql` |
+| Free-scan success quota | `dashboard/product/coinzy/22_free_scan_success_quota.sql` |
 | Cohort LTV | Mongo · emergency `dashboard/raw/10_cohort_ltv.sql` |

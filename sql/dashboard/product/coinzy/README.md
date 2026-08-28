@@ -15,7 +15,7 @@ Run in dashboard **SQL Editor** (Coinzy product selected) or via API `/api/query
 | `01_dau.sql` | 1 DAU |
 | `02_time_to_first_scan.sql` | 2 Time to first scan |
 | `03_identify_success_rate.sql` | 3 Success rate |
-| `04_quota_hit_rate.sql` | 4 Quota hit |
+| `04_quota_hit_rate.sql` | 4 Quota hit (mixed limit events — not the experiment tab) |
 | `05_paywall_conversion.sql` | 5 Paywall → `subs_confirm` |
 | `07_scans_per_user.sql` | 7 Scans / DAU |
 | `08_identify_funnel_conversion.sql` | 8 Funnel (camera→success rollup) |
@@ -30,6 +30,7 @@ Run in dashboard **SQL Editor** (Coinzy product selected) or via API `/api/query
 | `08_identify_event_volume.sql` | 8 | Which Identify events fire most (by stage) |
 | `09_catalogue_funnel_steps.sql` | 9 | Collection + Global catalogue path + % of DAU |
 | `10_marketplace_funnel_steps.sql` | 10 | Marketplace + Feed path + % of DAU |
+| `22_free_scan_success_quota.sql` | Explorer | Success quota HIT = `free_scan_success_quota_exhausted` only |
 
 ## Core paths (Coinzy)
 

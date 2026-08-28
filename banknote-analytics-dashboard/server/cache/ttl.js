@@ -14,6 +14,7 @@ export const METRIC_TTL = {
   'user-mix': TTL.DAILY,
   'install-day-usage': TTL.DAILY,
   'scan-limits': TTL.DAILY,
+  'free-scan-quota': TTL.DAILY,
   mau: TTL.DAILY,
   'new-users': TTL.DAILY,
   countries: TTL.DAILY,

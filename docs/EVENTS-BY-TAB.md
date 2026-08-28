@@ -242,6 +242,7 @@ Whatever event you pick. Hits + unique users. Use this to check an event actuall
 | New Users | `first_open` |
 | Installs + time used | `first_open` + same-day `user_engagement` / `session_start` / `App_open` (≥10s = “went in”) |
 | Scan limits | Quota events (MVP 4) split free vs subscribed using `Subs_confirm` / `subs_confirm` / `paid_purchase` / `in_app_purchase` |
+| Free-scan success quota | Coinzy only. **Hit** = `free_scan_success_quota_exhausted` (success remaining → 0). After: `free_scan_blocked` · `free_scan_limit_exceeded` · `free_scan_go_premium_tapped` · `free_scan_not_now_tapped`. Informational: `free_scan_fail_quota_exhausted` · `free_scan_quota_reset`. Not a hit: `free_scan_success_consumed`. Do **not** use `Identified_limit_reached` / `Collection_limit_Reached`. Banknote events TBD. |
 | D1 / D7 Retention | Same as MVP 6 |
 | Top Countries / Platform | Any event |
 | Top Events | All events (`COUNT(*)`) |
@@ -255,7 +256,8 @@ Whatever event you pick. Hits + unique users. Use this to check an event actuall
 |---------------|------------|
 | Identify “open” | Nav ∪ home — **not** `Identification_screen` |
 | Marketplace KPI | Market screen / nav / listing — **not** Feed |
-| Scan quota | Scan limit events — **not** `Collection_limit_Reached` |
+| Scan quota (MVP 4) | Mixed limit events — **not** `Collection_limit_Reached` |
+| Free-scan success quota | Coinzy experiment: **only** `free_scan_success_quota_exhausted`. Not `free_scan_success_consumed`, not `Identified_limit_reached` |
 | Coinzy confirm | `subs_confirm` — **not** Banknote’s `Subs_confirm` |
 | Same-day first ID | `user_pseudo_id` only |
 | LTV revenue | Store purchase events — **not** paywall confirm |
