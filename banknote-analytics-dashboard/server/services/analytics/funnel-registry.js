@@ -173,9 +173,11 @@ const BANKNOTE_IDENTIFY = [
 
 /**
  * Coinzy Identify — Camera → shutter ∥ gallery → first crop → first photo after crop →
- * second crop → second photo after crop → submit → success → details.
+ * second crop → second photo after crop → submit → API started → success → details.
  * Camera permission is shutter-only; gallery can skip it.
- * Identification_attempted is API start, not a submit conversion.
+ * Crop screens are core; crop ticks are not (auto-crop skips them).
+ * Identification_attempted is core after submit so quota-blocked / abandoned submits
+ * do not look like an Identification success leak.
  * Identification_done is success (same flow as identification_done_success) — do not also put it on Submit.
  * Quota, Learn more, owned/collection are not sequential identify steps.
  * Add-to-collection has no live Firebase success event.
@@ -230,32 +232,34 @@ const COINZY_IDENTIFY = [
     ],
     excludeEvents: ['Photo_clicked'],
   },
-  {
-    id: 'crop_1',
-    label: 'First crop screen (index 0) — camera or gallery',
-    events: ['photo_cropping_screen_0'],
-  },
-  {
-    id: 'crop_confirm_1',
-    label: 'First crop confirmed (manual only; auto-crop skips)',
-    events: ['photo_crop_tick_0'],
-  },
-  {
-    id: 'photo_click_1',
-    label: 'First photo after crop',
-    events: ['photo_clicked_1'],
-    core: true,
-  },
-  {
-    id: 'crop_2',
-    label: 'Second crop screen (index 1) — camera or gallery',
-    events: ['photo_cropping_screen_1'],
-  },
-  {
-    id: 'crop_confirm_2',
-    label: 'Second crop confirmed (manual only; auto-crop skips)',
-    events: ['photo_crop_tick_1'],
-  },
+    {
+      id: 'crop_1',
+      label: 'First crop screen (index 0) — camera or gallery',
+      events: ['photo_cropping_screen_0'],
+      core: true,
+    },
+    {
+      id: 'crop_confirm_1',
+      label: 'First crop confirmed (manual only; auto-crop skips)',
+      events: ['photo_crop_tick_0'],
+    },
+    {
+      id: 'photo_click_1',
+      label: 'First photo after crop',
+      events: ['photo_clicked_1'],
+      core: true,
+    },
+    {
+      id: 'crop_2',
+      label: 'Second crop screen (index 1) — camera or gallery',
+      events: ['photo_cropping_screen_1'],
+      core: true,
+    },
+    {
+      id: 'crop_confirm_2',
+      label: 'Second crop confirmed (manual only; auto-crop skips)',
+      events: ['photo_crop_tick_1'],
+    },
   {
     id: 'photo_click_2',
     label: 'Second photo after crop',
@@ -275,8 +279,9 @@ const COINZY_IDENTIFY = [
   },
   {
     id: 'attempt',
-    label: 'API started (not submit)',
+    label: 'API started (quota / back-out never reach this)',
     events: ['Identification_attempted'],
+    core: true,
   },
   {
     id: 'quota_block',
@@ -1338,7 +1343,10 @@ const COINZY_CAMERA_IDS = new Set([
   'submit', 'attempt', 'quota_block', 'success', 'failure',
   'all_options', 'option_chosen', 'details',
 ]);
-const COINZY_CAMERA_CORE = ['shutter', 'photo_click_1', 'photo_click_2', 'submit', 'success', 'details'];
+const COINZY_CAMERA_CORE = [
+  'shutter', 'crop_1', 'photo_click_1', 'crop_2', 'photo_click_2',
+  'submit', 'attempt', 'success', 'details',
+];
 
 const COINZY_GALLERY_IDS = new Set([
   'camera',
@@ -1349,7 +1357,10 @@ const COINZY_GALLERY_IDS = new Set([
   'submit', 'attempt', 'quota_block', 'success', 'failure',
   'all_options', 'option_chosen', 'details',
 ]);
-const COINZY_GALLERY_CORE = ['gallery', 'photo_click_1', 'photo_click_2', 'submit', 'success', 'details'];
+const COINZY_GALLERY_CORE = [
+  'crop_1', 'photo_click_1', 'crop_2', 'photo_click_2',
+  'submit', 'attempt', 'success', 'details',
+];
 
 /** @type {Record<string, FunnelDef>} */
 export const FUNNELS = {

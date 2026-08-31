@@ -55,6 +55,7 @@ const PATH_TITLES: Record<string, string> = {
   photos: 'After crop',
   shutter: 'Camera shutter',
   gallery: 'Gallery pick',
+  attempt: 'API started',
   success: 'ID success',
   details: 'Details',
   photo_1: 'First photo',
@@ -144,23 +145,23 @@ const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }>
 const COINZY_IDENTIFY_GUIDE: Record<'identify' | 'identify-nav' | 'identify-home' | 'identify-camera' | 'identify-gallery', { question: string; how: string }> = {
   identify: {
     question: 'Of everyone who opens the Identify camera, how many submit photos, get a successful ID, and open details?',
-    how: 'Main path: camera → first crop → first photo after crop → second crop → second photo after crop → submit. The old combined photo_clicked_1 ∪ photo_clicked_2 row sits after both crops (it is anyone who got image 1 or 2, not “both images”). Shutter vs gallery are parallel sources. Add-to-collection cannot be measured.',
+    how: 'Main path: camera → first crop → first photo after crop → second crop → second photo after crop → submit → API started → success → details. Crop ticks are side rows (auto-crop skips them). The combined photo_clicked_1 ∪ photo_clicked_2 row sits after both crops (image 1 or 2, not “both”). Shutter vs gallery are parallel sources. Add-to-collection cannot be measured.',
   },
   'identify-nav': {
     question: 'Of people who opened Identify from the bottom bar (and not from Home), where do they drop off?',
-    how: 'Cohort = Identify_bottom_nav minus Identify_home. Later steps (camera → after crop → submit → success → details) only count that group. Nav also fires from Home, so Home users are excluded here — use Scan · home / banner for them.',
+    how: 'Cohort = Identify_bottom_nav minus Identify_home. Later steps (camera → crop → after crop → submit → API started → success → details) only count that group. Nav also fires from Home, so Home users are excluded here — use Scan · home / banner for them.',
   },
   'identify-home': {
     question: 'Of people who tapped Identify on home / banner, where do they drop off?',
-    how: 'Cohort = Identify_home. Camera → after crop → submit → success → details only count that group, not everyone who opened the camera.',
+    how: 'Cohort = Identify_home. Camera → crop → after crop → submit → API started → success → details only count that group, not everyone who opened the camera.',
   },
   'identify-camera': {
     question: 'Of people who used the shutter (Photo_clicked), where do they drop off?',
-    how: 'Cohort = Photo_clicked. First core step is the shutter. Then after crop → submit → success → details among shutter users only. Permission is on this tab. Gallery rows are not shown.',
+    how: 'Cohort = Photo_clicked. Main path: shutter → first crop → first photo after crop → second crop → second photo after crop → submit → API started → success → details. Quota-blocked submits never start the API, so they drop at API started, not at Identification success. Permission is on this tab. Gallery rows are not shown.',
   },
   'identify-gallery': {
     question: 'Of people who used gallery (inferred), where do they drop off?',
-    how: 'Cohort = crop/clicked minus Photo_clicked. First core step is the inferred gallery pick. Then after crop → submit → success → details among gallery-only users. No shutter, no permission.',
+    how: 'Cohort = crop/clicked minus Photo_clicked. Main path starts at the first crop screen (the inferred gallery row is side context — gallery tap has no event). Then first photo after crop → second crop → second photo after crop → submit → API started → success → details. No shutter, no permission.',
   },
 };
 
@@ -656,9 +657,10 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                   {showPhotoMix && photoMix?.kind === 'coinzy' && (
                     <li>
                       <strong>Shutter vs gallery:</strong> parallel after the camera screen. Then first
-                      crop → first photo after crop → second crop → second photo after crop → submit.
-                      The “either after-crop photo” row is image 1 <em>or</em> 2, listed after both
-                      crops — it is not a step that happens before cropping.
+                      crop → first photo after crop → second crop → second photo after crop → submit
+                      → API started → success. Crop ticks are side rows (auto-crop skips them). The
+                      “either after-crop photo” row is image 1 <em>or</em> 2, listed after both crops
+                      — it is not a step that happens before cropping.
                     </li>
                   )}
                   {isIdentify && isCoinzy && (

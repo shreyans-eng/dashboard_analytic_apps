@@ -152,9 +152,9 @@ Entry differs by tab, and **later steps are filtered to that cohort** (not just 
 
 #### Coinzy
 
-Real funnel: **Camera → Photos → Submit → ID success → Details.**
+Real funnel: **Camera → first crop → first photo after crop → second crop → second photo after crop → Submit → API started → ID success → Details.**
 
-`Identify_bottom_nav` also fires when camera opens from Home — it is **not** the first core step on Identify (all). **Scan · bottom nav** is the nav cohort (`Identify_bottom_nav` minus `Identify_home`). **Scan · home / banner** is only `Identify_home` users — later steps are that group, not all camera users. After camera, **shutter ∥ gallery** are parallel — **Scan · camera** only counts `Photo_clicked` people (core starts at shutter). **Scan · gallery** only counts crop/clicked minus shutter (core starts at inferred gallery). `Photo_clicked` is shutter only; gallery tap has **no event**. Paths **merge** at `photo_clicked_1/2` on Identify (all). Crop is **0-based**; auto-crop skips `photo_crop_tick_*`. `Identification_attempted` is API start, not a submit conversion. `Identification_done` is success (union with `identification_done_success`), not submit. Quota, Learn more (`idetnification_option_chosen`), owned / sub-collection are **side rows**. **Add-to-collection cannot be measured** — no live Firebase success event (`Added_to_collection_identified` is commented out in the app). Until a dedicated gallery tap event exists, gallery open → pick → crop cannot be measured as its own conversion.
+`Identify_bottom_nav` also fires when camera opens from Home — it is **not** the first core step on Identify (all). **Scan · bottom nav** is the nav cohort (`Identify_bottom_nav` minus `Identify_home`). **Scan · home / banner** is only `Identify_home` users — later steps are that group, not all camera users. After camera, **shutter ∥ gallery** are parallel — **Scan · camera** only counts `Photo_clicked` people (core starts at shutter, then crop). **Scan · gallery** only counts crop/clicked minus shutter (core starts at first crop; inferred gallery row is side). `Photo_clicked` is shutter only; gallery tap has **no event**. Paths **merge** at crop / `photo_clicked_1/2` on Identify (all). Crop is **0-based**; auto-crop skips `photo_crop_tick_*` so ticks are not core. Submit still fires when quota blocks; `Identification_attempted` is the next core so those people drop at API started, not Identification success. `Identification_done` is success (union with `identification_done_success`), not submit. Quota, Learn more (`idetnification_option_chosen`), owned / sub-collection are **side rows**. **Add-to-collection cannot be measured** — no live Firebase success event (`Added_to_collection_identified` is commented out in the app). Until a dedicated gallery tap event exists, gallery open → pick → crop cannot be measured as its own conversion.
 
 | Step | Core? | Events |
 |------|-------|--------|
@@ -162,11 +162,13 @@ Real funnel: **Camera → Photos → Submit → ID success → Details.**
 | Home CTA | no (yes on home tab) | `Identify_home` |
 | Camera | yes | `Identification_screen` · `photo_screen` |
 | Permission popup / OS | no | Shutter-only. `Camera_permission_popup` vs OS granted/denied — not 1:1. Gallery can skip |
-| Camera shutter | no | `Photo_clicked` (not “taken”; gallery never fires this) |
+| Camera shutter | no (yes on camera tab) | `Photo_clicked` (not “taken”; gallery never fires this) |
 | Gallery pick | no | **Inferred:** crop `_0`/`_1` + ticks + `photo_clicked_1/2` **minus** `Photo_clicked`. No tap event |
-| After crop (merge) | yes | `photo_clicked_1` ∪ `photo_clicked_2` |
+| First / second crop | yes | `photo_cropping_screen_0` / `_1` |
+| Crop confirmed | no | `photo_crop_tick_0` / `_1` (manual only; auto-crop skips) |
+| First / second photo after crop | yes | `photo_clicked_1` / `photo_clicked_2` |
 | Submit | yes | `photo_submit_button` · `photos_submitted` |
-| API started | no | `Identification_attempted` |
+| API started | yes | `Identification_attempted` (quota-blocked submits never fire this) |
 | Quota | no (side) | `Identified_limit_reached` + `free_scan_*` |
 | Success | yes | `identification_done_success` ∪ `Identification_done` |
 | Failure | no (side) | `identification_done_failure` · `Identification_failed` |

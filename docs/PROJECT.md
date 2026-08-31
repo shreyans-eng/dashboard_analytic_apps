@@ -220,11 +220,11 @@ gained  = max(0, to − from)   → joined without prior step
 
 | Tab | Core path |
 |-----|-----------|
-| Identify (all) | Banknote: nav ∪ home → camera → photos → submit → success ∪ `Identification_done` → top 5 → `banknote_details_identification`. Coinzy: **Camera → Photos → Submit → Success → Details** (nav is not the start). After camera, shutter ∥ gallery merge at after-crop |
+| Identify (all) | Banknote: nav ∪ home → camera → photos → submit → success ∪ `Identification_done` → top 5 → `banknote_details_identification`. Coinzy: **Camera → crop → after crop → crop → after crop → Submit → API started → Success → Details** (nav is not the start). Crop ticks are side (auto-crop skips them) |
 | Scan · bottom nav | **Cohort** = `Identify_bottom_nav` (Coinzy: minus `Identify_home`, because nav also fires from Home). Later steps only that group |
 | Scan · home / banner | **Cohort** = `Identify_home`. Later steps only that group |
-| Scan · camera | **Cohort** = shutter (`Photo_clicked` / `photo_clicked_*`). Coinzy core starts at shutter. Banknote core starts at first camera image. No gallery rows |
-| Scan · gallery | **Cohort** = gallery (Banknote `photo_uploaded_*`; Coinzy crop/clicked minus `Photo_clicked`). Core starts at gallery pick |
+| Scan · camera | **Cohort** = shutter (`Photo_clicked` / `photo_clicked_*`). Coinzy core starts at shutter, then crop. Banknote core starts at first camera image. No gallery rows |
+| Scan · gallery | **Cohort** = gallery (Banknote `photo_uploaded_*`; Coinzy crop/clicked minus `Photo_clicked`). Coinzy core starts at first crop screen (inferred gallery row is side) |
 | Collection | Started a session → screen → card → sub-collection → details |
 | Global catalogue | Started a session → screen → item → details |
 | Marketplace | Nav → screen → listing → sale details → contact |
@@ -234,7 +234,7 @@ gained  = max(0, to − from)   → joined without prior step
 | Onboarding → subs | Banknote: `subscription_shown` → pack → confirm. Coinzy: `Subs_page_onboarding` pages → pack → confirm |
 | Expert | Coinzy only: landing → upload → continue → queued → report (+ credits path) |
 
-Identify needs **both** images on Banknote. Banknote has no `Identification_attempted`; `Identification_done` is logged with success. Details after match is `banknote_details_identification` (result UI `identification_details_screen` is a side row). Coinzy core Photos is after-crop (`photo_clicked_1/2`) where shutter and gallery merge on Identify (all). **Scan · camera** / **Scan · gallery** are separate tabs. `Photo_clicked` is shutter only; gallery tap has no event. Crop is a **side** step on Banknote. Coinzy crop is 0-indexed (`_0` / `_1`). Coinzy add-to-collection **cannot be measured** (no live success event).
+Identify needs **both** images on Banknote. Banknote has no `Identification_attempted`; `Identification_done` is logged with success. Details after match is `banknote_details_identification` (result UI `identification_details_screen` is a side row). Coinzy core after camera is crop screen (`photo_cropping_screen_0/1`) then after-crop (`photo_clicked_1/2`) — do not jump camera → after-crop or the leak lands on “First photo after crop”. Crop ticks are not core (auto-crop skips them). Submit still fires when quota blocks; `Identification_attempted` is the next core so those people drop at API started, not Identification success. **Scan · camera** / **Scan · gallery** are separate tabs. `Photo_clicked` is shutter only; gallery tap has no event. Coinzy crop is 0-indexed (`_0` / `_1`). Coinzy add-to-collection **cannot be measured** (no live success event).
 
 ### 6.5 Event catalog (`/events-catalog`)
 

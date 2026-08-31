@@ -35,7 +35,7 @@ Run in dashboard **SQL Editor** (Coinzy product selected) or via API `/api/query
 ## Core paths (Coinzy)
 
 **8 Identify:**  
-`Identification_screen` / `photo_screen` → shutter (`Photo_clicked`) ∥ inferred gallery (crop/clicked minus shutter) → after-crop merge (`photo_clicked_1/2`) → submit → success (`identification_done_success` ∪ `Identification_done`) → details. Gallery tap has no event. Dashboard tabs: Identify (all) plus **Scan · bottom nav** (nav minus Home) / **Scan · home** (`Identify_home` only) / **Scan · camera** (`Photo_clicked` only) / **Scan · gallery** (crop/clicked minus shutter). Add-to-collection cannot be measured.
+`Identification_screen` / `photo_screen` → shutter (`Photo_clicked`) ∥ inferred gallery (crop/clicked minus shutter) → first crop (`photo_cropping_screen_0`) → first photo after crop (`photo_clicked_1`) → second crop → second photo after crop → submit → API started (`Identification_attempted`) → success (`identification_done_success` ∪ `Identification_done`) → details. Crop ticks are not core (auto-crop skips them). Gallery tap has no event. Dashboard tabs: Identify (all) plus **Scan · bottom nav** (nav minus Home) / **Scan · home** (`Identify_home` only) / **Scan · camera** (`Photo_clicked` only) / **Scan · gallery** (crop/clicked minus shutter; core starts at first crop). Add-to-collection cannot be measured.
 
 **9 Catalogue:**  
 Two separate funnels, each starting with people who started a session (`session_start` · `App_open` · `first_open`). Collection: session → `Collection_screen` → clicked → sub-collection → `Coin_details_*`. Global catalogue: session → `Global_catalogue_screen` → item → `Coin_details_global`. There is no mixed Catalogue (all) tab.

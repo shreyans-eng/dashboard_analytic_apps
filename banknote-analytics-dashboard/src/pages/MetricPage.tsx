@@ -161,7 +161,7 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
     ? 'People who opened the camera and got a success'
     : config.chartTitle;
   const guide = isCoinzyIdentifyFunnel
-    ? 'Coinzy denominator is camera (Identification_screen ∪ photo_screen), not Identify_bottom_nav ∪ Identify_home — nav also fires when camera opens from Home. Success is identification_done_success ∪ Identification_done. Tab 3 is quality only. The path Camera → Photos → Submit → Success → Details is Funnels → Identify. Add-to-collection cannot be measured (no live success event).'
+    ? 'Coinzy denominator is camera (Identification_screen ∪ photo_screen), not Identify_bottom_nav ∪ Identify_home — nav also fires when camera opens from Home. Success is identification_done_success ∪ Identification_done. Tab 3 is quality only. The path Camera → crop → after crop → Submit → API started → Success → Details is Funnels → Identify. Add-to-collection cannot be measured (no live success event).'
     : config.guide;
 
   return (

@@ -125,17 +125,24 @@ test('Banknote post-ID uses top5 / view-all / Added_to_collection events', () =>
   assert.equal(steps.find((s) => s.id === 'attempt'), undefined);
 });
 
-test('Coinzy Identify core is Camera → first after-crop photo → second → Submit → Success → Details', () => {
+test('Coinzy Identify core is Camera → crop → after crop → crop → after crop → Submit → API → Success → Details', () => {
   const { steps } = getFunnelSteps('identify', 'coinzy');
   const core = steps.filter((s) => s.core).map((s) => s.id);
-  assert.deepEqual(core, ['camera', 'photo_click_1', 'photo_click_2', 'submit', 'success', 'details']);
+  assert.deepEqual(core, [
+    'camera', 'crop_1', 'photo_click_1', 'crop_2', 'photo_click_2',
+    'submit', 'attempt', 'success', 'details',
+  ]);
   assert.equal(steps.find((s) => s.id === 'entry').core, undefined);
   assert.deepEqual(steps.find((s) => s.id === 'submit').events, ['photo_submit_button', 'photos_submitted']);
   assert.ok(steps.find((s) => s.id === 'success').events.includes('identification_done_success'));
   assert.ok(steps.find((s) => s.id === 'success').events.includes('Identification_done'));
   assert.ok(!steps.find((s) => s.id === 'submit').events.includes('Identification_done'));
   assert.deepEqual(steps.find((s) => s.id === 'attempt').events, ['Identification_attempted']);
-  assert.equal(steps.find((s) => s.id === 'attempt').core, undefined);
+  assert.equal(steps.find((s) => s.id === 'attempt').core, true);
+  assert.equal(steps.find((s) => s.id === 'crop_1').core, true);
+  assert.equal(steps.find((s) => s.id === 'crop_2').core, true);
+  assert.equal(steps.find((s) => s.id === 'crop_confirm_1').core, undefined);
+  assert.equal(steps.find((s) => s.id === 'crop_confirm_2').core, undefined);
   assert.equal(steps.find((s) => s.id === 'quota_block').isDrop, undefined);
   assert.equal(steps.find((s) => s.id === 'failure').isDrop, undefined);
   assert.equal(steps.find((s) => s.id === 'permission_popup').core, undefined);
@@ -161,7 +168,7 @@ test('Coinzy camera and gallery tabs use different step lists', () => {
   assert.deepEqual(camera.cohortExcludeEvents, []);
   assert.deepEqual(
     camera.steps.filter((s) => s.core).map((s) => s.id),
-    ['shutter', 'photo_click_1', 'photo_click_2', 'submit', 'success', 'details'],
+    ['shutter', 'crop_1', 'photo_click_1', 'crop_2', 'photo_click_2', 'submit', 'attempt', 'success', 'details'],
   );
   assert.ok(cameraIds.includes('shutter'));
   assert.ok(cameraIds.includes('permission_popup'));
@@ -173,7 +180,7 @@ test('Coinzy camera and gallery tabs use different step lists', () => {
   assert.deepEqual(gallery.cohortExcludeEvents, ['Photo_clicked']);
   assert.deepEqual(
     gallery.steps.filter((s) => s.core).map((s) => s.id),
-    ['gallery', 'photo_click_1', 'photo_click_2', 'submit', 'success', 'details'],
+    ['crop_1', 'photo_click_1', 'crop_2', 'photo_click_2', 'submit', 'attempt', 'success', 'details'],
   );
   assert.ok(galleryIds.includes('gallery'));
   assert.equal(gallery.steps.find((s) => s.id === 'shutter'), undefined);
@@ -224,6 +231,9 @@ test('Coinzy nav cohort excludes Home CTA; home cohort is Identify_home', () => 
   assert.deepEqual(home.steps.find((s) => s.id === 'entry').events, ['Identify_home']);
   assert.equal(home.steps.find((s) => s.id === 'entry').core, true);
   assert.deepEqual(home.cohortEvents, ['Identify_home']);
+  const navCore = ['entry', 'camera', 'crop_1', 'photo_click_1', 'crop_2', 'photo_click_2', 'submit', 'attempt', 'success', 'details'];
+  assert.deepEqual(nav.steps.filter((s) => s.core).map((s) => s.id), navCore);
+  assert.deepEqual(home.steps.filter((s) => s.core).map((s) => s.id), navCore);
 });
 
 test('mixed catalogue funnel is removed; collection and catalogue start at session', () => {
@@ -271,8 +281,8 @@ test('crop is per image and sits after that image, not after both', () => {
     ['photo_1', 'crop_1', 'crop_confirm_1', 'photo_2', 'crop_2', 'crop_confirm_2', 'submit'],
   );
   assert.deepEqual(
-    ids(coinzy).slice(ids(coinzy).indexOf('photo_click_1'), ids(coinzy).indexOf('submit') + 1),
-    ['photo_click_1', 'photo_click_2', 'submit'],
+    ids(coinzy).slice(ids(coinzy).indexOf('crop_1'), ids(coinzy).indexOf('submit') + 1),
+    ['crop_1', 'photo_click_1', 'crop_2', 'photo_click_2', 'submit'],
   );
   assert.equal(banknote.find((s) => s.id === 'crop_1').core, true);
   assert.equal(banknote.find((s) => s.id === 'crop_confirm_1').core, true);
@@ -282,6 +292,10 @@ test('crop is per image and sits after that image, not after both', () => {
   assert.deepEqual(banknote.find((s) => s.id === 'crop_2').events, ['photo_cropping_screen_2']);
   assert.deepEqual(coinzy.find((s) => s.id === 'crop_1').events, ['photo_cropping_screen_0']);
   assert.deepEqual(coinzy.find((s) => s.id === 'crop_2').events, ['photo_cropping_screen_1']);
+  assert.equal(coinzy.find((s) => s.id === 'crop_1').core, true);
+  assert.equal(coinzy.find((s) => s.id === 'crop_2').core, true);
+  assert.equal(coinzy.find((s) => s.id === 'crop_confirm_1').core, undefined);
+  assert.equal(coinzy.find((s) => s.id === 'crop_confirm_2').core, undefined);
   assert.equal(banknote.find((s) => s.id === 'crop'), undefined);
   assert.equal(coinzy.find((s) => s.id === 'crop'), undefined);
 });

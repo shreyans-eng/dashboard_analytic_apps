@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Coinzy MVP #8 — Identify: event volume by screen/action
--- Stages match Camera → Photos → Submit → Success → Details.
+-- Stages match Camera → crop → after crop → Submit → API started → Success → Details.
 -- Identification_done is success, not submit.
 -- Identification_attempted is API start.
 -- Collection / owned events are Collection-tab actions, not Identify.

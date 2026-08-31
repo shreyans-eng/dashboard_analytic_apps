@@ -256,7 +256,7 @@
   <tr><td>Details after match</td><td><code>banknote_details_identification</code></td></tr>
   <tr><td>Added to collection</td><td><code>Added_to_collection_identified</code> · <code>Added_to_collection_owned</code></td></tr>
 </table>
-<p><strong>Coinzy</strong> Identify (all): Camera → After crop (both paths) → Submit → ID success → Details. <strong>Scan · bottom nav</strong> = people with <code>Identify_bottom_nav</code> and not <code>Identify_home</code> (nav also fires from Home). <strong>Scan · home / banner</strong> = <code>Identify_home</code> people only — later steps are not all camera users. <strong>Scan · camera</strong> = <code>Photo_clicked</code> people only; core starts at shutter. <strong>Scan · gallery</strong> = crop/clicked minus shutter; core starts at inferred gallery. Paths merge at <code>photo_clicked_1/2</code> on Identify (all). <strong>Add-to-collection cannot be measured</strong> (no live Firebase success event).</p>
+<p><strong>Coinzy</strong> Identify (all): Camera → first crop → first photo after crop → second crop → second photo after crop → Submit → API started → ID success → Details. Crop ticks are not core (auto-crop skips them). <strong>Scan · bottom nav</strong> = people with <code>Identify_bottom_nav</code> and not <code>Identify_home</code> (nav also fires from Home). <strong>Scan · home / banner</strong> = <code>Identify_home</code> people only — later steps are not all camera users. <strong>Scan · camera</strong> = <code>Photo_clicked</code> people only; core starts at shutter then crop. <strong>Scan · gallery</strong> = crop/clicked minus shutter; core starts at first crop. Submit still fires when quota blocks; those people drop at API started, not Identification success. <strong>Add-to-collection cannot be measured</strong> (no live Firebase success event).</p>
 <table>
   <tr><th>Core step</th><th>Coinzy events</th></tr>
   <tr><td>Camera / photo screen</td><td><code>Identification_screen</code> · <code>photo_screen</code></td></tr>
@@ -320,7 +320,7 @@
 <table>
   <tr><th>Looks similar</th><th>What we actually use</th></tr>
   <tr><td>Identify “open”</td><td>Banknote: nav ∪ home — not <code>Identification_screen</code>. Coinzy: camera is the start; nav also fires from Home</td></tr>
-  <tr><td>Tab 3 vs Identify funnel</td><td>Tab 3 = quality rate. Funnel = step path. Coinzy: Camera → Photos → Submit → Success → Details (not add-to-collection)</td></tr>
+  <tr><td>Tab 3 vs Identify funnel</td><td>Tab 3 = quality rate. Funnel = step path. Coinzy: Camera → crop → after crop → Submit → API started → Success → Details (not add-to-collection)</td></tr>
   <tr><td>Collection vs catalogue</td><td>Separate rates and separate funnel tabs</td></tr>
   <tr><td>Marketplace KPI</td><td>Market only — not Feed</td></tr>
   <tr><td>Scan quota (MVP 4)</td><td>Mixed scan-limit events — not <code>Collection_limit_Reached</code></td></tr>

@@ -696,7 +696,7 @@ export class ProductAnalyticsFacade {
         endDate: end,
       })
       : null;
-    const key = cacheKey(`${product}:funnel:v26:${funnelId}`, { start, end });
+    const key = cacheKey(`${product}:funnel:v27:${funnelId}`, { start, end });
 
     return cached('funnel', key, async () => {
       const [funnelResult, packResult] = await Promise.all([
