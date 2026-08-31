@@ -5,6 +5,41 @@
 
 import { DAU_EVENT_BASES, NOTIFICATION_EVENT_BASES } from './dau-definition.js';
 import { FUNNELS, getFunnelSteps } from './funnel-registry.js';
+import { BANKNOTE_APP_EVENTS, COINZY_APP_EVENTS } from './app-event-names.js';
+
+const APP_EVENTS = {
+  banknote: BANKNOTE_APP_EVENTS,
+  coinzy: COINZY_APP_EVENTS,
+};
+
+const GA4_EVENTS = new Set([
+  'session_start',
+  'first_open',
+  'user_engagement',
+  'in_app_purchase',
+  'purchase',
+  ...NOTIFICATION_EVENT_BASES,
+]);
+
+function stripSuffix(name) {
+  return String(name || '').replace(/_(android|ios)$/i, '');
+}
+
+function catalogHas(set, event) {
+  const base = stripSuffix(event);
+  if (set.has(event) || set.has(base)) return true;
+  const lower = base.toLowerCase();
+  for (const item of set) {
+    if (stripSuffix(item).toLowerCase() === lower) return true;
+  }
+  return false;
+}
+
+function eventOrigin(product, event) {
+  if (catalogHas(APP_EVENTS[product], event)) return 'app';
+  if (catalogHas(GA4_EVENTS, event) || GA4_EVENTS.has(stripSuffix(event))) return 'ga4';
+  return 'dashboard-only';
+}
 
 const PRODUCTS = ['banknote', 'coinzy'];
 const PRODUCT_LABEL = { banknote: 'Banknote', coinzy: 'Coinzy' };
@@ -227,6 +262,8 @@ export function uniqueEventRows(usages) {
     const key = `${row.product}\t${row.event}`;
     let entry = map.get(key);
     if (!entry) {
+      const other = row.product === 'banknote' ? 'coinzy' : 'banknote';
+      const origin = eventOrigin(row.product, row.event);
       entry = {
         product: row.product,
         app: row.app,
@@ -234,6 +271,9 @@ export function uniqueEventRows(usages) {
         surfaces: [],
         roles: [],
         tabs: [],
+        origin,
+        in_app: origin === 'app',
+        shared_name: catalogHas(APP_EVENTS[other], row.event),
       };
       map.set(key, entry);
     }
@@ -261,6 +301,9 @@ export function catalogSummary(unique) {
     banknote: bn.size,
     coinzy: cz.size,
     shared,
+    inApp: unique.filter((r) => r.in_app).length,
+    dashboardOnly: unique.filter((r) => r.origin === 'dashboard-only').length,
+    sharedNames: unique.filter((r) => r.shared_name).length,
     totalUsages: 0,
   };
 }

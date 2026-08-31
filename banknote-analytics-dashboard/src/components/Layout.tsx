@@ -51,6 +51,7 @@ import { useProduct, type ProductId } from '@/lib/product';
 import { useInvalidateDashboard } from '@/hooks/useAnalytics';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/lib/toast';
+import AppMark from '@/components/AppMark';
 import { pageIdFromPath } from '@/lib/access';
 
 const NAV = [
@@ -196,9 +197,21 @@ export default function Layout() {
       />
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div>
-            <h1>{isCompare ? 'Compare Apps' : product.brand}</h1>
-            <p>{isCompare ? 'Side-by-side comparison' : 'Product Analytics Dashboard'}</p>
+          <div className="sidebar-brand-main">
+            <div className="sidebar-brand-marks">
+              {isCompare ? (
+                <>
+                  <AppMark product="banknote" size={32} />
+                  <AppMark product="coinzy" size={32} />
+                </>
+              ) : (
+                <AppMark product={productId} size={36} />
+              )}
+            </div>
+            <div>
+              <h1>{isCompare ? 'Compare Apps' : product.brand}</h1>
+              <p>{isCompare ? 'Side-by-side comparison' : 'Product Analytics Dashboard'}</p>
+            </div>
           </div>
           <button
             type="button"
@@ -216,10 +229,12 @@ export default function Layout() {
               <button
                 key={p.id}
                 type="button"
+                data-product={p.id}
                 className={productId === p.id ? 'active' : ''}
                 onClick={() => onSelectProduct(p.id)}
                 title={p.brand}
               >
+                <AppMark product={p.id} size={16} />
                 {p.shortName}
               </button>
             ))}

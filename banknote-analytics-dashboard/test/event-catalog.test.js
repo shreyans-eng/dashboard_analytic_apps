@@ -39,3 +39,22 @@ test('unique rows join surfaces for downloadable sheet', () => {
   assert.ok(session.used_in.includes('DAU'));
   assert.ok(session.roles.includes('kpi'));
 });
+
+test('catalog matches live app event names from Banknote and Coinzy source lists', () => {
+  const { unique, summary } = listEventCatalog();
+  const photo = unique.find((r) => r.product === 'banknote' && r.event === 'Photo_clicked');
+  assert.equal(photo?.in_app, true);
+  assert.equal(photo?.origin, 'app');
+  assert.equal(photo?.shared_name, true);
+
+  const opts = unique.find((r) => r.product === 'banknote' && r.event === 'identification_all_opts_screen');
+  assert.equal(opts?.in_app, true);
+
+  const alias = unique.find((r) => r.product === 'banknote' && r.event === 'identification_all_options_screen');
+  assert.equal(alias?.origin, 'dashboard-only');
+
+  const session = unique.find((r) => r.product === 'banknote' && r.event === 'session_start');
+  assert.equal(session?.origin, 'ga4');
+  assert.ok((summary.inApp || 0) > 20);
+  assert.ok((summary.sharedNames || 0) > 5);
+});

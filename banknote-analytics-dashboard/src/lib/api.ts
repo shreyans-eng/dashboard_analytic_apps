@@ -201,12 +201,23 @@ export interface EventCatalogUniqueRow {
   tabs: string[];
   used_in: string;
   roles_label: string;
+  origin: 'app' | 'ga4' | 'dashboard-only';
+  in_app: boolean;
+  shared_name: boolean;
 }
 
 export interface EventCatalogResult {
   usages: EventCatalogUsageRow[];
   unique: EventCatalogUniqueRow[];
-  summary: { banknote: number; coinzy: number; shared: number; totalUsages: number };
+  summary: {
+    banknote: number;
+    coinzy: number;
+    shared: number;
+    inApp?: number;
+    dashboardOnly?: number;
+    sharedNames?: number;
+    totalUsages: number;
+  };
 }
 
 export interface EventDetailResult {

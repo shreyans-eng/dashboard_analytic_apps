@@ -18,6 +18,11 @@
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
+  --brand-banknote: #30ED9D;
+  --brand-banknote-ink: #0C2525;
+  --brand-banknote-gold: #F0A924;
+  --brand-coinzy: #c9787a;
+  --brand-coinzy-ink: #7C3C3F;
   --radius: 10px;
   --sidebar-w: 260px;
   --shadow: none;
@@ -42,6 +47,11 @@
   --success: #059669;
   --warning: #d97706;
   --danger: #dc2626;
+  --brand-banknote: #0d8a5c;
+  --brand-banknote-ink: #0C2525;
+  --brand-banknote-gold: #c4841a;
+  --brand-coinzy: #7C3C3F;
+  --brand-coinzy-ink: #7C3C3F;
   --shadow: 0 1px 2px rgba(26, 29, 39, 0.04);
   color-scheme: light;
 }
@@ -85,6 +95,26 @@ a { color: inherit; text-decoration: none; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+}
+
+.sidebar-brand-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sidebar-brand-main > div:last-child {
+  min-width: 0;
+}
+
+.sidebar-brand-marks {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.sidebar-brand-marks .app-mark + .app-mark {
+  margin-left: -8px;
 }
 
 .sidebar-brand h1 {
@@ -138,6 +168,34 @@ a { color: inherit; text-decoration: none; }
 .theme-switch button.active {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.product-switch button[data-product='banknote'].active {
+  background: color-mix(in srgb, var(--brand-banknote) 18%, transparent);
+  color: var(--brand-banknote);
+}
+
+.product-switch button[data-product='coinzy'].active {
+  background: color-mix(in srgb, var(--brand-coinzy-ink) 18%, transparent);
+  color: var(--brand-coinzy);
+}
+
+.app-mark {
+  display: inline-block;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.app-mark-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-weight: 700;
 }
 
 .product-switch button:hover,
@@ -1535,11 +1593,14 @@ p.muted.small {
 }
 
 .catalog-toolbar {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.catalog-toolbar button {
+.catalog-toolbar .catalog-actions button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1554,28 +1615,65 @@ p.muted.small {
   white-space: nowrap;
 }
 
-.catalog-toolbar button:hover { background: var(--accent-dim); }
-.catalog-toolbar button:disabled {
+.catalog-toolbar .catalog-actions button:hover { background: var(--accent-dim); }
+.catalog-toolbar .catalog-actions button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.catalog-toolbar .catalog-actions button.secondary {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.catalog-toolbar .catalog-actions button.secondary:hover {
+  background: var(--hover-surface);
 }
 
 .catalog-app-filter {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
 }
 
 .catalog-app-filter button {
-  background: var(--bg-input);
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
-  font-weight: 500;
+  border: none;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .catalog-app-filter button.active {
   background: var(--accent);
   color: white;
-  border-color: var(--accent);
+}
+
+.catalog-app-filter button.banknote.active {
+  background: color-mix(in srgb, var(--brand-banknote) 22%, transparent);
+  color: var(--brand-banknote);
+}
+
+.catalog-app-filter button.coinzy.active {
+  background: color-mix(in srgb, var(--brand-coinzy-ink) 22%, transparent);
+  color: var(--brand-coinzy);
+}
+
+.catalog-app-filter button.shared.active {
+  background: color-mix(in srgb, var(--brand-banknote-gold) 22%, transparent);
+  color: var(--brand-banknote-gold);
 }
 
 .catalog-used-in {
@@ -1583,10 +1681,293 @@ p.muted.small {
   color: var(--text-muted);
   max-width: 560px;
   line-height: 1.4;
+  white-space: normal;
 }
 
 .catalog-count {
   margin: 0 0 12px;
+}
+
+.catalog-page .page-header p {
+  max-width: 720px;
+  line-height: 1.5;
+}
+
+.catalog-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.catalog-kpi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+
+.catalog-kpi .label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.catalog-kpi .value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+
+.catalog-kpi .why {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.catalog-kpi.banknote {
+  border-color: color-mix(in srgb, var(--brand-banknote) 45%, var(--border));
+}
+
+.catalog-kpi.banknote .value { color: var(--brand-banknote); }
+
+.catalog-kpi.coinzy {
+  border-color: color-mix(in srgb, var(--brand-coinzy-ink) 45%, var(--border));
+}
+
+.catalog-kpi.coinzy .value { color: var(--brand-coinzy); }
+
+.catalog-kpi.shared {
+  border-color: color-mix(in srgb, var(--brand-banknote-gold) 45%, var(--border));
+}
+
+.catalog-kpi.shared .value { color: var(--brand-banknote-gold); }
+
+.catalog-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.catalog-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.catalog-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.catalog-dot.app { background: var(--brand-banknote); }
+.catalog-dot.ga4 { background: var(--accent); }
+.catalog-dot.missing { background: var(--warning); }
+.catalog-dot.shared { background: var(--brand-banknote-gold); }
+
+.catalog-search {
+  flex: 1 1 180px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.catalog-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  padding: 8px 0;
+  outline: none;
+  font: inherit;
+}
+
+.catalog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.catalog-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.catalog-app.banknote { color: var(--brand-banknote); }
+.catalog-app.coinzy { color: var(--brand-coinzy); }
+
+.catalog-event {
+  font-size: 12.5px;
+  word-break: break-all;
+  white-space: normal;
+}
+
+.catalog-chips,
+.catalog-surfaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.catalog-chip,
+.catalog-surface {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--hover-surface);
+  color: var(--text-muted);
+}
+
+.catalog-chip.origin-app {
+  background: color-mix(in srgb, var(--brand-banknote) 18%, transparent);
+  color: var(--brand-banknote);
+}
+
+.catalog-chip.origin-ga4 {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.catalog-chip.origin-dashboard-only {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning);
+}
+
+.catalog-chip.shared {
+  background: color-mix(in srgb, var(--brand-banknote-gold) 20%, transparent);
+  color: var(--brand-banknote-gold);
+}
+
+.catalog-chip.role-core {
+  color: var(--text);
+}
+
+.catalog-chip.role-drop {
+  color: var(--danger);
+}
+
+.catalog-roles {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.catalog-table-wrap td {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.catalog-table-wrap td:first-child {
+  white-space: nowrap;
+}
+
+.catalog-row.coinzy td:first-child {
+  box-shadow: inset 3px 0 0 var(--brand-coinzy-ink);
+}
+
+.catalog-cards {
+  display: none;
+}
+
+.catalog-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow);
+}
+
+.catalog-card.banknote {
+  border-left: 3px solid var(--brand-banknote);
+}
+
+.catalog-card.coinzy {
+  border-left: 3px solid var(--brand-coinzy-ink);
+}
+
+.catalog-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.catalog-card .catalog-event {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  color: var(--text);
+}
+
+@media (max-width: 1100px) {
+  .catalog-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .catalog-table-wrap {
+    display: none;
+  }
+
+  .catalog-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .catalog-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .catalog-app-filter {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .catalog-actions {
+    width: 100%;
+  }
+
+  .catalog-actions button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .catalog-kpis {
+    grid-template-columns: 1fr;
+  }
 }
 
 .events-layout {
