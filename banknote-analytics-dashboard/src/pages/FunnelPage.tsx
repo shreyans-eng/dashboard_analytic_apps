@@ -202,7 +202,6 @@ type FlowSegment = {
 const DROP_RED = '#dc2626';
 const DROP_RED_MUTED = '#fca5a5';
 const JOIN_GREEN = '#059669';
-const BAR_BLUE = '#4f8cff';
 
 function hopKey(h: FlowHop) {
   return `${h.from.step_id}->${h.to.step_id}`;
@@ -299,12 +298,14 @@ function PathBarChart({
   tipStyle,
   tick,
   grid,
+  accent = '#4f8cff',
 }: {
   steps: FunnelRow[];
   worstToId?: string | null;
   tipStyle: CSSProperties;
   tick: string;
   grid: string;
+  accent?: string;
 }) {
   const data = steps.map((s) => ({
     step: shortLabel(String(s.step_label), 16),
@@ -337,7 +338,7 @@ function PathBarChart({
           />
           <Bar dataKey="users" name="Unique users" radius={[4, 4, 0, 0]} maxBarSize={48}>
             {data.map((d) => (
-              <Cell key={d.id} fill={d.id === worstToId ? DROP_RED : BAR_BLUE} />
+              <Cell key={d.id} fill={d.id === worstToId ? DROP_RED : accent} />
             ))}
             <LabelList
               dataKey="users"
@@ -766,7 +767,7 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                         <XAxis dataKey="slot" tick={{ fill: chart.tick, fontSize: 12 }} />
                         <YAxis tick={{ fill: chart.tick, fontSize: 11 }} width={44} />
                         <Tooltip contentStyle={tipStyle} />
-                        <Bar dataKey="Camera" fill="#4f8cff" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                        <Bar dataKey="Camera" fill={product.color} radius={[4, 4, 0, 0]} maxBarSize={48} />
                         <Bar dataKey="Gallery" fill="#fbbf24" radius={[4, 4, 0, 0]} maxBarSize={48} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -817,7 +818,7 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                         <XAxis dataKey="slot" tick={{ fill: chart.tick, fontSize: 12 }} />
                         <YAxis tick={{ fill: chart.tick, fontSize: 11 }} width={44} />
                         <Tooltip contentStyle={tipStyle} />
-                        <Bar dataKey="People" fill="#4f8cff" radius={[4, 4, 0, 0]} maxBarSize={64} />
+                        <Bar dataKey="People" fill={product.color} radius={[4, 4, 0, 0]} maxBarSize={64} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -857,7 +858,7 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                         tick={{ fill: chart.tick, fontSize: 11 }}
                       />
                       <Tooltip contentStyle={tipStyle} />
-                      <Bar dataKey="Users" fill="#4f8cff" radius={[0, 4, 4, 0]} maxBarSize={22} />
+                      <Bar dataKey="Users" fill={product.color} radius={[0, 4, 4, 0]} maxBarSize={22} />
                       <Bar dataKey="Confirmed" fill="#34d399" radius={[0, 4, 4, 0]} maxBarSize={22} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -919,6 +920,7 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                       tipStyle={tipStyle}
                       tick={chart.tick}
                       grid={chart.grid}
+                      accent={product.color}
                     />
                   </ChartCard>
                 );

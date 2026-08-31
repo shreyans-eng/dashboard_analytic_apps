@@ -547,7 +547,7 @@ export class AnalyticsRepository {
   }
 
   async getRetention(params) {
-    const key = cacheKey(`${this.productId}:dashboard:retention:v3`, params);
+    const key = cacheKey(`${this.productId}:dashboard:retention:v4`, params);
     return cached('retention', key, async () => {
       try {
         const result = await this._runNamed('retention', params);

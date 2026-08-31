@@ -66,7 +66,7 @@ const BUILTIN = {
     summaryDataset: 'analytics_summary',
     preferRaw: false,
     useSummary: true,
-    color: '#4f8cff',
+    color: '#30ED9D',
     legacy: {
       project: ['GCP_PROJECT'],
       dataset: ['BQ_DATASET'],
@@ -83,7 +83,7 @@ const BUILTIN = {
     summaryDataset: 'analytics_summary',
     preferRaw: false,
     useSummary: true,
-    color: '#34d399',
+    color: '#c9787a',
     legacy: {
       project: ['COINZY_GCP_PROJECT'],
       dataset: ['COINZY_BQ_DATASET'],

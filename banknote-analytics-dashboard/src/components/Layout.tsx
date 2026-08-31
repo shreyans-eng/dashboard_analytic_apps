@@ -89,7 +89,6 @@ const NAV = [
   { to: '/mvp/marketplace', pageId: 'mvp.marketplace', label: '10. Marketplace', icon: ShoppingBag },
   { section: 'Explorer' },
   { to: '/ltv', pageId: 'explorer.ltv', label: 'Cohort LTV', icon: CircleDollarSign },
-  { to: '/dau', pageId: 'explorer.dau', label: 'Daily Active Users', icon: Activity },
   { to: '/user-mix', pageId: 'explorer.user-mix', label: 'Unique vs repeat', icon: Users },
   { to: '/mau', pageId: 'explorer.mau', label: 'Monthly Active Users', icon: Calendar },
   { to: '/new-users', pageId: 'explorer.new-users', label: 'New Users', icon: UserPlus },
@@ -97,8 +96,6 @@ const NAV = [
   { to: '/percentiles', pageId: 'explorer.percentiles', label: 'D0 / D1 percentiles', icon: Percent },
   { to: '/scan-limits', pageId: 'explorer.scan-limits', label: 'Scan limits', icon: Gauge },
   { to: '/free-scan-quota', pageId: 'explorer.free-scan-quota', label: 'Free-scan success quota', icon: ShieldAlert, products: ['coinzy'] },
-  { to: '/d1-retention', pageId: 'explorer.d1', label: 'D1 Retention', icon: TrendingUp },
-  { to: '/d7-retention', pageId: 'explorer.d7', label: 'D7 Retention', icon: TrendingUp },
   { to: '/countries', pageId: 'explorer.countries', label: 'Top Countries', icon: Globe },
   { to: '/platform', pageId: 'explorer.platform', label: 'Platform', icon: Smartphone },
   { to: '/events', pageId: 'explorer.events', label: 'Top Events', icon: BarChart3 },
@@ -200,10 +197,7 @@ export default function Layout() {
           <div className="sidebar-brand-main">
             <div className="sidebar-brand-marks">
               {isCompare ? (
-                <>
-                  <AppMark product="banknote" size={32} />
-                  <AppMark product="coinzy" size={32} />
-                </>
+                products.map((p) => <AppMark key={p.id} product={p.id} size={32} />)
               ) : (
                 <AppMark product={productId} size={36} />
               )}
@@ -231,6 +225,7 @@ export default function Layout() {
                 type="button"
                 data-product={p.id}
                 className={productId === p.id ? 'active' : ''}
+                style={{ ['--switch-color' as string]: p.color }}
                 onClick={() => onSelectProduct(p.id)}
                 title={p.brand}
               >

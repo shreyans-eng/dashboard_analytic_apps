@@ -140,6 +140,7 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
   const rows = query.data ?? [];
   const { chart } = useTheme();
   const { product } = useProduct();
+  const seriesColor = product.color || config.color;
   const tipStyle = {
     background: chart.tooltipBg,
     border: `1px solid ${chart.tooltipBorder}`,
@@ -237,7 +238,7 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
                     tick={{ fill: chart.tick, fontSize: 10 }}
                   />
                   <Tooltip contentStyle={tipStyle} />
-                  <Bar dataKey={config.yKey} fill={config.color} radius={[0, 4, 4, 0]} />
+                  <Bar dataKey={config.yKey} fill={seriesColor} radius={[0, 4, 4, 0]} />
                 </BarChart>
               ) : config.type === 'bar' ? (
                 <BarChart data={rows}>
@@ -249,7 +250,7 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
                   />
                   <YAxis tick={{ fill: chart.tick, fontSize: 11 }} />
                   <Tooltip contentStyle={tipStyle} />
-                  <Bar dataKey={config.yKey} fill={config.color} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey={config.yKey} fill={seriesColor} radius={[4, 4, 0, 0]} />
                 </BarChart>
               ) : (
                 <LineChart data={rows}>
@@ -267,7 +268,7 @@ export default function MetricPage({ config, params, setParams, applyFilters }: 
                     formatter={config.percent ? (v: number) => fmtPercent(v) : undefined}
                     contentStyle={tipStyle}
                   />
-                  <Line type="monotone" dataKey={config.yKey} stroke={config.color} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey={config.yKey} stroke={seriesColor} strokeWidth={2} dot={false} />
                 </LineChart>
               )}
             </ResponsiveContainer>

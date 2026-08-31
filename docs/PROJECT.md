@@ -1,6 +1,6 @@
 # Product Analytics — Banknote & Coinzy
 
-**This is the only project document.** Architecture, tabs, formulas, events, cost, deploy, and how to add an app live here.
+**This is the technical spec.** For a manager-facing overview, start with [HANDOVER.md](HANDOVER.md).
 
 Firebase collects events → BigQuery is the source of truth → we precompute expensive aggregates once a day (`analytics_summary` for KPIs, MongoDB `cohort_ltv` for LTV) → the Node API serves those stores with cache so dashboard clicks do not re-scan raw `events_*`.
 
@@ -52,7 +52,7 @@ React dashboard
 | Dataset | `analytics_488476338` | `analytics_487601380` |
 | Summary | `analytics_summary` | `analytics_summary` |
 | Creds | `GOOGLE_APPLICATION_CREDENTIALS` | `COINZY_GOOGLE_APPLICATION_CREDENTIALS` |
-| Color | `#4f8cff` | `#34d399` |
+| Color | Mint `#30ED9D` | Wine `#c9787a` |
 
 Compare = run the same SQL on each app in parallel, tag rows with the product label.
 
@@ -363,9 +363,11 @@ PRODUCT_YOURAPP_PREFER_RAW=true
 PRODUCT_YOURAPP_COLOR=#a78bfa
 ```
 
-3. Optional: `PRODUCT_CATALOG` in `src/lib/product.tsx`.
-4. Restart `npm run dev`. Switcher + Compare pick up `registry.list()`.
-5. Same event contract as above. Entity param e.g. `stamp_id`. Stay on raw until views are deployed.
+3. Optional UX: add the app to `PRODUCT_CATALOG` in `src/lib/product.tsx` (name, tagline, `color`, `logo` under `public/brands/`). Without this, the switcher still works — it uses `PRODUCT_YOURAPP_COLOR` and a letter mark.
+4. Optional SQL: `sql/dashboard/product/{yourapp}/` overrides with the same filenames as Banknote.
+5. Optional funnels: add a `{yourapp: [...]}` branch in `funnel-registry.js`.
+6. Restart `npm run dev`. The switcher and Compare pick up `registry.list()` — no hardcoded two-app UI.
+7. Same event contract as above. Stay on raw until views / summaries are deployed.
 
 ---
 

@@ -56,11 +56,8 @@ const METRIC_ROUTES: [string, keyof typeof METRIC_CONFIGS][] = [
   ['mvp/identify-funnel', 'mvp-identify-funnel'],
   ['mvp/catalogue', 'mvp-catalogue'],
   ['mvp/marketplace', 'mvp-marketplace'],
-  ['dau', 'dau'],
   ['mau', 'mau'],
   ['new-users', 'new-users'],
-  ['d1-retention', 'd1'],
-  ['d7-retention', 'd7'],
   ['countries', 'countries'],
   ['platform', 'platform'],
   ['events', 'events'],
@@ -101,6 +98,9 @@ export default function App() {
         ))}
         <Route path="events-catalog" element={<EventCatalogPage />} />
         <Route path="events-explorer" element={<EventsExplorerPage {...shared} />} />
+        <Route path="dau" element={<Navigate to="/mvp/dau" replace />} />
+        <Route path="d1-retention" element={<Navigate to="/mvp/retention" replace />} />
+        <Route path="d7-retention" element={<Navigate to="/mvp/retention" replace />} />
         {METRIC_ROUTES.map(([path, metricKey]) => (
           <Route key={path} path={path} element={<MetricRoute metricKey={metricKey} {...shared} />} />
         ))}

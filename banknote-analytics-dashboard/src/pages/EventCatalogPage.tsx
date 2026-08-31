@@ -3,8 +3,9 @@ import { Download, Search } from 'lucide-react';
 import AppMark from '@/components/AppMark';
 import { useEventCatalog } from '@/hooks/useAnalytics';
 import type { EventCatalogUniqueRow } from '@/lib/api';
+import { productColor, useProduct } from '@/lib/product';
 
-type AppFilter = 'all' | 'banknote' | 'coinzy' | 'shared';
+type AppFilter = 'all' | 'shared' | string;
 
 const ORIGIN_LABEL: Record<string, string> = {
   app: 'In app',
@@ -58,6 +59,7 @@ function EventRowMeta({ row }: { row: EventCatalogUniqueRow }) {
 }
 
 export default function EventCatalogPage() {
+  const { products } = useProduct();
   const catalog = useEventCatalog();
   const [app, setApp] = useState<AppFilter>('all');
   const [search, setSearch] = useState('');
@@ -137,22 +139,20 @@ export default function EventCatalogPage() {
 
         {summary && (
           <div className="catalog-kpis">
-            <div className="catalog-kpi banknote">
-              <AppMark product="banknote" size={40} />
-              <div>
-                <div className="label">Banknote</div>
-                <div className="value">{summary.banknote}</div>
-                <div className="why">Mapped events</div>
+            {products.map((p) => (
+              <div
+                key={p.id}
+                className="catalog-kpi tinted"
+                style={{ ['--kpi-color' as string]: p.color }}
+              >
+                <AppMark product={p.id} size={40} />
+                <div>
+                  <div className="label">{p.shortName}</div>
+                  <div className="value">{Number((summary as Record<string, unknown>)[p.id] ?? 0)}</div>
+                  <div className="why">Mapped events</div>
+                </div>
               </div>
-            </div>
-            <div className="catalog-kpi coinzy">
-              <AppMark product="coinzy" size={40} />
-              <div>
-                <div className="label">Coinzy</div>
-                <div className="value">{summary.coinzy}</div>
-                <div className="why">Mapped events</div>
-              </div>
-            </div>
+            ))}
             <div className="catalog-kpi shared">
               <div>
                 <div className="label">Shared names</div>
@@ -182,24 +182,20 @@ export default function EventCatalogPage() {
         <div className="catalog-toolbar">
           <div className="catalog-app-filter" role="group" aria-label="App">
             <button type="button" className={app === 'all' ? 'active' : ''} onClick={() => setApp('all')}>
-              Both apps
+              All apps
             </button>
-            <button
-              type="button"
-              className={`banknote ${app === 'banknote' ? 'active' : ''}`}
-              onClick={() => setApp('banknote')}
-            >
-              <AppMark product="banknote" size={18} />
-              Banknote
-            </button>
-            <button
-              type="button"
-              className={`coinzy ${app === 'coinzy' ? 'active' : ''}`}
-              onClick={() => setApp('coinzy')}
-            >
-              <AppMark product="coinzy" size={18} />
-              Coinzy
-            </button>
+            {products.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={app === p.id ? 'active' : ''}
+                style={{ ['--switch-color' as string]: p.color }}
+                onClick={() => setApp(p.id)}
+              >
+                <AppMark product={p.id} size={18} />
+                {p.shortName}
+              </button>
+            ))}
             <button
               type="button"
               className={`shared ${app === 'shared' ? 'active' : ''}`}
@@ -244,9 +240,13 @@ export default function EventCatalogPage() {
             </thead>
             <tbody>
               {visibleUnique.map((r: EventCatalogUniqueRow) => (
-                <tr key={`${r.product}:${r.event}`} className={`catalog-row ${r.product}`}>
+                <tr
+                  key={`${r.product}:${r.event}`}
+                  className="catalog-row"
+                  style={{ ['--row-color' as string]: productColor(r.product) }}
+                >
                   <td>
-                    <span className={`catalog-app ${r.product}`}>
+                    <span className="catalog-app">
                       <AppMark product={r.product} size={22} />
                       {r.app}
                     </span>
@@ -280,9 +280,13 @@ export default function EventCatalogPage() {
 
         <div className="catalog-cards">
           {visibleUnique.map((r) => (
-            <article key={`${r.product}:${r.event}`} className={`catalog-card ${r.product}`}>
+            <article
+              key={`${r.product}:${r.event}`}
+              className="catalog-card"
+              style={{ ['--row-color' as string]: productColor(r.product) }}
+            >
               <header>
-                <span className={`catalog-app ${r.product}`}>
+                <span className="catalog-app">
                   <AppMark product={r.product} size={28} />
                   {r.app}
                 </span>

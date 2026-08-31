@@ -305,13 +305,13 @@
   <tr><th>Surface</th><th>What it uses</th></tr>
   <tr><td>Compare Apps</td><td>Same daily signals as the MVP KPIs (one query per app). Scans / user-day is a decimal (e.g. 0.32), not rounded to 0.</td></tr>
   <tr><td>Health report</td><td>Same signals + Identify leak + same-day first scan + paywall funnel + Coinzy Expert</td></tr>
-  <tr><td>Explorer DAU</td><td>Same as MVP 1</td></tr>
+  <tr><td>DAU</td><td>MVP 1. Old Explorer <code>/dau</code> redirects there</td></tr>
+  <tr><td>D1 / D4 / D7</td><td>MVP 6. Old Explorer D1/D7 URLs redirect there</td></tr>
   <tr><td>Unique vs repeat</td><td>Any event — new vs returning, one-day vs 2+ days</td></tr>
   <tr><td>Installs + time used</td><td><code>first_open</code> devices; “went in” = ≥10 seconds same day. Time P10–P99 among all installs, including 0s</td></tr>
   <tr><td>D0 / D1 percentiles</td><td>Install cohort. D0 went in · D1 opened (DAU events). Time + scans P10–P99 include zeros (D0 = all installs; D1 = openers)</td></tr>
   <tr><td>Scan limits</td><td>Free vs subscribed quota (success cap vs fail cap)</td></tr>
   <tr><td>Free-scan success quota</td><td>Coinzy only. Hit = <code>free_scan_success_quota_exhausted</code> (success remaining → 0). Not consumed, not <code>Identified_limit_reached</code>. Banknote TBD.</td></tr>
-  <tr><td>D1 / D7 Explorer</td><td>Same definitions as MVP 6 (D1 and D7 are separate pages there)</td></tr>
   <tr><td>Cohort LTV</td><td>Install = <code>first_open</code>. Revenue = store <code>in_app_purchase</code> / <code>purchase</code> USD — not <code>Subs_confirm</code></td></tr>
   <tr><td>Event inventory</td><td>Pick any event — hits + unique users. Use this to prove an event fires.</td></tr>
 </table>

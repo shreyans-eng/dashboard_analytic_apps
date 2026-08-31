@@ -13,6 +13,19 @@ import { canAccessPage } from '@/lib/access';
 
 export type ProductId = string; // app id or 'compare'
 
+/** Chart / chrome colors that stay readable on dark and light. */
+export const BRAND_COLORS: Record<string, string> = {
+  banknote: '#30ED9D',
+  coinzy: '#c9787a',
+};
+
+export const COMPARE_COLOR = '#F0A924';
+export const FALLBACK_PRODUCT_COLOR = '#94a3b8';
+
+export function productColor(id: string, fallback = FALLBACK_PRODUCT_COLOR): string {
+  return BRAND_COLORS[id] || fallback;
+}
+
 export interface ProductMeta {
   id: string;
   brand: string;
@@ -22,7 +35,8 @@ export interface ProductMeta {
   entityIdParam: string;
   ahaAction: string;
   journey: string[];
-  color?: string;
+  color: string;
+  logo?: string;
   appNameFilter?: string;
 }
 
@@ -38,7 +52,7 @@ export const SHARED_JOURNEY = [
 ] as const;
 
 /** Static UX metadata for known apps; unknown apps get sensible defaults. */
-export const PRODUCT_CATALOG: Record<string, Omit<ProductMeta, 'id' | 'color'>> = {
+export const PRODUCT_CATALOG: Record<string, Omit<ProductMeta, 'id'>> = {
   banknote: {
     brand: 'Banknote AI',
     shortName: 'Banknote',
@@ -48,6 +62,8 @@ export const PRODUCT_CATALOG: Record<string, Omit<ProductMeta, 'id' | 'color'>> 
     ahaAction: 'first successful banknote scan',
     journey: [...SHARED_JOURNEY],
     appNameFilter: 'Banknote',
+    color: BRAND_COLORS.banknote,
+    logo: '/brands/banknote.png',
   },
   coinzy: {
     brand: 'Coinzy',
@@ -58,6 +74,8 @@ export const PRODUCT_CATALOG: Record<string, Omit<ProductMeta, 'id' | 'color'>> 
     ahaAction: 'first successful coin scan',
     journey: [...SHARED_JOURNEY],
     appNameFilter: 'Coinzy',
+    color: BRAND_COLORS.coinzy,
+    logo: '/brands/coinzy.png',
   },
 };
 
@@ -77,7 +95,8 @@ export function buildProductMeta(
     ahaAction: catalog?.ahaAction || 'first successful identify',
     journey: catalog?.journey || [...SHARED_JOURNEY],
     appNameFilter: catalog?.appNameFilter || label,
-    color: api?.color,
+    color: api?.color || catalog?.color || productColor(id),
+    logo: catalog?.logo,
   };
 }
 
@@ -141,13 +160,18 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   }, [validIds, productId, canCompare]);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-product', productId);
+    const root = document.documentElement;
+    root.setAttribute('data-product', productId);
+    const active = products.find((p) => p.id === productId);
+    const color =
+      productId === 'compare' ? COMPARE_COLOR : active?.color || productColor(productId);
+    root.style.setProperty('--product-color', color);
     try {
       localStorage.setItem('analytics-product', productId);
     } catch {
       /* ignore */
     }
-  }, [productId]);
+  }, [productId, products]);
 
   const setProductId = useCallback((id: ProductId) => {
     if (id === 'compare' && !canCompare) return;

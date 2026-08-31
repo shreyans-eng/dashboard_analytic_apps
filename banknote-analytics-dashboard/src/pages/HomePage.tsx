@@ -2,12 +2,10 @@ import { NavLink } from 'react-router-dom';
 import {
   Users,
   UserPlus,
-  TrendingUp,
   Globe,
   Smartphone,
   BarChart3,
   Calendar,
-  Activity,
   Sparkles,
   GitCompareArrows,
   CircleDollarSign,
@@ -47,12 +45,6 @@ const METRICS = [
     description: 'LTV-30 / 90 / 180 by country and organic / paid / direct installs.',
   },
   {
-    to: '/dau',
-    icon: Activity,
-    title: 'Daily Active Users',
-    description: 'Unique users per day over your selected date range.',
-  },
-  {
     to: '/mau',
     icon: Calendar,
     title: 'Monthly Active Users',
@@ -88,18 +80,6 @@ const METRICS = [
     title: 'Free-scan success quota',
     description: 'Coinzy experiment: hit = success remaining went to 0 (free_scan_success_quota_exhausted).',
     products: ['coinzy'],
-  },
-  {
-    to: '/d1-retention',
-    icon: TrendingUp,
-    title: 'D1 Retention',
-    description: 'Share of each cohort that returns the next day.',
-  },
-  {
-    to: '/d7-retention',
-    icon: TrendingUp,
-    title: 'D7 Retention',
-    description: 'Share of each cohort that returns after 7 days.',
   },
   {
     to: '/countries',

@@ -20,6 +20,7 @@ test('raw D1/D4/D7 retention counts only app-open DAU events, not any event', ()
   for (const rel of RAW_RETENTION) {
     const sql = readSql(rel);
     assert.match(sql, /\{\{dau_event_predicate\}\}/);
+    assert.match(sql, /\{\{resolved_user_id_cheap\}\}/);
     assert.match(sql, /first_open/);
   }
 });

@@ -13,16 +13,13 @@ WITH params AS (
 user_events AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
-    COALESCE(
-      user_id,
-      (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-      user_pseudo_id
-    ) AS resolved_user_id,
+    {{resolved_user_id_cheap}} AS resolved_user_id,
     REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base
   FROM `{PROJECT}.{DATASET}.events_*`, params
   WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', start_date)
                           AND FORMAT_DATE('%Y%m%d', activity_end)
     AND _TABLE_SUFFIX NOT LIKE 'intraday_%'
+    AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\d{8}$')
     AND {{dau_event_predicate}}
     [[AND event_country = {{country}}]]
     [[AND event_platform = {{platform}}]]

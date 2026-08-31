@@ -7,6 +7,7 @@ import {
 import { GitCompareArrows } from 'lucide-react';
 import FilterBar from '@/components/FilterBar';
 import ChartCard from '@/components/ChartCard';
+import AppMark from '@/components/AppMark';
 import { useTheme } from '@/lib/theme';
 import { useDashboardMetric, useCompareLtv, useCompareSubscriptions } from '@/hooks/useAnalytics';
 import { fmtNumber, fmtPercent, fmtUsd, fmtDecimal, QueryParams, defaultDateRange } from '@/lib/api';
@@ -251,7 +252,7 @@ export default function ComparePage() {
   const colorByLabel = useMemo(() => {
     const map: Record<string, string> = {};
     products.forEach((p) => {
-      map[p.shortName] = p.color || '#4f8cff';
+      map[p.shortName] = p.color;
     });
     return map;
   }, [products]);
@@ -374,9 +375,12 @@ export default function ComparePage() {
       <div className="page-content">
         <div className="compare-head">
           {products.map((p) => (
-            <div key={p.id} className="compare-brand" style={{ borderColor: p.color || '#4f8cff' }}>
-              <strong style={{ color: p.color }}>{p.shortName}</strong>
-              <span>{p.tagline}</span>
+            <div key={p.id} className="compare-brand" style={{ borderColor: p.color }}>
+              <AppMark product={p.id} size={36} />
+              <div>
+                <strong style={{ color: p.color }}>{p.shortName}</strong>
+                <span>{p.tagline}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -399,7 +403,7 @@ export default function ComparePage() {
             {Array.isArray(ltvQ.data?.sources) && ltvQ.data.sources.length
               ? ` (${ltvQ.data.sources.map((s) => `${s.product}=${s.source ?? 'unknown'}`).join(', ')})`
               : ''}
-            {ltvByProduct.Banknote?.ltv_30 != null || ltvByProduct.Coinzy?.ltv_30 != null
+            {labels.some((l) => ltvByProduct[l]?.ltv_30 != null)
               ? ' · LTV-30 ready'
               : ' · widen date range if LTV cells are empty (need mature cohorts)'}
             . $0.00 means mature cohort with no IAP revenue yet.

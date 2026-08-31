@@ -55,7 +55,7 @@ function dashboardQueryVersion(name: string) {
   if (name === 'install-day-usage') return 'v3';
   if (name === 'd0-d1-percentiles') return 'v2';
   if (name === 'mvp-catalogue') return 'v6';
-  if (name === 'mvp-retention' || name === 'd1' || name === 'd7') return 'v7';
+  if (name === 'mvp-retention' || name === 'd1' || name === 'd7') return 'v8';
   if (name === 'mvp-identify-funnel') return 'v5';
   if (name === 'country-list') return 'v2';
   if (name === 'free-scan-quota') return 'v1';

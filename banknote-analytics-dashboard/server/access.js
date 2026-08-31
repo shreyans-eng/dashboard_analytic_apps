@@ -41,7 +41,6 @@ export const PAGE_CATALOG = [
   ]},
   { section: 'Explorer', items: [
     { id: 'explorer.ltv', label: 'Cohort LTV', path: '/ltv' },
-    { id: 'explorer.dau', label: 'Daily Active Users', path: '/dau' },
     { id: 'explorer.user-mix', label: 'Unique vs repeat', path: '/user-mix' },
     { id: 'explorer.mau', label: 'Monthly Active Users', path: '/mau' },
     { id: 'explorer.new-users', label: 'New Users', path: '/new-users' },
@@ -49,8 +48,6 @@ export const PAGE_CATALOG = [
     { id: 'explorer.percentiles', label: 'D0 / D1 percentiles', path: '/percentiles' },
     { id: 'explorer.scan-limits', label: 'Scan limits', path: '/scan-limits' },
     { id: 'explorer.free-scan-quota', label: 'Free-scan success quota', path: '/free-scan-quota' },
-    { id: 'explorer.d1', label: 'D1 Retention', path: '/d1-retention' },
-    { id: 'explorer.d7', label: 'D7 Retention', path: '/d7-retention' },
     { id: 'explorer.countries', label: 'Top Countries', path: '/countries' },
     { id: 'explorer.platform', label: 'Platform', path: '/platform' },
     { id: 'explorer.events', label: 'Top Events', path: '/events' },
@@ -81,6 +78,13 @@ export function canAccessPage(user, pageId) {
   if (pageId === 'admin.users') return false;
   const pages = user.permissions?.pages || [];
   if (pages.includes('*') || pages.includes(pageId)) return true;
+  if (pageId === 'mvp.dau' && pages.includes('explorer.dau')) return true;
+  if (
+    pageId === 'mvp.retention'
+    && (pages.includes('explorer.d1') || pages.includes('explorer.d7'))
+  ) {
+    return true;
+  }
   if (
     (pageId === 'funnels.identify-nav'
       || pageId === 'funnels.identify-home'
