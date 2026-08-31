@@ -11,7 +11,11 @@ import {
   Legend,
   ComposedChart,
   Line,
+  LabelList,
+  Cell,
 } from 'recharts';
+import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import FilterBar from '@/components/FilterBar';
 import ChartCard from '@/components/ChartCard';
 import { useDashboardMetric } from '@/hooks/useAnalytics';
@@ -46,6 +50,10 @@ type Row = {
   reset_hits?: number;
 };
 
+const HIT_USERS = '#F0A924';
+const HIT_HITS = '#c9787a';
+const AFTER_FILL = ['#7C3C3F', '#9a5659', '#c9787a', '#4f8cff', '#8b93a7'];
+
 function n(v: unknown) {
   return Number(v || 0);
 }
@@ -56,6 +64,101 @@ function rate(num: number, den: number) {
 
 function pct(n: number | null) {
   return n == null ? '—' : fmtPercent(n);
+}
+
+function DailyTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number; color?: string }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="quota-tooltip">
+      <div className="quota-tooltip-label">{label}</div>
+      {payload.map((p) => (
+        <div key={p.name} className="quota-tooltip-row">
+          <i style={{ background: p.color }} />
+          <span>{p.name}</span>
+          <strong>{fmtNumber(Number(p.value || 0))}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AfterHitTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: { step: string; People: number; ofHit: number | null } }>;
+}) {
+  const row = payload?.[0]?.payload;
+  if (!active || !row) return null;
+  return (
+    <div className="quota-tooltip">
+      <div className="quota-tooltip-label">{row.step}</div>
+      <div className="quota-tooltip-row">
+        <span>Unique people</span>
+        <strong>{fmtNumber(row.People)}</strong>
+      </div>
+      <div className="quota-tooltip-row">
+        <span>Of quota hit</span>
+        <strong>{pct(row.ofHit)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function KpiSkeletonRow({ count }: { count: number }) {
+  return (
+    <div className="kpi-row">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="kpi-card">
+          <Skeleton width={92} height={11} />
+          <Skeleton width={76} height={28} style={{ marginTop: 8 }} />
+          <Skeleton width="68%" height={11} style={{ marginTop: 10 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function QuotaSkeleton() {
+  const { theme } = useTheme();
+  const dark = theme === 'dark';
+  return (
+    <SkeletonTheme
+      baseColor={dark ? '#222632' : '#e6eaf2'}
+      highlightColor={dark ? '#2e3446' : '#f4f6fa'}
+      borderRadius={8}
+      duration={1.2}
+    >
+      <div className="quota-skeleton" aria-busy="true" aria-live="polite">
+        <Skeleton height={108} style={{ marginBottom: 20, borderRadius: 10 }} />
+        <Skeleton width={140} height={13} style={{ marginBottom: 10 }} />
+        <KpiSkeletonRow count={4} />
+        <Skeleton width={180} height={13} style={{ margin: '8px 0 10px' }} />
+        <KpiSkeletonRow count={4} />
+        <Skeleton width={220} height={13} style={{ margin: '8px 0 10px' }} />
+        <KpiSkeletonRow count={2} />
+        <div className="chart-grid">
+          <div className="chart-card half">
+            <Skeleton width={240} height={14} />
+            <Skeleton height={300} style={{ marginTop: 16 }} />
+          </div>
+          <div className="chart-card half">
+            <Skeleton width={210} height={14} />
+            <Skeleton height={300} style={{ marginTop: 16 }} />
+          </div>
+        </div>
+      </div>
+    </SkeletonTheme>
+  );
 }
 
 export default function FreeScanQuotaPage({ params, setParams, applyFilters }: Props) {
@@ -111,34 +214,29 @@ export default function FreeScanQuotaPage({ params, setParams, applyFilters }: P
     };
   }, [range]);
 
-  const tipStyle = useMemo(
-    () => ({
-      background: chart.tooltipBg,
-      border: `1px solid ${chart.tooltipBorder}`,
-      color: 'var(--text)',
-    }),
-    [chart],
-  );
-
   const chartRows = useMemo(
     () =>
       daily.map((r) => ({
-        ...r,
         day: String(r.event_date || '').slice(5),
+        'Hit users': n(r.hit_users),
+        'Hit hits': n(r.hit_hits),
       })),
     [daily],
   );
 
   const afterHitChart = useMemo(
-    () => [
-      { step: 'Quota hit', People: tot.hitUsers },
-      { step: 'Tried again (blocked)', People: tot.blockedUsers },
-      { step: 'Limit popup', People: tot.popupUsers },
-      { step: 'Go premium', People: tot.goPremiumUsers },
-      { step: 'Not now', People: tot.notNowUsers },
-    ],
+    () =>
+      [
+        { step: 'Quota hit', People: tot.hitUsers },
+        { step: 'Tried again', People: tot.blockedUsers },
+        { step: 'Limit popup', People: tot.popupUsers },
+        { step: 'Go premium', People: tot.goPremiumUsers },
+        { step: 'Not now', People: tot.notNowUsers },
+      ].map((s) => ({ ...s, ofHit: rate(s.People, tot.hitUsers) })),
     [tot],
   );
+
+  const showData = isCoinzy && !isCompare && !q.isLoading && !q.error && (range || daily.length > 0);
 
   return (
     <>
@@ -169,9 +267,7 @@ export default function FreeScanQuotaPage({ params, setParams, applyFilters }: P
           </div>
         )}
 
-        {isCoinzy && !isCompare && q.isLoading && (
-          <div className="empty-state">Loading free-scan quota…</div>
-        )}
+        {isCoinzy && !isCompare && q.isLoading && <QuotaSkeleton />}
         {isCoinzy && !isCompare && q.error && (
           <div className="empty-state error">{q.error.message}</div>
         )}
@@ -179,7 +275,7 @@ export default function FreeScanQuotaPage({ params, setParams, applyFilters }: P
           <div className="empty-state">No complete export days in this range.</div>
         )}
 
-        {isCoinzy && !isCompare && !q.isLoading && !q.error && (range || daily.length > 0) && (
+        {showData && (
           <>
             <div className="page-hint funnel-guide">
               <p>
@@ -288,25 +384,36 @@ export default function FreeScanQuotaPage({ params, setParams, applyFilters }: P
             </div>
 
             <div className="chart-grid">
-              <ChartCard title="Quota hit: unique people vs hits per day">
+              <ChartCard className="half" title="Quota hit by day">
                 <ResponsiveContainer width="100%" height={360}>
-                  <ComposedChart data={chartRows}>
-                    <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
+                  <ComposedChart data={chartRows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="day" tick={{ fill: chart.tick, fontSize: 11 }} />
-                    <YAxis tick={{ fill: chart.tick, fontSize: 11 }} />
-                    <Tooltip contentStyle={tipStyle} />
+                    <YAxis
+                      yAxisId="users"
+                      tick={{ fill: chart.tick, fontSize: 11 }}
+                      tickFormatter={(v) => fmtNumber(Number(v))}
+                    />
+                    <YAxis
+                      yAxisId="hits"
+                      orientation="right"
+                      tick={{ fill: chart.tick, fontSize: 11 }}
+                      tickFormatter={(v) => fmtNumber(Number(v))}
+                    />
+                    <Tooltip content={<DailyTooltip />} />
                     <Legend />
                     <Bar
-                      dataKey="hit_users"
-                      name="Hit users"
-                      fill="#fbbf24"
+                      yAxisId="users"
+                      dataKey="Hit users"
+                      fill={HIT_USERS}
                       radius={[4, 4, 0, 0]}
+                      maxBarSize={28}
                     />
                     <Line
+                      yAxisId="hits"
                       type="monotone"
-                      dataKey="hit_hits"
-                      name="Hit hits"
-                      stroke="#f97316"
+                      dataKey="Hit hits"
+                      stroke={HIT_HITS}
                       strokeWidth={2}
                       dot={false}
                     />
@@ -314,19 +421,38 @@ export default function FreeScanQuotaPage({ params, setParams, applyFilters }: P
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="After hit (unique people in range)">
+              <ChartCard className="half" title="After hit (unique people in range)">
                 <ResponsiveContainer width="100%" height={360}>
-                  <BarChart data={afterHitChart} layout="vertical" margin={{ left: 8, right: 16 }}>
-                    <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
-                    <XAxis type="number" tick={{ fill: chart.tick, fontSize: 11 }} />
+                  <BarChart
+                    data={afterHitChart}
+                    layout="vertical"
+                    margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
+                  >
+                    <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tick={{ fill: chart.tick, fontSize: 11 }}
+                      tickFormatter={(v) => fmtNumber(Number(v))}
+                    />
                     <YAxis
                       type="category"
                       dataKey="step"
-                      width={148}
+                      width={108}
                       tick={{ fill: chart.tick, fontSize: 11 }}
                     />
-                    <Tooltip contentStyle={tipStyle} />
-                    <Bar dataKey="People" fill="#4f8cff" radius={[0, 4, 4, 0]} />
+                    <Tooltip content={<AfterHitTooltip />} />
+                    <Bar dataKey="People" radius={[0, 4, 4, 0]} maxBarSize={22}>
+                      {afterHitChart.map((row, i) => (
+                        <Cell key={row.step} fill={AFTER_FILL[i] || HIT_HITS} />
+                      ))}
+                      <LabelList
+                        dataKey="People"
+                        position="right"
+                        fill="var(--text-muted)"
+                        fontSize={11}
+                        formatter={(v: number) => fmtNumber(Number(v))}
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
