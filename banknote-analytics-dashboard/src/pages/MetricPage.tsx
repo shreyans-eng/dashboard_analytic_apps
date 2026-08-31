@@ -438,7 +438,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'd1_retention_rate',
     color: '#a78bfa',
     percent: true,
-    guide: 'If 100 people installed on Monday and 30 opened the app on Tuesday, this is 30%. Higher is better — it means the first session was worth coming back for.',
+    guide: 'Return = opened the app (`session_start` or `App_open`), not a push notification. If 100 people installed on Monday and 30 opened the app on Tuesday, this is 30%.',
   },
   d7: {
     id: 'd7',
@@ -450,7 +450,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'd7_retention_rate',
     color: '#f87171',
     percent: true,
-    guide: 'Same as “came back the next day”, but a week later. Recent days may be empty until a week has passed.',
+    guide: 'Same as “came back the next day”, but a week later — again only people who opened the app (`session_start` / `App_open`), not push. Recent days may be empty until a week has passed.',
   },
   countries: {
     id: 'countries',
@@ -571,7 +571,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'd1_retention_rate',
     color: '#f87171',
     percent: true,
-    guide: 'D1, D4, and D7 are different days (not the same chart). D4–D7 is anyone who came back on at least one of days 4, 5, 6, or 7. Empty recent days are normal — those installs are not old enough yet.',
+    guide: 'Return = opened the app (`session_start` / `App_open` / `first_open`). Push display, receive, and other Firebase events do not count. D1, D4, and D7 are different days. D4–D7 is anyone who opened on at least one of days 4–7. Empty recent days are normal — those installs are not old enough yet.',
     extraCharts: [
       {
         title: 'Came back on day 4 (D4)',
@@ -602,7 +602,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     xKey: 'event_date',
     yKey: 'scans_per_dau',
     color: '#fb7185',
-    guide: 'The average includes people who opened the app and did not Identify. Percentiles (P10, P25, P50, P75, P90, P95, P99) are only among people who got at least one successful ID that day, so a few heavy scanners cannot hide what a typical scanner does.',
+    guide: 'Average and percentiles (P10–P99) are successful IDs per person who used the app that day, including people with 0 scans. Average / scanner is the same mean among people who got at least one success. P10/P25 are often 0 when most of DAU did not Identify.',
     stats: [
       { key: 'scans_per_dau', label: 'Average / person', format: 'avg' },
       { key: 'scans_per_scanning_user', label: 'Average / scanner', format: 'avg' },
@@ -616,7 +616,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     ],
     extraCharts: [
       {
-        title: 'Successful IDs per scanning person (P10, P25, P50, P75, P90, P95, P99)',
+        title: 'Successful IDs per person using the app (P10, P25, P50, P75, P90, P95, P99)',
         yKey: 'scans_p50',
         color: '#4f8cff',
         type: 'multi',

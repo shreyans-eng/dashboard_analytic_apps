@@ -86,10 +86,10 @@ export default function PercentilesPage({ params, setParams, applyFilters }: Pro
       d1,
       d0Rate: installs > 0 ? d0 / installs : 0,
       d1Rate: installs > 0 ? d1 / installs : 0,
-      d0TimeP50: weighted(rows, 'd0_time_p50', 'd0_went_in'),
+      d0TimeP50: weighted(rows, 'd0_time_p50', 'installs'),
       d1TimeP50: weighted(rows, 'd1_time_p50', 'd1_retained'),
-      d0ScansP50: weighted(rows, 'd0_scans_p50', 'd0_scanners'),
-      d1ScansP50: weighted(rows, 'd1_scans_p50', 'd1_scanners'),
+      d0ScansP50: weighted(rows, 'd0_scans_p50', 'installs'),
+      d1ScansP50: weighted(rows, 'd1_scans_p50', 'd1_retained'),
     };
   }, [rows]);
 
@@ -140,19 +140,21 @@ export default function PercentilesPage({ params, setParams, applyFilters }: Pro
             <div className="page-hint funnel-guide">
               <p>
                 Each day is an <strong>install cohort</strong> (<code>first_open</code> devices).
-                D0 is that day. D1 is the next calendar day. Percentiles are among people who
-                actually did the thing that day (time = went in 10s+; scans = ≥1 successful ID).
+                D0 is that day. D1 is the next calendar day. Time and scan percentiles include
+                people with 0 (D0 = all installs; D1 = people who opened, including 0s). Went in
+                (≥10s) is a separate retain rate, not the percentile population.
               </p>
               <ul>
                 <li>
                   <strong>Retain D0</strong> = went in (≥10s). <strong>Retain D1</strong> = opened
-                  the app (DAU events). MVP 6 D1 counts any Firebase event, including push — this
-                  tab does not.
+                  the app (<code>session_start</code> / <code>App_open</code> /{' '}
+                  <code>first_open</code>). Same definition as MVP 6 and Explorer D1 — push is not
+                  a return.
                 </li>
                 <li>
-                  <strong>Scans / day</strong> = successful IDs. Coinzy includes{' '}
-                  <code>Identification_done</code>. All-user-day scan percentiles stay on{' '}
-                  <strong>7. Scans / user</strong>.
+                  <strong>Scans / day</strong> = successful IDs among that same population
+                  (including 0). Coinzy includes <code>Identification_done</code>. Daily DAU
+                  scan percentiles stay on <strong>7. Scans / user</strong>.
                 </li>
                 <li>
                   P50 is the typical person. P90/P99 are the heavy users. A few power users cannot
@@ -211,7 +213,7 @@ export default function PercentilesPage({ params, setParams, applyFilters }: Pro
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Install time (seconds, among 10s+)">
+              <ChartCard title="Install time (seconds, all installs / D1 openers)">
                 <ResponsiveContainer width="100%" height={360}>
                   <LineChart data={chartRows}>
                     <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
@@ -227,7 +229,7 @@ export default function PercentilesPage({ params, setParams, applyFilters }: Pro
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Scans per day (among people with ≥1 success)">
+              <ChartCard title="Scans per day (all installs / D1 openers, including 0)">
                 <ResponsiveContainer width="100%" height={360}>
                   <LineChart data={chartRows}>
                     <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
@@ -244,28 +246,28 @@ export default function PercentilesPage({ params, setParams, applyFilters }: Pro
               </ChartCard>
             </div>
 
-            <h3 className="section-label">Install time — D0</h3>
+            <h3 className="section-label">Install time — D0 (all installs)</h3>
             <PercentileTable
               rows={rows}
               dateKey="cohort_date"
               prefix="d0_time_p"
               format={fmtDuration}
             />
-            <h3 className="section-label">Install time — D1 (among returners who went in)</h3>
+            <h3 className="section-label">Install time — D1 (people who opened, including 0s)</h3>
             <PercentileTable
               rows={rows}
               dateKey="cohort_date"
               prefix="d1_time_p"
               format={fmtDuration}
             />
-            <h3 className="section-label">Scans per day — D0</h3>
+            <h3 className="section-label">Scans per day — D0 (all installs)</h3>
             <PercentileTable
               rows={rows}
               dateKey="cohort_date"
               prefix="d0_scans_p"
               format={fmtScan}
             />
-            <h3 className="section-label">Scans per day — D1</h3>
+            <h3 className="section-label">Scans per day — D1 (people who opened, including 0s)</h3>
             <PercentileTable
               rows={rows}
               dateKey="cohort_date"

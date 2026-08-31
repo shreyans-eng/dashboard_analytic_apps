@@ -25,19 +25,36 @@ test('D0/D1 percentiles SQL has P10–P99 including P90 for time, scans, and ret
   assert.match(sql, /user_pseudo_id/);
 });
 
-test('scans per user SQL includes P90', () => {
+test('D0/D1 time and scan percentiles include zeros (not ≥10s / scanners only)', () => {
+  const sql = readSql('sql/dashboard/raw/23_install_d0_d1_percentiles.sql');
+  assert.match(sql, /APPROX_QUANTILES\(d0_seconds, 100\)/);
+  assert.match(sql, /APPROX_QUANTILES\(IF\(d1_returned, d1_seconds, NULL\), 100\)/);
+  assert.match(sql, /APPROX_QUANTILES\(d0_scans, 100\)/);
+  assert.match(sql, /APPROX_QUANTILES\(IF\(d1_returned, d1_scans, NULL\), 100\)/);
+  assert.doesNotMatch(sql, /APPROX_QUANTILES\(IF\(d0_seconds >= 10/);
+  assert.doesNotMatch(sql, /d1_seconds >= 10/);
+  assert.doesNotMatch(sql, /APPROX_QUANTILES\(IF\(d0_scans > 0/);
+  assert.doesNotMatch(sql, /APPROX_QUANTILES\(IF\(d1_scans > 0/);
+});
+
+test('scans per user SQL includes P90 among all DAU including zeros', () => {
   for (const rel of [
     'sql/dashboard/product/07_scans_per_user.sql',
     'sql/dashboard/product/coinzy/07_scans_per_user.sql',
   ]) {
     const sql = readSql(rel);
     assert.match(sql, /AS scans_p90\b/);
+    assert.match(sql, /APPROX_QUANTILES\(scans, 100\)/);
+    assert.doesNotMatch(sql, /APPROX_QUANTILES\(IF\(scans > 0/);
   }
 });
 
-test('install-day usage SQL includes time P10–P99', () => {
+test('install-day usage SQL includes time P10–P99 among all installers', () => {
   const sql = readSql('sql/dashboard/raw/20_install_day_usage.sql');
   for (const p of [10, 25, 50, 75, 90, 95, 99]) {
     assert.match(sql, new RegExp(`AS time_p${p}\\b`));
   }
+  assert.match(sql, /APPROX_QUANTILES\(time_seconds, 100\)/);
+  assert.doesNotMatch(sql, /APPROX_QUANTILES\(IF\(time_seconds >= 10/);
+  assert.match(sql, /AS total_seconds\b/);
 });

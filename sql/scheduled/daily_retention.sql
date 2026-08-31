@@ -44,6 +44,7 @@ INSERT INTO `{PROJECT}.analytics_summary.daily_retention` (
   retention_d4_d7_rate,
   refreshed_at
 )
+-- Cohort = first_open. Return = session_start / App_open / first_open (not push).
 WITH raw_events AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
@@ -57,6 +58,7 @@ WITH raw_events AS (
   WHERE _TABLE_SUFFIX NOT LIKE 'intraday_%'
     AND _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 97 DAY))
                           AND FORMAT_DATE('%Y%m%d', CURRENT_DATE())
+    AND REGEXP_REPLACE(event_name, r'_(android|ios)$', '') IN ('session_start', 'App_open', 'first_open')
 ),
 normalized AS (
   SELECT
@@ -74,12 +76,14 @@ normalized AS (
       (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'country'),
       NULLIF(geo_country, ''),
       'Unknown'
-    ) AS country
+    ) AS country,
+    REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base
   FROM raw_events
 ),
-first_seen AS (
+first_open AS (
   SELECT resolved_user_id, MIN(event_date) AS cohort_date
   FROM normalized
+  WHERE event_name_base = 'first_open'
   GROUP BY resolved_user_id
 ),
 cohorts AS (
@@ -88,10 +92,11 @@ cohorts AS (
     n.platform,
     n.country,
     f.resolved_user_id
-  FROM first_seen f
+  FROM first_open f
   JOIN normalized n
     ON f.resolved_user_id = n.resolved_user_id AND f.cohort_date = n.event_date
   WHERE f.cohort_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+    AND n.event_name_base = 'first_open'
 ),
 activity AS (
   SELECT DISTINCT resolved_user_id, event_date FROM normalized

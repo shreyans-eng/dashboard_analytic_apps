@@ -1,6 +1,8 @@
 -- =============================================================================
--- Raw-events D1 + D7 retention (no views required)
--- Cohort = first_open day; retained = any activity on cohort_date + N days.
+-- Raw-events D1 / D4 / D7 retention (no views required)
+-- Cohort = first_open day.
+-- Returned = opened the app that offset day (session_start / App_open / first_open).
+-- Push / notification / other Firebase events do not count as a return.
 -- Activity window extends end_date by 7 days so D7 cohorts can mature.
 -- =============================================================================
 
@@ -24,6 +26,7 @@ user_events AS (
   WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', start_date)
                           AND FORMAT_DATE('%Y%m%d', activity_end)
     AND _TABLE_SUFFIX NOT LIKE 'intraday_%'
+    AND {{dau_event_predicate}}
     [[AND event_country = {{country}}]]
     [[AND event_platform = {{platform}}]]
 ),

@@ -343,8 +343,11 @@ export class AnalyticsRepository {
     if (!entry) throw new Error(`Unknown query: ${name}`);
 
     const skipSummary = name === 'dau' && !shouldUseSummaryForDau(params);
+    // Retention summary historically counted any Firebase event (including push).
+    // Live D1/D4/D7 always uses raw SQL filtered to session_start / App_open / first_open.
+    const forceRawRetention = name === 'retention' || name === 'd1' || name === 'd7';
 
-    if (this.preferRaw && entry.raw) {
+    if ((this.preferRaw || forceRawRetention) && entry.raw) {
       return this._executeSql(entry.raw, params, 'raw');
     }
 
@@ -479,7 +482,7 @@ export class AnalyticsRepository {
   }
 
   async getInstallDayUsage(params) {
-    const key = cacheKey(`${this.productId}:dashboard:install-day-usage:v2`, params);
+    const key = cacheKey(`${this.productId}:dashboard:install-day-usage:v3`, params);
     const result = await cached('install-day-usage', key, () =>
       this._executeSql('dashboard/raw/20_install_day_usage.sql', params, 'raw'),
     );
@@ -487,7 +490,7 @@ export class AnalyticsRepository {
   }
 
   async getD0D1Percentiles(params) {
-    const key = cacheKey(`${this.productId}:dashboard:d0-d1-percentiles:v1`, params);
+    const key = cacheKey(`${this.productId}:dashboard:d0-d1-percentiles:v2`, params);
     const result = await cached('d0-d1-percentiles', key, () =>
       this._executeSql('dashboard/raw/23_install_d0_d1_percentiles.sql', params, 'raw'),
     );
@@ -544,7 +547,7 @@ export class AnalyticsRepository {
   }
 
   async getRetention(params) {
-    const key = cacheKey(`${this.productId}:dashboard:retention:v2`, params);
+    const key = cacheKey(`${this.productId}:dashboard:retention:v3`, params);
     return cached('retention', key, async () => {
       try {
         const result = await this._runNamed('retention', params);
@@ -785,7 +788,7 @@ export class AnalyticsRepository {
     const spec = MVP_KPI_MAP[name];
     if (!spec) throw new Error(`Unknown MVP metric: ${name}`);
 
-    const key = cacheKey(`${this.productId}:mvp:v11:${name}`, params);
+    const key = cacheKey(`${this.productId}:mvp:v13:${name}`, params);
     const result = await cached('kpi', key, async () => {
       if (spec.useRetention) {
         return this.getRetention(params);

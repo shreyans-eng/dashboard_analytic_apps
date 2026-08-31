@@ -1,8 +1,7 @@
 -- =============================================================================
 -- MVP #7 — Scans per active user
--- Mean among everyone who used the app that day, plus P10–P99 among people
--- who got at least one successful ID (so a few heavy scanners do not hide
--- what a typical scanner actually does).
+-- Mean and P10–P99 among everyone who used the app that day, including people
+-- with 0 successful IDs. scans_per_scanning_user stays as the scanners-only mean.
 -- Grain: user-day from v_daily_active_users (identifications_success).
 -- =============================================================================
 
@@ -25,7 +24,7 @@ daily AS (
     COUNTIF(scans > 0) AS users_with_scan,
     SAFE_DIVIDE(SUM(scans), COUNT(*)) AS scans_per_dau,
     SAFE_DIVIDE(SUM(scans), COUNTIF(scans > 0)) AS scans_per_scanning_user,
-    APPROX_QUANTILES(IF(scans > 0, scans, NULL), 100) AS q
+    APPROX_QUANTILES(scans, 100) AS q
   FROM user_day
   GROUP BY event_date
 )

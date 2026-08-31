@@ -29,7 +29,7 @@ dau AS (
     SUM(identifications) AS total_identifications,
     SUM(scans) AS total_success_scans,
     COUNTIF(scans > 0) AS users_with_scan,
-    APPROX_QUANTILES(IF(scans > 0, scans, NULL), 100) AS scan_q
+    APPROX_QUANTILES(scans, 100) AS scan_q
   FROM user_scans
   GROUP BY event_date, platform, country
 ),
@@ -134,7 +134,7 @@ SELECT
   d.total_identifications,
   d.users_with_scan,
 
-  -- #15 Scans per active user (mean + percentiles among people who scanned)
+  -- #15 Scans per active user (mean + percentiles among all DAU, including 0)
   SAFE_DIVIDE(d.total_success_scans, d.dau) AS scans_per_dau,
   SAFE_DIVIDE(d.total_success_scans, d.users_with_scan) AS scans_per_scanning_user,
   d.scan_q[OFFSET(10)] AS scans_p10,

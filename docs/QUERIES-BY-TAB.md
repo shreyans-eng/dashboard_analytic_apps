@@ -95,15 +95,12 @@ Shared fallback: `dashboard/product/04_quota_hit_rate.sql` → `v_identify_metri
 
 ### 6. D1 / D7 retention
 
-Uses Explorer retention, **not** signals.
+Live path is **raw** `dashboard/raw/09_retention.sql` (and `05` / `06` for the merge fallback). Return = `session_start` / `App_open` / `first_open`. The `daily_retention` summary is **not** used until it is rebuilt with the same definition (it used to count any event, including push).
 
 | Order | File | Reads |
 |-------|------|--------|
-| 1 | `dashboard/summary/09_retention.sql` | `analytics_summary.daily_retention` |
-| 2 | `dashboard/raw/09_retention.sql` | `events_*` |
-| or | merge `d1` + `d7` | summary `05`/`06` or raw `05`/`06` |
-
-Shared product file `dashboard/product/06_retention_d1_d7.sql` reads `v_retention_cohorts` — only if the API is on the view path (legacy). Live MVP 6 goes through `getRetention()` as above.
+| 1 | `dashboard/raw/09_retention.sql` | `events_*` (DAU events only) |
+| or | merge `d1` + `d7` | `raw/05_d1_retention.sql` / `raw/06_d7_retention.sql` |
 
 ### 7. Scans / user
 
@@ -114,7 +111,7 @@ Shared product file `dashboard/product/06_retention_d1_d7.sql` reads `v_retentio
 | Banknote | `dashboard/product/07_scans_per_user.sql` | `v_daily_active_users` (`02_v_daily_active_users.sql`) |
 | Coinzy | `dashboard/product/coinzy/07_scans_per_user.sql` | `events_*` |
 
-Columns: `scans_per_dau` (mean including zeros), `scans_per_scanning_user`, `scans_p10` / `p25` / `p50` / `p75` / `p95` / `p99` among people with ≥1 successful ID.
+Columns: `scans_per_dau` (mean including zeros), `scans_per_scanning_user`, `scans_p10` / `p25` / `p50` / `p75` / `p90` / `p95` / `p99` among all DAU including 0 scans.
 
 ### 8. Identify funnel (open → success)
 

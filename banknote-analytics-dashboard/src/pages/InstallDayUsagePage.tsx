@@ -39,6 +39,7 @@ type Row = {
   time_p90?: number;
   time_p95?: number;
   time_p99?: number;
+  total_seconds?: number;
 };
 
 function n(v: unknown) {
@@ -64,11 +65,14 @@ export default function InstallDayUsagePage({ params, setParams, applyFilters }:
   const totals = useMemo(() => {
     const installs = rows.reduce((s, r) => s + n(r.installs), 0);
     const wentIn = rows.reduce((s, r) => s + n(r.went_in), 0);
-    const totalSec = rows.reduce((s, r) => s + n(r.total_seconds_went_in), 0);
+    const totalSec = rows.reduce((s, r) => {
+      if (r.total_seconds != null && r.total_seconds !== '') return s + n(r.total_seconds);
+      return s + n(r.avg_seconds) * n(r.installs);
+    }, 0);
     let medWeight = 0;
     let medAcc = 0;
     for (const r of rows) {
-      const w = n(r.went_in);
+      const w = n(r.installs);
       const m = Number(r.median_seconds);
       if (w > 0 && Number.isFinite(m) && m >= 0) {
         medWeight += w;
@@ -79,7 +83,7 @@ export default function InstallDayUsagePage({ params, setParams, applyFilters }:
       installs,
       wentIn,
       rate: installs > 0 ? wentIn / installs : 0,
-      avgSec: wentIn > 0 ? totalSec / wentIn : 0,
+      avgSec: installs > 0 ? totalSec / installs : 0,
       medianSec: medWeight > 0 ? medAcc / medWeight : 0,
     };
   }, [rows]);
@@ -141,8 +145,9 @@ export default function InstallDayUsagePage({ params, setParams, applyFilters }:
                   the same day (Firebase <code>user_engagement</code> time, or app <code>session_length_seconds</code>).
                 </li>
                 <li>
-                  <strong>Time used</strong> is how long those people stayed on the install day.
-                  P10–P99 (including P90) are among people who went in 10s+.
+                  <strong>Time used</strong> is how long every installer spent on that day,
+                  including people with 0 seconds. P10–P99 (including P90) are among all
+                  installs, not only people who went in 10s+. P10/P25 are often 0.
                 </li>
                 <li>
                   Opening the store listing is not enough. <code>first_open</code> means they launched the app;
@@ -189,7 +194,7 @@ export default function InstallDayUsagePage({ params, setParams, applyFilters }:
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Time in app on install day">
+              <ChartCard title="Time in app on install day (all installs, including 0s)">
                 <ResponsiveContainer width="100%" height={360}>
                   <ComposedChart data={chartRows}>
                     <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
@@ -248,7 +253,7 @@ export default function InstallDayUsagePage({ params, setParams, applyFilters }:
               </ChartCard>
             </div>
 
-            <h3 className="section-label">Time used on install day (P10–P99, among 10s+)</h3>
+            <h3 className="section-label">Time used on install day (P10–P99, all installs)</h3>
             <div className="results-table-wrap">
               <table className="results-table">
                 <thead>

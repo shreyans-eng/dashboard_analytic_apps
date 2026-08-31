@@ -3,8 +3,9 @@
 -- Cohort retention by install/registration date.
 -- Periods: D1, D7, D14, D30 (day offset from cohort_date).
 --
--- Return definition: user had any activity on offset day.
--- Depends on: v_new_users, v_daily_active_users
+-- Return definition: opened the app on the offset day
+-- (session_start / App_open / first_open). Push is not a return.
+-- Depends on: v_new_users, v_events_normalized
 -- =============================================================================
 
 CREATE OR REPLACE VIEW `{PROJECT}.{DATASET}.v_retention_cohorts` AS
@@ -25,7 +26,8 @@ activity AS (
   SELECT DISTINCT
     resolved_user_id,
     event_date AS activity_date
-  FROM `{PROJECT}.{DATASET}.v_daily_active_users`
+  FROM `{PROJECT}.{DATASET}.v_events_normalized`
+  WHERE event_name_base IN ('session_start', 'App_open', 'first_open')
 ),
 
 cohort_activity AS (

@@ -78,7 +78,9 @@
         <strong>D4</strong> = opened on install day + 4.<br>
         <strong>D7</strong> = opened on install day + 7.<br>
         <strong>D4–D7</strong> = opened on at least one of days 4, 5, 6, or 7.<br>
-        Cohort is always <code>first_open</code>. Return = any Firebase event that day.
+        Cohort is always <code>first_open</code>. Return = opened the app
+        (<code>session_start</code> / <code>App_open</code> / <code>first_open</code>).
+        Push and other Firebase events do not count.
       </td>
     </tr>
     <tr>
@@ -197,7 +199,7 @@
 </p>
 
 <h3>6. D1 / D4 / D7 retention (comment 5.6)</h3>
-<p>Cohort = <code>first_open</code>. Returned = any event on that offset day.</p>
+<p>Cohort = <code>first_open</code>. Returned = opened the app that offset day (<code>session_start</code> / <code>App_open</code> / <code>first_open</code>). Push is not a return.</p>
 <table>
   <tr><th>Metric</th><th>Meaning</th></tr>
   <tr><td>D1</td><td>Came back tomorrow (day + 1 only)</td></tr>
@@ -209,7 +211,7 @@
 
 <h3>7. Scans / user</h3>
 <p><strong>Average / person</strong> = successful IDs ÷ DAU (includes people who did not scan).</p>
-<p><strong>P10 / P25 / P50 / P75 / P95 / P99</strong> = successful IDs among people who scanned that day.</p>
+<p><strong>P10 / P25 / P50 / P75 / P90 / P95 / P99</strong> = successful IDs per DAU that day, including people with 0 scans. Average / scanner is the scanners-only mean.</p>
 <p>Event: <code>identification_done_success</code>.</p>
 
 <h3>8. Identify funnel rate (comment 5.8)</h3>
@@ -305,8 +307,8 @@
   <tr><td>Health report</td><td>Same signals + Identify leak + same-day first scan + paywall funnel + Coinzy Expert</td></tr>
   <tr><td>Explorer DAU</td><td>Same as MVP 1</td></tr>
   <tr><td>Unique vs repeat</td><td>Any event — new vs returning, one-day vs 2+ days</td></tr>
-  <tr><td>Installs + time used</td><td><code>first_open</code> devices; “went in” = ≥10 seconds same day. Time P10–P99 among went-in</td></tr>
-  <tr><td>D0 / D1 percentiles</td><td>Install cohort. D0 went in · D1 opened (DAU events). Time + scans P10 P25 P50 P75 P90 P95 P99</td></tr>
+  <tr><td>Installs + time used</td><td><code>first_open</code> devices; “went in” = ≥10 seconds same day. Time P10–P99 among all installs, including 0s</td></tr>
+  <tr><td>D0 / D1 percentiles</td><td>Install cohort. D0 went in · D1 opened (DAU events). Time + scans P10–P99 include zeros (D0 = all installs; D1 = openers)</td></tr>
   <tr><td>Scan limits</td><td>Free vs subscribed quota (success cap vs fail cap)</td></tr>
   <tr><td>Free-scan success quota</td><td>Coinzy only. Hit = <code>free_scan_success_quota_exhausted</code> (success remaining → 0). Not consumed, not <code>Identified_limit_reached</code>. Banknote TBD.</td></tr>
   <tr><td>D1 / D7 Explorer</td><td>Same definitions as MVP 6 (D1 and D7 are separate pages there)</td></tr>

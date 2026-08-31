@@ -1,5 +1,6 @@
 -- =============================================================================
--- MVP #14 — D1 / D7 retention (weighted)
+-- MVP #6 — D1 / D7 retention (view path; live dashboard uses raw 09_retention)
+-- Return = opened the app (session_start / App_open / first_open).
 -- =============================================================================
 
 SELECT

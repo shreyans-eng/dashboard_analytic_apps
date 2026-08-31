@@ -3,7 +3,8 @@
 -- Installs = distinct devices (user_pseudo_id) with first_open that calendar day.
 -- Went in  = those devices with >= 10 seconds in the app that same day
 --            (Firebase user_engagement.engagement_time_msec, else session_length_seconds).
--- Time     = seconds in the app on the install day (among those who went in).
+-- Time     = seconds in the app on the install day among all installers
+--            (including 0s). Went in remains the ≥10s count/rate.
 -- Do not join on user_id — same reason as same-day first ID.
 -- =============================================================================
 
@@ -64,8 +65,9 @@ daily AS (
     COUNTIF(time_seconds >= 10) AS went_in,
     SAFE_DIVIDE(COUNTIF(time_seconds >= 10), COUNT(*)) AS went_in_rate,
     SUM(IF(time_seconds >= 10, time_seconds, 0)) AS total_seconds_went_in,
-    AVG(IF(time_seconds >= 10, time_seconds, NULL)) AS avg_seconds,
-    APPROX_QUANTILES(IF(time_seconds >= 10, time_seconds, NULL), 100) AS time_q
+    SUM(time_seconds) AS total_seconds,
+    AVG(time_seconds) AS avg_seconds,
+    APPROX_QUANTILES(time_seconds, 100) AS time_q
   FROM installers
   GROUP BY event_date
 )
@@ -75,6 +77,7 @@ SELECT
   went_in,
   went_in_rate,
   total_seconds_went_in,
+  total_seconds,
   avg_seconds,
   time_q[OFFSET(50)] AS median_seconds,
   time_q[OFFSET(10)] AS time_p10,

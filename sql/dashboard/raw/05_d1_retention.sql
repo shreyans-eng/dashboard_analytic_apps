@@ -1,5 +1,6 @@
 -- =============================================================================
 -- Raw-events D1 retention (no views required)
+-- Returned = opened the app (session_start / App_open / first_open), not push.
 -- =============================================================================
 
 WITH params AS (
@@ -22,6 +23,7 @@ user_events AS (
   WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', start_date)
                           AND FORMAT_DATE('%Y%m%d', activity_end)
     AND _TABLE_SUFFIX NOT LIKE 'intraday_%'
+    AND {{dau_event_predicate}}
     [[AND event_country = {{country}}]]
     [[AND event_platform = {{platform}}]]
 ),

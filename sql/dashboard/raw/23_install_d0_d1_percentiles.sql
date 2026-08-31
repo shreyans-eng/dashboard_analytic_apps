@@ -8,8 +8,11 @@
 --   D1 returned = opened the app (session_start / App_open / first_open / user_engagement)
 --     — not MVP 6 (any Firebase event, including push)
 --
--- Time percentiles: seconds among people who went in (≥10s) that day.
--- Scan percentiles: successful IDs among people who got ≥1 success that day.
+-- Time percentiles: seconds among all installers on D0 (including 0s), and
+--   among people who opened the app on D1 (including 0s). Went in (≥10s)
+--   stays a separate retain rate.
+-- Scan percentiles: successful IDs among all installers on D0 (including 0),
+--   and among D1 openers (including 0).
 --   Banknote: identification_done_success
 --   Coinzy: identification_done_success ∪ Identification_done
 --
@@ -103,10 +106,10 @@ daily AS (
     SAFE_DIVIDE(COUNTIF(d1_returned), COUNT(*)) AS d1_retention_rate,
     AVG(d0_scans) AS d0_scans_per_install,
     AVG(IF(d1_returned, d1_scans, 0)) AS d1_scans_per_install,
-    APPROX_QUANTILES(IF(d0_seconds >= 10, d0_seconds, NULL), 100) AS d0_time_q,
-    APPROX_QUANTILES(IF(d1_returned AND d1_seconds >= 10, d1_seconds, NULL), 100) AS d1_time_q,
-    APPROX_QUANTILES(IF(d0_scans > 0, d0_scans, NULL), 100) AS d0_scans_q,
-    APPROX_QUANTILES(IF(d1_scans > 0, d1_scans, NULL), 100) AS d1_scans_q
+    APPROX_QUANTILES(d0_seconds, 100) AS d0_time_q,
+    APPROX_QUANTILES(IF(d1_returned, d1_seconds, NULL), 100) AS d1_time_q,
+    APPROX_QUANTILES(d0_scans, 100) AS d0_scans_q,
+    APPROX_QUANTILES(IF(d1_returned, d1_scans, NULL), 100) AS d1_scans_q
   FROM flags
   GROUP BY cohort_date
 )
