@@ -35,10 +35,10 @@ Run in dashboard **SQL Editor** (Coinzy product selected) or via API `/api/query
 ## Core paths (Coinzy)
 
 **8 Identify:**  
-`Identification_screen` / `photo_screen` → shutter (`Photo_clicked`) ∥ inferred gallery (crop/clicked minus shutter) → after-crop merge (`photo_clicked_1/2`) → submit → success (`identification_done_success` ∪ `Identification_done`) → details. Gallery tap has no event. Dashboard tabs: Identify (all) plus **Scan · camera** / **Scan · gallery**. Nav ∪ home is **not** the start. Add-to-collection cannot be measured.
+`Identification_screen` / `photo_screen` → shutter (`Photo_clicked`) ∥ inferred gallery (crop/clicked minus shutter) → after-crop merge (`photo_clicked_1/2`) → submit → success (`identification_done_success` ∪ `Identification_done`) → details. Gallery tap has no event. Dashboard tabs: Identify (all) plus **Scan · bottom nav** (nav minus Home) / **Scan · home** (`Identify_home` only) / **Scan · camera** (`Photo_clicked` only) / **Scan · gallery** (crop/clicked minus shutter). Add-to-collection cannot be measured.
 
 **9 Catalogue:**  
-`Collection_screen` ∪ `Global_catalogue_screen` (+ deeper: clicked → sub-collection → `Coin_details_*`)
+Two separate funnels, each starting with people who started a session (`session_start` · `App_open` · `first_open`). Collection: session → `Collection_screen` → clicked → sub-collection → `Coin_details_*`. Global catalogue: session → `Global_catalogue_screen` → item → `Coin_details_global`. There is no mixed Catalogue (all) tab.
 
 **10 Marketplace:**  
 `marketplace_bottom_nav` → `marketplace_screen` → `market_item_expolre` → `sale_Details_screen` → `market_contact*`  

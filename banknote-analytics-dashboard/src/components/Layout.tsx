@@ -42,6 +42,7 @@ import {
   Gauge,
   ShieldAlert,
   Percent,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchConfig, AppConfig } from '@/lib/api';
@@ -64,14 +65,15 @@ const NAV = [
   { to: '/funnels/identify-home', pageId: 'funnels.identify-home', label: 'Scan · home / banner', icon: ScanLine },
   { to: '/funnels/identify-camera', pageId: 'funnels.identify-camera', label: 'Scan · camera', icon: Camera },
   { to: '/funnels/identify-gallery', pageId: 'funnels.identify-gallery', label: 'Scan · gallery', icon: Images },
-  { to: '/funnels/catalogue', pageId: 'funnels.catalogue', label: 'Catalogue (all)', icon: BookOpen },
   { to: '/funnels/collection', pageId: 'funnels.collection', label: 'Private collection', icon: BookOpen },
   { to: '/funnels/global', pageId: 'funnels.global', label: 'Global catalogue', icon: Globe },
   { to: '/funnels/marketplace', pageId: 'funnels.marketplace', label: 'Marketplace', icon: ShoppingBag },
   { to: '/funnels/feed', pageId: 'funnels.feed', label: 'Feed', icon: Rss },
+  { to: '/funnels/onboarding', pageId: 'funnels.onboarding', label: 'Onboarding', icon: UserPlus },
   { to: '/funnels/paywall', pageId: 'funnels.paywall', label: 'Paywall', icon: PiggyBank },
   { to: '/funnels/paywall-onboarding', pageId: 'funnels.paywall-onboarding', label: 'Onboarding → subs', icon: PiggyBank },
   { to: '/funnels/expert', pageId: 'funnels.expert', label: 'Expert evaluation', icon: Award, products: ['coinzy'] },
+  { to: '/events-catalog', pageId: 'events-catalog', label: 'Event catalog', icon: FileSpreadsheet },
   { to: '/events-explorer', pageId: 'events-explorer', label: 'Event inventory', icon: ListTree },
   { section: 'MVP KPIs (10)' },
   { to: '/mvp/dau', pageId: 'mvp.dau', label: '1. DAU (opened app)', icon: Activity },

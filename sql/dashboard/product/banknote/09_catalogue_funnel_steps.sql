@@ -1,5 +1,7 @@
 -- =============================================================================
--- Banknote MVP #9 — Catalogue / Collection funnel (detailed steps + drop-off)
+-- Banknote SQL Editor copy — Collection + Global catalogue step users + % of DAU
+-- Live dashboard tabs are separate: Funnels → Private collection / Global catalogue
+-- (each starts with people who started a session). Do not use this file as the KPI.
 -- Events from Banknote-ai-identification analytics.ts (verified)
 -- =============================================================================
 

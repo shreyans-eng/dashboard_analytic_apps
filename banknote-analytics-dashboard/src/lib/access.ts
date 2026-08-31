@@ -16,14 +16,15 @@ export const PAGE_CATALOG = [
     { id: 'funnels.identify-home', label: 'Scan · home / banner', path: '/funnels/identify-home' },
     { id: 'funnels.identify-camera', label: 'Scan · camera', path: '/funnels/identify-camera' },
     { id: 'funnels.identify-gallery', label: 'Scan · gallery', path: '/funnels/identify-gallery' },
-    { id: 'funnels.catalogue', label: 'Catalogue (all)', path: '/funnels/catalogue' },
     { id: 'funnels.collection', label: 'Private collection', path: '/funnels/collection' },
     { id: 'funnels.global', label: 'Global catalogue', path: '/funnels/global' },
     { id: 'funnels.marketplace', label: 'Marketplace', path: '/funnels/marketplace' },
     { id: 'funnels.feed', label: 'Feed', path: '/funnels/feed' },
+    { id: 'funnels.onboarding', label: 'Onboarding', path: '/funnels/onboarding' },
     { id: 'funnels.paywall', label: 'Paywall', path: '/funnels/paywall' },
     { id: 'funnels.paywall-onboarding', label: 'Onboarding → subs', path: '/funnels/paywall-onboarding' },
     { id: 'funnels.expert', label: 'Expert evaluation', path: '/funnels/expert' },
+    { id: 'events-catalog', label: 'Event catalog', path: '/events-catalog' },
     { id: 'events-explorer', label: 'Event inventory', path: '/events-explorer' },
   ]},
   { section: 'MVP KPIs', items: [
@@ -100,14 +101,16 @@ const PATH_TO_PAGE: Record<string, PageId> = {
   '/funnels/identify-home': 'funnels.identify-home',
   '/funnels/identify-camera': 'funnels.identify-camera',
   '/funnels/identify-gallery': 'funnels.identify-gallery',
-  '/funnels/catalogue': 'funnels.catalogue',
+  '/funnels/catalogue': 'funnels.collection',
   '/funnels/collection': 'funnels.collection',
   '/funnels/global': 'funnels.global',
   '/funnels/marketplace': 'funnels.marketplace',
   '/funnels/feed': 'funnels.feed',
+  '/funnels/onboarding': 'funnels.onboarding',
   '/funnels/paywall': 'funnels.paywall',
   '/funnels/paywall-onboarding': 'funnels.paywall-onboarding',
   '/funnels/expert': 'funnels.expert',
+  '/events-catalog': 'events-catalog',
   '/events-explorer': 'events-explorer',
   '/mvp/dau': 'mvp.dau',
   '/mvp/time-to-first-scan': 'mvp.time-to-first-scan',
@@ -165,10 +168,16 @@ export function canAccessPage(user: AuthUser | null | undefined, pageId: string)
   if (pageId === 'funnels.feed' && pages.includes('funnels.marketplace')) {
     return true;
   }
-  if (pageId === 'funnels.paywall-onboarding' && pages.includes('funnels.paywall')) {
+  if (
+    (pageId === 'funnels.paywall-onboarding' || pageId === 'funnels.onboarding') &&
+    pages.includes('funnels.paywall')
+  ) {
     return true;
   }
   if (pageId === 'funnels.expert' && pages.some((p) => p.startsWith('funnels.'))) {
+    return true;
+  }
+  if (pageId === 'events-catalog' && pages.includes('events-explorer')) {
     return true;
   }
   if (

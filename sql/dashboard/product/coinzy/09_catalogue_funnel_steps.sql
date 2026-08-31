@@ -1,5 +1,7 @@
 -- =============================================================================
--- Coinzy MVP #9 — Catalogue / Collection funnel (detailed steps + drop-off)
+-- Coinzy SQL Editor copy — Collection + Global catalogue step users + % of DAU
+-- Live dashboard tabs are separate: Funnels → Private collection / Global catalogue
+-- (each starts with people who started a session). Do not use this file as the KPI.
 -- Events from CoinzyAndroid CollectionScreen / WorldCollectionScreen /
 -- CoinDetailsScreen / HomeScreen / BottomNavigationBar
 -- Note: details are Coin_details_* (not banknote_details_*)

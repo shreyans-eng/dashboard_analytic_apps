@@ -874,6 +874,8 @@ function SeparateReport({
         <p className="funnel-note">
           Typical time to first ID: <strong>{fmtDuration(scan.medianSec)}</strong>
           {' · '}
+          <NavLink to="/funnels/onboarding">Onboarding funnel</NavLink>
+          {' · '}
           <NavLink to="/funnels/paywall">Paywall funnel</NavLink>
           {name.toLowerCase() === 'coinzy' ? (
             <>

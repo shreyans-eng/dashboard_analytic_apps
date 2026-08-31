@@ -182,6 +182,33 @@ export interface EventInventoryResult {
   bytesProcessed?: number;
 }
 
+export interface EventCatalogUsageRow {
+  product: string;
+  app: string;
+  event: string;
+  surface: string;
+  tab: string;
+  step: string;
+  role: string;
+}
+
+export interface EventCatalogUniqueRow {
+  product: string;
+  app: string;
+  event: string;
+  surfaces: string[];
+  roles: string[];
+  tabs: string[];
+  used_in: string;
+  roles_label: string;
+}
+
+export interface EventCatalogResult {
+  usages: EventCatalogUsageRow[];
+  unique: EventCatalogUniqueRow[];
+  summary: { banknote: number; coinzy: number; shared: number; totalUsages: number };
+}
+
 export interface EventDetailResult {
   product: string;
   event_name: string;
@@ -425,6 +452,10 @@ export async function fetchEventInventory(
   params: QueryParams & { search?: string },
 ): Promise<EventInventoryResult> {
   return post('/analytics/events/inventory', params);
+}
+
+export async function fetchEventCatalog(): Promise<EventCatalogResult> {
+  return request('/analytics/events/catalog');
 }
 
 export async function fetchEventDetail(

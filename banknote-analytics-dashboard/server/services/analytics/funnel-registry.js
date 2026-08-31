@@ -3,7 +3,7 @@
  * Do not add events without evidence. Empty product mapping → insufficient instrumentation.
  */
 
-import { dauEventPredicateSql, resolvedUserIdSql } from './dau-definition.js';
+import { DAU_EVENT_BASES, dauEventPredicateSql, resolvedUserIdSql } from './dau-definition.js';
 
 /** @typedef {{ id: string, label: string, events: string[], excludeEvents?: string[], isDrop?: boolean, core?: boolean }} FunnelStep */
 /** @typedef {{ packEvents: string[], confirmEvents: string[], discountEventNames?: string[] }} PackMixDef */
@@ -98,14 +98,8 @@ const BANKNOTE_IDENTIFY = [
   }),
   {
     id: 'photo_unspecified',
-    label: 'Photo (unspecified)',
+    label: 'Photo (v1 shutter)',
     events: ['Photo_clicked'],
-  },
-  {
-    id: 'attempt',
-    label: 'Scan attempted',
-    events: ['Identification_attempted', 'Identification_done'],
-    core: true,
   },
   {
     id: 'submit',
@@ -122,7 +116,7 @@ const BANKNOTE_IDENTIFY = [
   {
     id: 'success',
     label: 'Identification success',
-    events: ['identification_done_success', 'Identification_done_success'],
+    events: ['identification_done_success', 'Identification_done_success', 'Identification_done'],
     core: true,
   },
   {
@@ -145,7 +139,7 @@ const BANKNOTE_IDENTIFY = [
   {
     id: 'all_options',
     label: 'All options screen',
-    events: ['identification_all_options_screen'],
+    events: ['identification_all_opts_screen', 'identification_all_options_screen'],
   },
   {
     id: 'option_chosen',
@@ -153,9 +147,14 @@ const BANKNOTE_IDENTIFY = [
     events: ['idetnification_option_chosen', 'identification_option_chosen'],
   },
   {
+    id: 'result_screen',
+    label: 'Identification result screen',
+    events: ['identification_details_screen'],
+  },
+  {
     id: 'details',
-    label: 'ID / banknote details',
-    events: ['identification_details_screen', 'banknote_details_identification'],
+    label: 'Banknote details after match',
+    events: ['banknote_details_identification'],
     core: true,
   },
   {
@@ -717,11 +716,54 @@ const COINZY_PAYWALL = [
   },
 ];
 
-const BANKNOTE_ONBOARDING_PAYWALL = [
+/** Banknote first-run screens. Slides share onboarding_screen_view (index is a param). */
+const BANKNOTE_ONBOARDING = [
   {
     id: 'onboarding',
-    label: 'Onboarding paywall shown',
-    events: ['Subs_page_onboarding'],
+    label: 'Onboarding started',
+    events: ['onboarding_started', 'onboarding_screen_view'],
+    core: true,
+  },
+  {
+    id: 'onboarding_next',
+    label: 'Onboarding next step',
+    events: ['onboarding_next_step'],
+  },
+  {
+    id: 'onboarding_back',
+    label: 'Onboarding back',
+    events: ['onboarding_back'],
+  },
+  {
+    id: 'onboarding_camera',
+    label: 'Camera opened from onboarding',
+    events: ['camera_opened'],
+  },
+  {
+    id: 'onboarding_feature',
+    label: 'Feature viewed from onboarding',
+    events: ['feature_viewed'],
+  },
+  {
+    id: 'onboarding_done',
+    label: 'Onboarding completed',
+    events: ['onboarding_completion', 'onboarding_completed'],
+    core: true,
+  },
+];
+
+/** Banknote has no Subs_page_onboarding — onboarding paywall logs Subs_page / subscription_shown. */
+const BANKNOTE_ONBOARDING_EVENTS = [
+  'onboarding_started',
+  'onboarding_screen_view',
+  'subscription_shown',
+];
+
+const BANKNOTE_ONBOARDING_PAYWALL = [
+  {
+    id: 'onboarding_subs',
+    label: 'Subscription shown from onboarding',
+    events: ['subscription_shown'],
     core: true,
   },
   {
@@ -759,6 +801,119 @@ const BANKNOTE_ONBOARDING_PAYWALL = [
     label: 'Purchase failed',
     events: ['Subs_fail', 'subs_fail'],
     isDrop: true,
+  },
+];
+
+/**
+ * Coinzy first-run value flow (all experiment suffixes unioned).
+ * Subscription screens stay on Funnels → Onboarding → subs.
+ */
+const COINZY_ONBOARDING = [
+  {
+    id: 'logo',
+    label: 'Onboarding started (logo)',
+    events: [
+      'onboarding_screen_0_value_flow',
+      'Onboarding_logo_animation',
+      'Onboarding_logo_animation_1',
+      'Onboarding_logo_animation_2',
+      'Onboarding_logo_animation_3',
+    ],
+    core: true,
+  },
+  {
+    id: 'value_1',
+    label: 'Value screen 1',
+    events: ['Onboarding_value_1', 'Onboarding_value_1_1', 'Onboarding_value_1_2', 'Onboarding_value_1_3'],
+    core: true,
+  },
+  {
+    id: 'value_2',
+    label: 'Value screen 2',
+    events: ['Onboarding_value_2', 'Onboarding_value_2_1', 'Onboarding_value_2_2', 'Onboarding_value_2_3'],
+    core: true,
+  },
+  {
+    id: 'value_3',
+    label: 'Value screen 3',
+    events: ['Onboarding_value_3', 'Onboarding_value_3_1', 'Onboarding_value_3_2', 'Onboarding_value_3_3'],
+    core: true,
+  },
+  {
+    id: 'value_4',
+    label: 'Value screen 4',
+    events: ['Onboarding_value_4', 'Onboarding_value_4_1', 'Onboarding_value_4_2', 'Onboarding_value_4_3'],
+    core: true,
+  },
+  {
+    id: 'value_5',
+    label: 'Value screen 5',
+    events: ['Onboarding_value_5', 'Onboarding_value_5_1', 'Onboarding_value_5_2', 'Onboarding_value_5_3'],
+    core: true,
+  },
+  {
+    id: 'login',
+    label: 'Onboarding login',
+    events: ['onboarding_login', 'onboarding_login_1', 'onboarding_login_1_2', 'onboarding_login_1_3'],
+    core: true,
+  },
+  {
+    id: 'notification',
+    label: 'Notification permission',
+    events: [
+      'onboarding_notification_permission',
+      'onboarding_notification_permission_1',
+      'onboarding_notification_permission_1_2',
+      'onboarding_notification_permission_1_3',
+    ],
+    core: true,
+  },
+  {
+    id: 'onboarding_camera',
+    label: 'Onboarding camera (camera variants)',
+    events: ['onboarding_camera_page_2', 'onboarding_camera_page_3'],
+  },
+  {
+    id: 'onboarding_photo_1',
+    label: 'Onboarding photo 1',
+    events: ['onboarding_photo_clicked_1_2', 'onboarding_photo_clicked_1_3'],
+  },
+  {
+    id: 'onboarding_photo_2',
+    label: 'Onboarding photo 2',
+    events: ['onboarding_photo_clicked_2_2', 'onboarding_photo_clicked_2_3'],
+  },
+  {
+    id: 'onboarding_top5',
+    label: 'Onboarding top 5 matches',
+    events: ['onboarding_top_5_matches_2', 'onboarding_top_5_matches_3'],
+  },
+  {
+    id: 'onboarding_details',
+    label: 'Onboarding details',
+    events: ['onboarding_details_page_2', 'onboarding_details_page_3'],
+  },
+  {
+    id: 'free_items',
+    label: 'Free items shown',
+    events: ['onboarding_free_items_1', 'onboarding_free_items_3'],
+  },
+  {
+    id: 'gifts',
+    label: 'Gifts page',
+    events: ['onboarding_gifts_page', 'onboarding_gifts_page_1', 'onboarding_gifts_page_2', 'onboarding_gifts_page_3'],
+  },
+  {
+    id: 'skip',
+    label: 'Skipped onboarding',
+    events: ['Onboarding_skipped'],
+    isDrop: true,
+  },
+  {
+    id: 'onboarding_done',
+    label: 'Onboarding completed',
+    events: ['Onboarding_complete'],
+    core: true,
   },
 ];
 
@@ -1056,6 +1211,11 @@ function withIdentifyEntry(steps, entryLabel, entryEvents, { core } = {}) {
   });
 }
 
+function dropSteps(steps, ids) {
+  const drop = new Set(ids);
+  return steps.filter((s) => !drop.has(s.id));
+}
+
 function setCore(steps, coreIds) {
   const set = new Set(coreIds);
   return steps.map((s) => {
@@ -1115,6 +1275,19 @@ function pickSteps(steps, ids, extraCoreIds = []) {
   ));
 }
 
+/** First core step = people who started a session that day (same events as DAU). */
+function withSessionStart(steps) {
+  return [
+    {
+      id: 'session',
+      label: 'Started a session',
+      events: [...DAU_EVENT_BASES],
+      core: true,
+    },
+    ...steps.filter((s) => s.id !== 'session' && s.id !== 'open_kpi'),
+  ];
+}
+
 /** Keep only these steps, then set core. Optional relabels. */
 function identifyFlow(steps, keepIds, coreIds, labels = {}) {
   let out = setCore(pickSteps(steps, keepIds), coreIds);
@@ -1129,23 +1302,23 @@ const BANKNOTE_CAMERA_IDS = new Set([
   'permission_popup', 'permission_granted', 'permission_denied',
   'photo_1', 'crop_1', 'crop_confirm_1',
   'photo_2', 'crop_2', 'crop_confirm_2',
-  'attempt', 'submit', 'quota_block', 'success', 'failure',
-  'top_matches', 'view_all', 'all_options', 'option_chosen', 'details', 'add_collection',
+  'submit', 'quota_block', 'success', 'failure',
+  'top_matches', 'view_all', 'all_options', 'option_chosen', 'result_screen', 'details', 'add_collection',
 ]);
 const BANKNOTE_CAMERA_CORE = [
-  'entry', 'camera', 'permission_popup', 'photo_1', 'photo_2',
-  'attempt', 'submit', 'success', 'top_matches', 'details', 'add_collection',
+  'photo_1', 'photo_2',
+  'submit', 'success', 'top_matches', 'details', 'add_collection',
 ];
 const BANKNOTE_GALLERY_IDS = new Set([
   'entry', 'camera',
   'photo_1', 'crop_1', 'crop_confirm_1',
   'photo_2', 'crop_2', 'crop_confirm_2',
-  'attempt', 'submit', 'quota_block', 'success', 'failure',
-  'top_matches', 'view_all', 'all_options', 'option_chosen', 'details', 'add_collection',
+  'submit', 'quota_block', 'success', 'failure',
+  'top_matches', 'view_all', 'all_options', 'option_chosen', 'result_screen', 'details', 'add_collection',
 ]);
 const BANKNOTE_GALLERY_CORE = [
-  'entry', 'camera', 'photo_1', 'photo_2',
-  'attempt', 'submit', 'success', 'top_matches', 'details', 'add_collection',
+  'photo_1', 'photo_2',
+  'submit', 'success', 'top_matches', 'details', 'add_collection',
 ];
 
 const COINZY_CAMERA_IDS = new Set([
@@ -1158,7 +1331,7 @@ const COINZY_CAMERA_IDS = new Set([
   'submit', 'attempt', 'quota_block', 'success', 'failure',
   'all_options', 'option_chosen', 'details',
 ]);
-const COINZY_CAMERA_CORE = ['camera', 'shutter', 'photos', 'submit', 'success', 'details'];
+const COINZY_CAMERA_CORE = ['shutter', 'photos', 'submit', 'success', 'details'];
 
 const COINZY_GALLERY_IDS = new Set([
   'camera',
@@ -1169,7 +1342,7 @@ const COINZY_GALLERY_IDS = new Set([
   'submit', 'attempt', 'quota_block', 'success', 'failure',
   'all_options', 'option_chosen', 'details',
 ]);
-const COINZY_GALLERY_CORE = ['camera', 'gallery', 'photos', 'submit', 'success', 'details'];
+const COINZY_GALLERY_CORE = ['gallery', 'photos', 'submit', 'success', 'details'];
 
 /** @type {Record<string, FunnelDef>} */
 export const FUNNELS = {
@@ -1185,34 +1358,62 @@ export const FUNNELS = {
   'identify-nav': {
     id: 'identify-nav',
     title: 'Scan funnel · bottom nav',
-    description: 'Coinzy: nav also fires from Home, so core starts at Camera. Banknote: bottom nav → camera → photos → submit → success.',
+    description: 'Only people who opened Identify from the bottom nav. Every later step is that group only. Coinzy excludes Identify_home because nav also fires from the Home CTA.',
     products: {
-      banknote: withIdentifyEntry(BANKNOTE_IDENTIFY, 'Bottom nav Identify', ['Identify_bottom_nav']),
-      coinzy: withIdentifyEntry(
-        COINZY_IDENTIFY,
-        'Bottom nav / camera open (also fires from Home CTA)',
+      banknote: withIdentifyEntry(
+        BANKNOTE_IDENTIFY,
+        'Bottom nav Identify',
         ['Identify_bottom_nav'],
+        { core: true },
       ),
+      coinzy: dropSteps(
+        withIdentifyEntry(
+          COINZY_IDENTIFY,
+          'Bottom nav Identify',
+          ['Identify_bottom_nav'],
+          { core: true },
+        ),
+        ['home_cta'],
+      ),
+    },
+    cohortEvents: {
+      banknote: ['Identify_bottom_nav'],
+      coinzy: ['Identify_bottom_nav'],
+    },
+    cohortExcludeEvents: {
+      coinzy: ['Identify_home'],
     },
   },
   'identify-home': {
     id: 'identify-home',
     title: 'Scan funnel · home / banner',
-    description: 'Home / banner Identify → camera → photos → submit → success → details',
+    description: 'Only people who opened Identify from the home / banner CTA. Every later step is that group only.',
     products: {
-      banknote: withIdentifyEntry(BANKNOTE_IDENTIFY, 'Home / banner Identify', ['Identify_home']),
-      coinzy: withIdentifyEntry(
-        COINZY_IDENTIFY,
+      banknote: withIdentifyEntry(
+        BANKNOTE_IDENTIFY,
         'Home / banner Identify',
         ['Identify_home'],
         { core: true },
       ),
+      coinzy: dropSteps(
+        withIdentifyEntry(
+          COINZY_IDENTIFY,
+          'Home / banner Identify',
+          ['Identify_home'],
+          { core: true },
+        ),
+        ['home_cta'],
+      ),
+    },
+    cohortEvents: {
+      banknote: ['Identify_home'],
+      coinzy: ['Identify_home'],
     },
   },
   'identify-camera': {
     id: 'identify-camera',
     title: 'Scan funnel · camera',
-    description: 'Shutter path only. Camera → permission → shutter → crop → submit → success. No gallery rows.',
+    description: 'Only people who used the shutter (Photo_clicked / photo_clicked_*). Every later step is that group only. No gallery rows.',
     products: {
       banknote: identifyFlow(
         banknotePhotoSource(BANKNOTE_IDENTIFY, { clickOnly: true }),
@@ -1235,7 +1436,7 @@ export const FUNNELS = {
   'identify-gallery': {
     id: 'identify-gallery',
     title: 'Scan funnel · gallery',
-    description: 'Gallery path only. No shutter or camera permission. Coinzy gallery tap is inferred (no event).',
+    description: 'Only people who used gallery (Banknote: photo_uploaded_*. Coinzy: crop/clicked and never Photo_clicked). Every later step is that group only.',
     products: {
       banknote: identifyFlow(
         banknotePhotoSource(BANKNOTE_IDENTIFY, { uploadOnly: true }),
@@ -1258,31 +1459,22 @@ export const FUNNELS = {
       coinzy: ['Photo_clicked'],
     },
   },
-  catalogue: {
-    id: 'catalogue',
-    title: 'Catalogue / Collection funnel',
-    description: 'Private collection + global catalogue browse paths',
-    products: {
-      banknote: BANKNOTE_CATALOGUE,
-      coinzy: COINZY_CATALOGUE,
-    },
-  },
   collection: {
     id: 'collection',
     title: 'Private collection funnel',
-    description: 'Bottom nav / collection screen → card → sub-collection → details',
+    description: 'Started a session → collection screen → card → sub-collection → details',
     products: {
-      banknote: pickSteps(BANKNOTE_CATALOGUE, COLLECTION_STEP_IDS, ['collection_tab']),
-      coinzy: pickSteps(COINZY_CATALOGUE, COLLECTION_STEP_IDS, ['collection_tab']),
+      banknote: withSessionStart(pickSteps(BANKNOTE_CATALOGUE, COLLECTION_STEP_IDS)),
+      coinzy: withSessionStart(pickSteps(COINZY_CATALOGUE, COLLECTION_STEP_IDS)),
     },
   },
   global: {
     id: 'global',
     title: 'Global catalogue funnel',
-    description: 'Global catalogue screen → item → details',
+    description: 'Started a session → global catalogue screen → item → details',
     products: {
-      banknote: pickSteps(BANKNOTE_CATALOGUE, GLOBAL_STEP_IDS),
-      coinzy: pickSteps(COINZY_CATALOGUE, GLOBAL_STEP_IDS),
+      banknote: withSessionStart(pickSteps(BANKNOTE_CATALOGUE, GLOBAL_STEP_IDS)),
+      coinzy: withSessionStart(pickSteps(COINZY_CATALOGUE, GLOBAL_STEP_IDS)),
     },
   },
   marketplace: {
@@ -1316,16 +1508,25 @@ export const FUNNELS = {
       coinzy: COINZY_PACK_MIX,
     },
   },
+  onboarding: {
+    id: 'onboarding',
+    title: 'Onboarding funnel',
+    description: 'First-run screens through completion. Banknote slides share onboarding_screen_view. Coinzy unions experiment suffixes. Subscription from this group is a separate tab.',
+    products: {
+      banknote: BANKNOTE_ONBOARDING,
+      coinzy: COINZY_ONBOARDING,
+    },
+  },
   'paywall-onboarding': {
     id: 'paywall-onboarding',
     title: 'Onboarding → subscription funnel',
-    description: 'People who saw onboarding, then pack / CTA / confirm. Confirm is only counted among that onboarding cohort.',
+    description: 'Pack / CTA / confirm among people who went through onboarding. Banknote has no Subs_page_onboarding — first step is subscription_shown.',
     products: {
       banknote: BANKNOTE_ONBOARDING_PAYWALL,
       coinzy: COINZY_ONBOARDING_PAYWALL,
     },
     cohortEvents: {
-      banknote: ['Subs_page_onboarding'],
+      banknote: BANKNOTE_ONBOARDING_EVENTS,
       coinzy: COINZY_ONBOARDING_EVENTS,
     },
     packMix: {

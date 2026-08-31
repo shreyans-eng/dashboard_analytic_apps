@@ -100,9 +100,11 @@ step_users AS (
   UNION ALL
   SELECT '10_success', 'Identification SUCCESS', 14,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'identification_done_success', 'Identification_done_success'
+      'identification_done_success', 'Identification_done_success', 'Identification_done'
     ) THEN resolved_user_id END),
-    COUNTIF(event_name_base IN ('identification_done_success', 'Identification_done_success'))
+    COUNTIF(event_name_base IN (
+      'identification_done_success', 'Identification_done_success', 'Identification_done'
+    ))
   FROM base
   UNION ALL
   SELECT '10b_failure', 'Identification FAILURE (drop)', 15,
@@ -133,16 +135,17 @@ step_users AS (
     ))
   FROM base
   UNION ALL
-  SELECT '14_details', 'ID details / banknote details after ID', 19,
-    COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'identification_details_screen', 'banknote_details_identification'
-    ) THEN resolved_user_id END),
-    COUNTIF(event_name_base IN (
-      'identification_details_screen', 'banknote_details_identification'
-    ))
+  SELECT '13b_result_screen', 'Identification result screen', 19,
+    COUNT(DISTINCT CASE WHEN event_name_base = 'identification_details_screen' THEN resolved_user_id END),
+    COUNTIF(event_name_base = 'identification_details_screen')
   FROM base
   UNION ALL
-  SELECT '15_add_collection', 'Added to collection after identify', 20,
+  SELECT '14_details', 'Banknote details after match', 20,
+    COUNT(DISTINCT CASE WHEN event_name_base = 'banknote_details_identification' THEN resolved_user_id END),
+    COUNTIF(event_name_base = 'banknote_details_identification')
+  FROM base
+  UNION ALL
+  SELECT '15_add_collection', 'Added to collection after identify', 21,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Added_to_collection_identified', 'Added_to_collection_owned'
     ) THEN resolved_user_id END),

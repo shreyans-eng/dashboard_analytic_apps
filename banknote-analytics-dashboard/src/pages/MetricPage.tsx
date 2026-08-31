@@ -559,7 +559,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'paywall_to_confirm_rate',
     color: '#a78bfa',
     percent: true,
-    guide: 'Counts views and confirms (not unique people). Standard and discount screens are included. For unique people, pack mix, Google Play sheet, and onboarding → subscription, open Funnels → Paywall and Funnels → Onboarding → subs.',
+    guide: 'Counts views and confirms (not unique people). Standard and discount screens are included. For unique people and pack mix open Funnels → Paywall. First-run screens are Funnels → Onboarding. Purchase from that group is Funnels → Onboarding → subs.',
   },
   'mvp-retention': {
     id: 'mvp-retention',
@@ -654,7 +654,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'private_collection_open_rate',
     color: '#34d399',
     percent: true,
-    guide: 'Private collection = Collection_screen / collection nav. Global catalogue is the second chart. For step drop-off, use Funnels → Private collection or Global catalogue — not Catalogue (all).',
+    guide: 'Private collection = Collection_screen / collection nav. Global catalogue is the second chart. For step drop-off, use Funnels → Private collection or Global catalogue (each starts with people who started a session).',
     extraCharts: [
       {
         title: 'Share who opened global catalogue',

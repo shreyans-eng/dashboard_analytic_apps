@@ -2,6 +2,8 @@
 
 Simple map: **sidebar tab → Firebase events the query counts**.
 
+Live catalog in the dashboard: **Funnels → Event catalog** (`/events-catalog`) — every mapped event per app, with CSV download. Event inventory is live BigQuery hit counts.
+
 Companion: [QUERIES-BY-TAB.md](./QUERIES-BY-TAB.md) (which SQL file). Architecture: [PROJECT.md](./PROJECT.md).
 
 `_android` / `_ios` is stripped before matching. Typos in names are real (`identiifcation_limit_exceeded`, `market_item_expolre`). PascalCase aliases that never fire are omitted.
@@ -64,7 +66,9 @@ Same daily signals as the 10 MVP KPIs below (one query per app). Health report a
 
 **Funnels → Paywall** (unique people): shown → pack click → CTA (`subs_button`) → Banknote `subs_native` (Google sheet) → confirm. Pack mix table = unique people per `pack_name` × discounted / non-discounted.
 
-**Funnels → Onboarding → subs**: only people who saw onboarding. Coinzy pages `subs_page_onboarding_1/2/3` + `Subs_page_onboarding`; skip is a drop. Confirm is subscription taken from that group.
+**Funnels → Onboarding**: first-run screens through completion. Banknote: `onboarding_started` / `onboarding_screen_view` → `onboarding_completion`. Coinzy: logo → value 1–5 → login → notification → `Onboarding_complete` (experiment suffixes unioned).
+
+**Funnels → Onboarding → subs**: only people who went through onboarding. Banknote has no `Subs_page_onboarding` — first step is `subscription_shown`. Coinzy pages `subs_page_onboarding_1/2/3` + `Subs_page_onboarding`; skip is a drop. Confirm is subscription taken from that group.
 
 | | Banknote | Coinzy |
 |--|----------|--------|
@@ -104,7 +108,7 @@ The **step path** is Funnels → Identify, not this KPI and not tab 3 (quality).
 | Private collection | `Collection_screen` · `private_collection_bottom_nav` | `Collection_screen` · `collection_bottom_nav` |
 | Global catalogue | `Global_catalogue_screen` | same |
 
-Step drop-off: Funnels → Private collection / Global catalogue.
+Step drop-off: Funnels → Private collection / Global catalogue. Each funnel starts with people who started a session. There is no mixed Catalogue (all) tab.
 
 ### 10. Marketplace
 
@@ -126,30 +130,31 @@ Each **row** = distinct users who fired that step’s events (not ordered sessio
 
 #### Banknote
 
-Entry differs by tab: all = nav ∪ home; nav-only; home-only. **Scan · camera** is a different step list: permission + `photo_clicked_*` only (no upload rows). **Scan · gallery** is upload-only (`photo_uploaded_*`) and **drops permission**. Combined Identify still unions both sources.
+Entry differs by tab, and **later steps are filtered to that cohort** (not just a different first row): all = everyone; nav-only = `Identify_bottom_nav`; home-only = `Identify_home`. **Scan · camera** only counts people who used `photo_clicked_*`. **Scan · gallery** only counts `photo_uploaded_*`. Combined Identify still unions both sources.
 
 | Step | Core? | Events |
 |------|-------|--------|
 | Identify entry | yes | `Identify_bottom_nav` ∪ `Identify_home` |
 | Camera | yes | `Identification_screen` · `photo_screen` |
-| Permission | yes | `identification_camera_permission_popup` / `Camera_permission_popup` |
+| Permission | yes | `Camera_permission_popup` |
 | First image | yes | `photo_clicked_1` ∪ `photo_uploaded_1` |
 | Second image | yes | `photo_clicked_2` ∪ `photo_uploaded_2` |
 | Crop | no | `photo_cropping_screen_1` / `_2` · `photo_crop_tick_1` / `_2` |
-| Scan attempted | yes | `Identification_attempted` ∪ `Identification_done` |
 | Submit | yes | `photo_submit_button` · `photos_submitted` |
 | Quota | no (drop) | `identiifcation_limit_exceeded` |
-| Success | yes | `identification_done_success` |
+| Success | yes | `identification_done_success` ∪ `Identification_done` |
 | Failure | no (drop) | `identification_done_failure` |
 | Top 5 / results | yes | `identification_top5_matches` |
-| Details | yes | `identification_details_screen` · `banknote_details_identification` |
+| Result screen | no | `identification_details_screen` (fires on result UI, near success) |
+| All options | no | `identification_all_opts_screen` (GA4 40-char name; old `identification_all_options_screen` kept as alias) |
+| Details after match | yes | `banknote_details_identification` |
 | Add to collection | yes | `Added_to_collection_identified` · `Added_to_collection_owned` |
 
 #### Coinzy
 
 Real funnel: **Camera → Photos → Submit → ID success → Details.**
 
-`Identify_bottom_nav` also fires when camera opens from Home — it is **not** the first core step (Identify all / nav tabs). Home / banner tab may start at `Identify_home`. After camera, **shutter ∥ gallery** are parallel — **Scan · camera** and **Scan · gallery** are different step lists, not the same funnel filtered. Camera tab: camera → shutter → after crop (plus permission). Gallery tab: camera → inferred gallery → after crop (**no shutter, no permission**). `Photo_clicked` is shutter only; gallery tap has **no event**, so gallery-only = crop/clicked minus shutter. Paths **merge** at `photo_clicked_1/2` on Identify (all). Crop is **0-based**; auto-crop skips `photo_crop_tick_*`. `Identification_attempted` is API start, not a submit conversion. `Identification_done` is success (union with `identification_done_success`), not submit. Quota, Learn more (`idetnification_option_chosen`), owned / sub-collection are **side rows**. **Add-to-collection cannot be measured** — no live Firebase success event (`Added_to_collection_identified` is commented out in the app). Until a dedicated gallery tap event exists, gallery open → pick → crop cannot be measured as its own conversion.
+`Identify_bottom_nav` also fires when camera opens from Home — it is **not** the first core step on Identify (all). **Scan · bottom nav** is the nav cohort (`Identify_bottom_nav` minus `Identify_home`). **Scan · home / banner** is only `Identify_home` users — later steps are that group, not all camera users. After camera, **shutter ∥ gallery** are parallel — **Scan · camera** only counts `Photo_clicked` people (core starts at shutter). **Scan · gallery** only counts crop/clicked minus shutter (core starts at inferred gallery). `Photo_clicked` is shutter only; gallery tap has **no event**. Paths **merge** at `photo_clicked_1/2` on Identify (all). Crop is **0-based**; auto-crop skips `photo_crop_tick_*`. `Identification_attempted` is API start, not a submit conversion. `Identification_done` is success (union with `identification_done_success`), not submit. Quota, Learn more (`idetnification_option_chosen`), owned / sub-collection are **side rows**. **Add-to-collection cannot be measured** — no live Firebase success event (`Added_to_collection_identified` is commented out in the app). Until a dedicated gallery tap event exists, gallery open → pick → crop cannot be measured as its own conversion.
 
 | Step | Core? | Events |
 |------|-------|--------|
@@ -170,9 +175,12 @@ Real funnel: **Camera → Photos → Submit → ID success → Details.**
 
 ### Private collection
 
+First step is always people who started a session (`session_start` · `App_open` · `first_open`). Collection and catalogue are separate tabs.
+
 | Step | Banknote | Coinzy |
 |------|----------|--------|
-| Nav | `private_collection_bottom_nav` | `collection_bottom_nav` |
+| Started a session | `session_start` · `App_open` · `first_open` | same |
+| Nav (side) | `private_collection_bottom_nav` | `collection_bottom_nav` |
 | Screen | `Collection_screen` | same |
 | Card | `Collection_clicked` | same |
 | Sub-collection | `Sub_collection_Screen` | same |
@@ -180,11 +188,15 @@ Real funnel: **Camera → Photos → Submit → ID success → Details.**
 
 ### Global catalogue
 
-`Global_catalogue` → `Global_catalogue_screen` → `global_catalogue_item` → `banknote_details_global` / `Coin_details_global`
+First step is always people who started a session. Not mixed with private collection.
 
-### Catalogue (all)
-
-Private collection **plus** global catalogue (both paths on one page).
+| Step | Banknote | Coinzy |
+|------|----------|--------|
+| Started a session | `session_start` · `App_open` · `first_open` | same |
+| CTA (side) | `Global_catalogue` · `View_all_button_global` | `Global_catalogue` |
+| Screen | `Global_catalogue_screen` | same |
+| Item | `global_catalogue_item` | same |
+| Details | `banknote_details_global` | `Coin_details_global` |
 
 ### Marketplace (funnel)
 
@@ -206,15 +218,29 @@ In-app only (not onboarding). Unique **users**. Pack mix = people per pack name.
 | Native | `subs_native` | — |
 | Confirm | `Subs_confirm` | `subs_confirm` · `subs_confirm_discount` · `paid_purchase` · `trial_purchase` |
 
-### Onboarding → subscription (funnel)
+### Onboarding (funnel)
 
-Cohort = people who saw onboarding. Later steps (pack / CTA / confirm) only count that group.
+First-run screens through completion. Subscription from this group is **Funnels → Onboarding → subs**.
 
 | Step | Banknote | Coinzy |
 |------|----------|--------|
-| Onboarding | `Subs_page_onboarding` | `Subs_page_onboarding` ∪ `subs_page_onboarding_1/2/3` |
+| Started | `onboarding_started` ∪ `onboarding_screen_view` | `Onboarding_logo_animation` ∪ `_1/_2/_3` |
+| Values / next | `onboarding_next_step` (side; slides share one event) | `Onboarding_value_1` … `_5` (suffixes unioned) |
+| Login / permission | — | `onboarding_login*` → `onboarding_notification_permission*` |
+| Completed | `onboarding_completion` ∪ `onboarding_completed` | `Onboarding_complete` |
+| Skip | — | `Onboarding_skipped` |
+
+### Onboarding → subscription (funnel)
+
+Cohort = people who went through onboarding. Later steps (pack / CTA / confirm) only count that group.
+
+| Step | Banknote | Coinzy |
+|------|----------|--------|
+| Shown | `subscription_shown` | `Subs_page_onboarding` ∪ `subs_page_onboarding_1/2/3` |
 | Skip | — | `Subs_page_onboarding_skip` |
 | Then | pack → `subs_button` → `subs_native` → `Subs_confirm` | pack → `subs_button` → confirm |
+
+Banknote has no `Subs_page_onboarding` event. In-app paywall still uses `Subs_page`.
 
 MVP 5 = **event counts**. Funnels = unique people. They will not match.
 
@@ -257,6 +283,7 @@ Whatever event you pick. Hits + unique users. Use this to check an event actuall
 |---------------|------------|
 | Identify “open” | Nav ∪ home — **not** `Identification_screen` |
 | Marketplace KPI | Market screen / nav / listing — **not** Feed |
+| Collection vs catalogue | Separate funnels. Each starts with session (`session_start` · `App_open` · `first_open`). There is no mixed Catalogue (all) tab |
 | Scan quota (MVP 4) | Mixed limit events — **not** `Collection_limit_Reached` |
 | Free-scan success quota | Coinzy experiment: **only** `free_scan_success_quota_exhausted`. Not `free_scan_success_consumed`, not `Identified_limit_reached` |
 | Coinzy confirm | `subs_confirm` — **not** Banknote’s `Subs_confirm` |

@@ -16,6 +16,7 @@ import {
   buildEventDailySql,
   buildEventParamsSql,
 } from './funnel-registry.js';
+import { listEventCatalog } from './event-catalog.js';
 import { daysAgo, today } from './sql-utils.js';
 import { cacheKey, cached } from '../../cache/index.js';
 import { runQuery } from './bigquery-client.js';
@@ -648,6 +649,10 @@ export class ProductAnalyticsFacade {
     return listFunnels();
   }
 
+  listEventCatalog() {
+    return listEventCatalog();
+  }
+
   async getFunnel(funnelId, params = {}) {
     const product = this.resolveProduct(params);
     if (product === 'compare') {
@@ -691,7 +696,7 @@ export class ProductAnalyticsFacade {
         endDate: end,
       })
       : null;
-    const key = cacheKey(`${product}:funnel:v19:${funnelId}`, { start, end });
+    const key = cacheKey(`${product}:funnel:v23:${funnelId}`, { start, end });
 
     return cached('funnel', key, async () => {
       const [funnelResult, packResult] = await Promise.all([

@@ -11,6 +11,7 @@ import {
   fetchFunnel,
   fetchEventInventory,
   fetchEventDetail,
+  fetchEventCatalog,
   QueryParams,
 } from '@/lib/api';
 import { queryKey, STALE_TIME, REFETCH_INTERVAL_INTRADAY } from '@/lib/query-client';
@@ -121,7 +122,7 @@ export function useFunnel(funnelId: string, params: QueryParams, enabled = true)
   const { productId } = useProduct();
   const p = withProduct(params, productId);
   return useQuery({
-    queryKey: queryKey(`funnel:${funnelId}:v13`, p),
+    queryKey: queryKey(`funnel:${funnelId}:v17`, p),
     queryFn: () => fetchFunnel(funnelId, p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && productId !== 'compare',
@@ -154,7 +155,7 @@ export function useScopedFunnel(
 ) {
   const p = withProduct(params, productId || '');
   return useQuery({
-    queryKey: queryKey(`funnel:${funnelId}:v13`, p),
+    queryKey: queryKey(`funnel:${funnelId}:v17`, p),
     queryFn: () => fetchFunnel(funnelId, p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && Boolean(productId) && productId !== 'compare',
@@ -168,6 +169,16 @@ export function useScopedKpi(params: QueryParams, productId: string | undefined,
     queryFn: () => fetchKpi(p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && Boolean(productId) && productId !== 'compare',
+  });
+}
+
+export function useEventCatalog() {
+  const { authenticated, loading } = useAuth();
+  return useQuery({
+    queryKey: ['event-catalog'],
+    queryFn: fetchEventCatalog,
+    staleTime: STALE_TIME.STATUS,
+    enabled: authenticated && !loading,
   });
 }
 

@@ -10,18 +10,46 @@ test('identify funnels exist for bottom nav, home/banner, camera, gallery, and c
   assert.ok(FUNNELS['identify-gallery']);
 });
 
-test('nav funnel entry is Identify_bottom_nav only', () => {
-  const { steps, status } = getFunnelSteps('identify-nav', 'banknote');
-  assert.equal(status, 'ok');
-  const entry = steps.find((s) => s.id === 'entry');
-  assert.deepEqual(entry.events, ['Identify_bottom_nav']);
-});
+test('nav and home funnels restrict every step to that entry cohort', () => {
+  const navBn = getFunnelSteps('identify-nav', 'banknote');
+  const navCz = getFunnelSteps('identify-nav', 'coinzy');
+  const homeBn = getFunnelSteps('identify-home', 'banknote');
+  const homeCz = getFunnelSteps('identify-home', 'coinzy');
 
-test('home/banner funnel entry is Identify_home only', () => {
-  const { steps, status } = getFunnelSteps('identify-home', 'coinzy');
-  assert.equal(status, 'ok');
-  const entry = steps.find((s) => s.id === 'entry');
-  assert.deepEqual(entry.events, ['Identify_home']);
+  assert.deepEqual(navBn.cohortEvents, ['Identify_bottom_nav']);
+  assert.deepEqual(navCz.cohortEvents, ['Identify_bottom_nav']);
+  assert.deepEqual(navCz.cohortExcludeEvents, ['Identify_home']);
+  assert.equal(navBn.cohortExcludeEvents.length, 0);
+  assert.deepEqual(homeBn.cohortEvents, ['Identify_home']);
+  assert.deepEqual(homeCz.cohortEvents, ['Identify_home']);
+  assert.equal(homeCz.cohortExcludeEvents.length, 0);
+
+  assert.deepEqual(navBn.steps.find((s) => s.id === 'entry').events, ['Identify_bottom_nav']);
+  assert.equal(navBn.steps.find((s) => s.id === 'entry').core, true);
+  assert.deepEqual(navCz.steps.find((s) => s.id === 'entry').events, ['Identify_bottom_nav']);
+  assert.equal(navCz.steps.find((s) => s.id === 'entry').core, true);
+  assert.equal(navCz.steps.find((s) => s.id === 'home_cta'), undefined);
+
+  assert.deepEqual(homeBn.steps.find((s) => s.id === 'entry').events, ['Identify_home']);
+  assert.equal(homeBn.steps.find((s) => s.id === 'entry').core, true);
+  assert.deepEqual(homeCz.steps.find((s) => s.id === 'entry').events, ['Identify_home']);
+  assert.equal(homeCz.steps.find((s) => s.id === 'entry').core, true);
+  assert.equal(homeCz.steps.find((s) => s.id === 'home_cta'), undefined);
+  assert.equal(homeCz.steps.filter((s) => s.core)[0].id, 'entry');
+
+  const navSql = buildFunnelSql('p', 'd', navCz.steps, '2026-08-01', '2026-08-25', {
+    cohortEvents: navCz.cohortEvents,
+    cohortExcludeEvents: navCz.cohortExcludeEvents,
+  });
+  assert.match(navSql, /AND cohort_hits > 0/);
+  assert.match(navSql, /AND cohort_excl = 0/);
+  assert.match(navSql, /Identify_home/);
+
+  const homeSql = buildFunnelSql('p', 'd', homeCz.steps, '2026-08-01', '2026-08-25', {
+    cohortEvents: homeCz.cohortEvents,
+  });
+  assert.match(homeSql, /AND cohort_hits > 0/);
+  assert.match(homeSql, /Identify_home/);
 });
 
 test('first and second image are separate core steps', () => {
@@ -66,6 +94,14 @@ test('Banknote post-ID uses top5 / view-all / Added_to_collection events', () =>
   assert.deepEqual(steps.find((s) => s.id === 'top_matches').events, ['identification_top5_matches']);
   assert.ok(steps.some((s) => s.id === 'view_all' && s.events.includes('identification_view_all')));
   assert.ok(steps.find((s) => s.id === 'add_collection').events.includes('Added_to_collection_identified'));
+  assert.ok(steps.find((s) => s.id === 'all_options').events.includes('identification_all_opts_screen'));
+  assert.deepEqual(steps.find((s) => s.id === 'details').events, ['banknote_details_identification']);
+  assert.equal(steps.find((s) => s.id === 'details').core, true);
+  assert.deepEqual(steps.find((s) => s.id === 'result_screen').events, ['identification_details_screen']);
+  assert.equal(steps.find((s) => s.id === 'result_screen').core, undefined);
+  assert.ok(steps.find((s) => s.id === 'success').events.includes('Identification_done'));
+  assert.ok(steps.find((s) => s.id === 'success').events.includes('identification_done_success'));
+  assert.equal(steps.find((s) => s.id === 'attempt'), undefined);
 });
 
 test('Coinzy Identify core is Camera → Photos → Submit → Success → Details', () => {
@@ -104,7 +140,7 @@ test('Coinzy camera and gallery tabs use different step lists', () => {
   assert.deepEqual(camera.cohortExcludeEvents, []);
   assert.deepEqual(
     camera.steps.filter((s) => s.core).map((s) => s.id),
-    ['camera', 'shutter', 'photos', 'submit', 'success', 'details'],
+    ['shutter', 'photos', 'submit', 'success', 'details'],
   );
   assert.ok(cameraIds.includes('shutter'));
   assert.ok(cameraIds.includes('permission_popup'));
@@ -116,7 +152,7 @@ test('Coinzy camera and gallery tabs use different step lists', () => {
   assert.deepEqual(gallery.cohortExcludeEvents, ['Photo_clicked']);
   assert.deepEqual(
     gallery.steps.filter((s) => s.core).map((s) => s.id),
-    ['camera', 'gallery', 'photos', 'submit', 'success', 'details'],
+    ['gallery', 'photos', 'submit', 'success', 'details'],
   );
   assert.ok(galleryIds.includes('gallery'));
   assert.equal(gallery.steps.find((s) => s.id === 'shutter'), undefined);
@@ -144,27 +180,47 @@ test('Banknote camera vs gallery tabs are different flows, not the same list fil
   assert.ok(camera.cohortEvents.includes('photo_clicked_1'));
   assert.ok(gallery.cohortEvents.includes('photo_uploaded_1'));
   assert.equal(gallery.cohortExcludeEvents.length, 0);
+  assert.equal(camera.steps.filter((s) => s.core)[0].id, 'photo_1');
+  assert.equal(gallery.steps.filter((s) => s.core)[0].id, 'photo_1');
+  assert.equal(camera.steps.find((s) => s.id === 'attempt'), undefined);
+  assert.equal(gallery.steps.find((s) => s.id === 'attempt'), undefined);
+  assert.ok(camera.steps.find((s) => s.id === 'success').events.includes('Identification_done'));
+  assert.deepEqual(camera.steps.find((s) => s.id === 'details').events, ['banknote_details_identification']);
 });
 
-test('Coinzy identify-nav does not treat polluted nav as the start; home CTA can', () => {
-  const nav = getFunnelSteps('identify-nav', 'coinzy').steps;
-  const home = getFunnelSteps('identify-home', 'coinzy').steps;
-  assert.deepEqual(nav.find((s) => s.id === 'entry').events, ['Identify_bottom_nav']);
-  assert.equal(nav.find((s) => s.id === 'entry').core, undefined);
-  assert.deepEqual(home.find((s) => s.id === 'entry').events, ['Identify_home']);
-  assert.equal(home.find((s) => s.id === 'entry').core, true);
+test('Coinzy nav cohort excludes Home CTA; home cohort is Identify_home', () => {
+  const nav = getFunnelSteps('identify-nav', 'coinzy');
+  const home = getFunnelSteps('identify-home', 'coinzy');
+  assert.deepEqual(nav.steps.find((s) => s.id === 'entry').events, ['Identify_bottom_nav']);
+  assert.equal(nav.steps.find((s) => s.id === 'entry').core, true);
+  assert.deepEqual(nav.cohortExcludeEvents, ['Identify_home']);
+  assert.deepEqual(home.steps.find((s) => s.id === 'entry').events, ['Identify_home']);
+  assert.equal(home.steps.find((s) => s.id === 'entry').core, true);
+  assert.deepEqual(home.cohortEvents, ['Identify_home']);
 });
 
-test('collection and global catalogue are separate funnels', () => {
+test('mixed catalogue funnel is removed; collection and catalogue start at session', () => {
+  assert.equal(FUNNELS.catalogue, undefined);
   const collection = getFunnelSteps('collection', 'banknote');
   const global = getFunnelSteps('global', 'coinzy');
   assert.equal(collection.status, 'ok');
   assert.equal(global.status, 'ok');
+  const collectionCore = collection.steps.filter((s) => s.core).map((s) => s.id);
+  const globalCore = global.steps.filter((s) => s.core).map((s) => s.id);
+  assert.equal(collectionCore[0], 'session');
+  assert.equal(globalCore[0], 'session');
+  assert.deepEqual(collection.steps.find((s) => s.id === 'session').events, [
+    'session_start', 'App_open', 'first_open',
+  ]);
+  assert.deepEqual(global.steps.find((s) => s.id === 'session').events, [
+    'session_start', 'App_open', 'first_open',
+  ]);
   assert.ok(collection.steps.some((s) => s.id === 'collection_screen'));
   assert.equal(collection.steps.find((s) => s.id === 'global_screen'), undefined);
   assert.ok(global.steps.some((s) => s.id === 'global_screen'));
   assert.equal(global.steps.find((s) => s.id === 'collection_screen'), undefined);
-  assert.equal(collection.steps.find((s) => s.id === 'collection_tab').core, true);
+  assert.equal(collection.steps.find((s) => s.id === 'open_kpi'), undefined);
+  assert.equal(global.steps.find((s) => s.id === 'open_kpi'), undefined);
 });
 
 test('marketplace funnel excludes feed, feed funnel excludes marketplace', () => {
@@ -185,7 +241,7 @@ test('crop is per image and sits after that image, not after both', () => {
   const ids = (steps) => steps.filter((s) => s.core).map((s) => s.id);
   assert.deepEqual(
     ids(banknote).slice(ids(banknote).indexOf('photo_1'), ids(banknote).indexOf('submit') + 1),
-    ['photo_1', 'photo_2', 'attempt', 'submit'],
+    ['photo_1', 'photo_2', 'submit'],
   );
   assert.deepEqual(
     ids(coinzy).slice(ids(coinzy).indexOf('photos'), ids(coinzy).indexOf('submit') + 1),
@@ -274,6 +330,55 @@ test('onboarding funnel restricts later steps to people who saw onboarding', () 
   assert.match(sql, /AND cohort_hits > 0/);
   const core = coinzy.steps.filter((s) => s.core).map((s) => s.id);
   assert.deepEqual(core, ['onboarding', 'pack', 'button', 'confirm']);
+});
+
+test('Banknote onboarding tab is first-run screens, not pack / confirm', () => {
+  const { steps } = getFunnelSteps('onboarding', 'banknote');
+  assert.deepEqual(steps.find((s) => s.id === 'onboarding').events, [
+    'onboarding_started',
+    'onboarding_screen_view',
+  ]);
+  assert.ok(steps.find((s) => s.id === 'onboarding_done').events.includes('onboarding_completion'));
+  assert.ok(steps.find((s) => s.id === 'onboarding_next').events.includes('onboarding_next_step'));
+  assert.equal(steps.find((s) => s.id === 'pack'), undefined);
+  assert.equal(steps.find((s) => s.id === 'confirm'), undefined);
+  assert.ok(!steps.flatMap((s) => s.events).includes('Subs_page_onboarding'));
+  assert.deepEqual(
+    steps.filter((s) => s.core).map((s) => s.id),
+    ['onboarding', 'onboarding_done'],
+  );
+});
+
+test('Coinzy onboarding tab is logo → values → login → complete', () => {
+  const { steps } = getFunnelSteps('onboarding', 'coinzy');
+  assert.ok(steps.find((s) => s.id === 'logo').events.includes('Onboarding_logo_animation'));
+  assert.ok(steps.find((s) => s.id === 'value_1').events.includes('Onboarding_value_1_3'));
+  assert.ok(steps.find((s) => s.id === 'login').events.includes('onboarding_login_1_2'));
+  assert.deepEqual(steps.find((s) => s.id === 'onboarding_done').events, ['Onboarding_complete']);
+  assert.deepEqual(steps.find((s) => s.id === 'skip').events, ['Onboarding_skipped']);
+  assert.equal(steps.find((s) => s.id === 'pack'), undefined);
+  assert.ok(!steps.flatMap((s) => s.events).includes('Subs_page_onboarding'));
+  assert.deepEqual(
+    steps.filter((s) => s.core).map((s) => s.id),
+    ['logo', 'value_1', 'value_2', 'value_3', 'value_4', 'value_5', 'login', 'notification', 'onboarding_done'],
+  );
+});
+
+test('Banknote onboarding → subs uses subscription_shown, not Subs_page_onboarding', () => {
+  const { steps, cohortEvents } = getFunnelSteps('paywall-onboarding', 'banknote');
+  assert.deepEqual(cohortEvents, [
+    'onboarding_started',
+    'onboarding_screen_view',
+    'subscription_shown',
+  ]);
+  assert.ok(!cohortEvents.includes('Subs_page_onboarding'));
+  assert.deepEqual(steps.find((s) => s.id === 'onboarding_subs').events, ['subscription_shown']);
+  assert.equal(steps.find((s) => s.id === 'onboarding_done'), undefined);
+  assert.ok(!steps.flatMap((s) => s.events).includes('Subs_page_onboarding'));
+  assert.deepEqual(
+    steps.filter((s) => s.core).map((s) => s.id),
+    ['onboarding_subs', 'pack', 'button', 'native', 'confirm'],
+  );
 });
 
 test('pack mix SQL groups unique people by pack_name and discount type', () => {

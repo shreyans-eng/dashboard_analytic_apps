@@ -29,7 +29,7 @@ const AREAS = [
     icon: Users,
     to: '/mvp/dau',
     why: 'Top of funnel. Marketing and store listing must bring users who can reach Identify.',
-    metrics: 'DAU · Installs / first_open · Attribution (utm) · Onboarding completion',
+    metrics: 'DAU · Installs / first_open · Attribution (utm) · Funnels → Onboarding',
   },
   {
     id: 'user-mix',
@@ -83,7 +83,7 @@ const AREAS = [
     icon: BookOpen,
     to: '/funnels/global',
     why: 'World / global catalogue opens and item details — browse beyond owned items.',
-    metrics: 'Global screen · Item tap · Details',
+    metrics: 'Session → Global screen · Item tap · Details',
   },
   {
     id: 'collection',
@@ -92,7 +92,7 @@ const AREAS = [
     icon: Layers,
     to: '/funnels/collection',
     why: 'Owned collection screen, cards, sub-collections, and details.',
-    metrics: 'Collection screen · Card · Sub-collection · Details',
+    metrics: 'Session → Collection screen · Card · Sub-collection · Details',
   },
   {
     id: 'marketplace',

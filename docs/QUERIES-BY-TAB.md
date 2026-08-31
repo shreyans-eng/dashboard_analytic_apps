@@ -148,22 +148,26 @@ This tab is the **rate chart**. Step drop-off is the Identify **funnel** pages, 
 | Tab | Funnel id | Event lists live in |
 |-----|-----------|---------------------|
 | Identify (all) | `identify` | `FUNNELS.identify` |
-| Scan · bottom nav | `identify-nav` | same steps; entry = `Identify_bottom_nav` |
-| Scan · home / banner | `identify-home` | same steps; entry = `Identify_home` |
-| Scan · camera | `identify-camera` | shutter cohort (`Photo_clicked` / `photo_clicked_*`) |
-| Scan · gallery | `identify-gallery` | gallery cohort; Coinzy excludes `Photo_clicked` |
-| Catalogue (all) | `catalogue` | `BANKNOTE_CATALOGUE` / `COINZY_CATALOGUE` |
-| Private collection | `collection` | subset of catalogue |
-| Global catalogue | `global` | subset of catalogue |
+| Scan · bottom nav | `identify-nav` | cohort = `Identify_bottom_nav` (Coinzy minus `Identify_home`) |
+| Scan · home / banner | `identify-home` | cohort = `Identify_home` |
+| Scan · camera | `identify-camera` | cohort = shutter (`Photo_clicked` / `photo_clicked_*`) |
+| Scan · gallery | `identify-gallery` | cohort = gallery; Coinzy excludes `Photo_clicked` |
+| Private collection | `collection` | session start, then collection steps only |
+| Global catalogue | `global` | session start, then catalogue steps only |
 | Marketplace | `marketplace` | market steps only (no Feed) |
 | Feed | `feed` | feed steps only |
 | Paywall | `paywall` | `BANKNOTE_PAYWALL` / `COINZY_PAYWALL` + pack mix (`pack_name`) |
+| Onboarding | `onboarding` | first-run screens through completion |
 | Onboarding → subs | `paywall-onboarding` | onboarding cohort, then pack / CTA / confirm |
 | Expert evaluation | `expert` | `COINZY_EXPERT` (Coinzy only) |
 
 Copies under `dashboard/product/{app}/*_funnel_steps.sql` and `*_event_volume.sql` are for the **SQL Editor** only. The live funnel tabs do not run them.
 
 ---
+
+## Event catalog
+
+Static list from `event-catalog.js` (funnel-registry + DAU / KPI extras). No BigQuery. Dashboard tab **Event catalog**. CSV download is client-side.
 
 ## Event inventory
 

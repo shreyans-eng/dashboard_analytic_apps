@@ -18,7 +18,7 @@ import { useProduct } from '@/lib/product';
 import { useTheme } from '@/lib/theme';
 
 interface Props {
-  funnelId: 'identify' | 'identify-nav' | 'identify-home' | 'identify-camera' | 'identify-gallery' | 'catalogue' | 'collection' | 'global' | 'marketplace' | 'feed' | 'paywall' | 'paywall-onboarding' | 'expert';
+  funnelId: 'identify' | 'identify-nav' | 'identify-home' | 'identify-camera' | 'identify-gallery' | 'collection' | 'global' | 'marketplace' | 'feed' | 'paywall' | 'onboarding' | 'paywall-onboarding' | 'expert';
   params: QueryParams;
   setParams: (p: QueryParams) => void;
   applyFilters: () => void;
@@ -30,12 +30,12 @@ const PATH_STARTS: Record<Props['funnelId'], string[]> = {
   'identify-home': [],
   'identify-camera': [],
   'identify-gallery': [],
-  catalogue: ['global_cta', 'global_screen', 'open_kpi'],
   collection: [],
   global: [],
   marketplace: [],
   feed: [],
   paywall: [],
+  onboarding: [],
   'paywall-onboarding': [],
   expert: ['buy_credits'],
 };
@@ -70,6 +70,16 @@ const PATH_TITLES: Record<string, string> = {
   button: 'Paywall',
   native: 'Paywall',
   onboarding: 'Onboarding',
+  onboarding_done: 'Onboarding',
+  onboarding_subs: 'Paywall',
+  logo: 'Onboarding',
+  value_1: 'Onboarding',
+  value_2: 'Onboarding',
+  value_3: 'Onboarding',
+  value_4: 'Onboarding',
+  value_5: 'Onboarding',
+  login: 'Onboarding',
+  notification: 'Onboarding',
   landing: 'Book an evaluation',
   buy_credits: 'Buy credits',
 };
@@ -77,35 +87,31 @@ const PATH_TITLES: Record<string, string> = {
 const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }> = {
   identify: {
     question: 'Of everyone who starts a scan, how many get a successful ID — and then open details / add to collection?',
-    how: 'Main steps: open Identify → camera → permission → first image → second image → scan attempted → submit → success → results → details → add to collection. Banknote add = Added_to_collection_*.',
+    how: 'Main steps: open Identify → camera → permission → first image → second image → submit → success → top 5 → details after match → add to collection. Identification_done is success (same moment as identification_done_success), not a scan attempt. Result screen (identification_details_screen) is a side row; details is banknote_details_identification.',
   },
   'identify-nav': {
-    question: 'When people tap Identify on the bottom bar, where do they drop off?',
-    how: 'Only includes scans started from the bottom navigation. Red is the biggest leak.',
+    question: 'Of people who opened Identify from the bottom bar, where do they drop off?',
+    how: 'Every step only counts people who fired Identify_bottom_nav. Coinzy also drops anyone who fired Identify_home that day, because the nav event also fires from the Home CTA.',
   },
   'identify-home': {
-    question: 'When people start a scan from the home screen or banner, where do they drop off?',
-    how: 'Only includes scans started from home / banner. Red is the biggest leak.',
+    question: 'Of people who opened Identify from home / banner, where do they drop off?',
+    how: 'Every step only counts people who fired Identify_home. Camera, photos, submit, and success are that group only — not everyone in Identify.',
   },
   'identify-camera': {
-    question: 'When people take the photo with the camera shutter, where do they drop off?',
-    how: 'Camera path only — no gallery rows. Banknote: permission → photo_clicked_*. Coinzy: camera → shutter → after crop → submit → success → details. Permission is on this tab only.',
+    question: 'Of people who used the camera shutter, where do they drop off?',
+    how: 'Every step only counts people who used Photo_clicked / photo_clicked_*. First core step is the shutter (or first camera image on Banknote). Gallery rows are not shown.',
   },
   'identify-gallery': {
-    question: 'When people pick a photo from the gallery, where do they drop off?',
-    how: 'Gallery path only — no shutter or camera permission. Banknote: photo_uploaded_*. Coinzy has no gallery tap event, so the first unique step is inferred crop/clicked. You cannot measure gallery open → pick.',
-  },
-  catalogue: {
-    question: 'Are people browsing their own collection, the global catalogue, or both?',
-    how: 'This page shows both paths together. Use Private collection or Global catalogue for one path at a time.',
+    question: 'Of people who used the gallery, where do they drop off?',
+    how: 'Every step only counts gallery users. Banknote: photo_uploaded_*. Coinzy has no gallery tap event, so this is crop/clicked minus Photo_clicked. First core step is the gallery pick. Camera permission is not on this tab.',
   },
   collection: {
-    question: 'Of people who open their own collection, how many open an item?',
-    how: 'Bottom bar → collection screen → a card → a sub-folder → item details.',
+    question: 'Of people who started a session, how many open their own collection and then an item?',
+    how: 'Starts with everyone who opened the app that day (session_start / App_open / first_open). Then collection screen → a card → a sub-folder → item details. Bottom nav is a side step.',
   },
   global: {
-    question: 'Of people who open the world / global catalogue, how many open an item?',
-    how: 'Global catalogue screen → tap an item → details.',
+    question: 'Of people who started a session, how many open the world / global catalogue and then an item?',
+    how: 'Starts with everyone who opened the app that day (session_start / App_open / first_open). Then global catalogue screen → tap an item → details. The CTA is a side step.',
   },
   marketplace: {
     question: 'Of people who open Marketplace, how many contact a seller?',
@@ -117,11 +123,15 @@ const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }>
   },
   paywall: {
     question: 'Of people who see the in-app paywall, how many pick a pack, tap subscribe, and confirm — and which packs do they choose?',
-    how: 'Banknote: paywall shown → pack click → CTA (trial / subscribe / purchase) → Google Play sheet (subs_native) → confirm. Coinzy: shown → pack → CTA → confirm. The table below is unique people per pack name × discounted / non-discounted. Onboarding is a separate tab.',
+    how: 'Banknote: paywall shown → pack click → CTA (trial / subscribe / purchase) → Google Play sheet (subs_native) → confirm. Coinzy: shown → pack → CTA → confirm. The table below is unique people per pack name × discounted / non-discounted. First-run screens are Funnels → Onboarding. Purchase from that group is Funnels → Onboarding → subs.',
+  },
+  onboarding: {
+    question: 'Of people who start onboarding, how many finish it?',
+    how: 'Banknote: started / screen view → completed (next, camera, and feature are side rows — slides share one event with a screen index). Coinzy: logo → value 1–5 → login → notification → completed. Experiment suffixes are unioned. Camera / gifts / skip are side rows. Subscription from this group is Funnels → Onboarding → subs.',
   },
   'paywall-onboarding': {
     question: 'Of people who go through onboarding, how many take a subscription from there?',
-    how: 'Only people who saw an onboarding page are in this funnel. Coinzy: any onboarding page → pack → CTA → confirm. Skip is a blocked outcome. Pack mix is unique people per pack among that onboarding group.',
+    how: 'Only onboarding users are in this funnel. Banknote has no Subs_page_onboarding — first step is subscription_shown, then pack → CTA → Google Play sheet → confirm. Coinzy: any onboarding paywall page → pack → CTA → confirm. Skip is a blocked outcome. Pack mix is unique people per pack among that group. First-run screens are Funnels → Onboarding.',
   },
   expert: {
     question: 'Of people who open Expert Evaluation, how many get a report — and how many buy credits?',
@@ -135,20 +145,20 @@ const COINZY_IDENTIFY_GUIDE: Record<'identify' | 'identify-nav' | 'identify-home
     how: 'Combined path. For the two sources use Scan · camera and Scan · gallery — they are parallel after the camera screen, not later steps. After-crop merge is photo_clicked_1/2. Add-to-collection cannot be measured.',
   },
   'identify-nav': {
-    question: 'Where do people drop off after the Identify camera is open?',
-    how: 'Identify_bottom_nav is not a clean start — it fires whenever the camera opens, including from the Home CTA. Core path: Camera → After crop → Submit → Success → Details.',
+    question: 'Of people who opened Identify from the bottom bar (and not from Home), where do they drop off?',
+    how: 'Cohort = Identify_bottom_nav minus Identify_home. Later steps (camera → after crop → submit → success → details) only count that group. Nav also fires from Home, so Home users are excluded here — use Scan · home / banner for them.',
   },
   'identify-home': {
-    question: 'When people tap Identify on home / banner, where do they drop off?',
-    how: 'Starts at Identify_home, then Camera → After crop → Submit → Success → Details.',
+    question: 'Of people who tapped Identify on home / banner, where do they drop off?',
+    how: 'Cohort = Identify_home. Camera → after crop → submit → success → details only count that group, not everyone who opened the camera.',
   },
   'identify-camera': {
-    question: 'Of people who used the shutter, how many crop, submit, and get a successful ID?',
-    how: 'Camera path only. Core: camera → shutter → after crop → submit → success → details. Permission (in-app + OS) is on this tab. Gallery rows are not shown.',
+    question: 'Of people who used the shutter (Photo_clicked), where do they drop off?',
+    how: 'Cohort = Photo_clicked. First core step is the shutter. Then after crop → submit → success → details among shutter users only. Permission is on this tab. Gallery rows are not shown.',
   },
   'identify-gallery': {
-    question: 'Of people who used gallery (inferred), how many crop, submit, and get a successful ID?',
-    how: 'Gallery path only — no shutter, no permission. Coinzy does not log gallery tap; this tab is crop/clicked minus Photo_clicked. Core: camera → inferred gallery → after crop → submit → success → details. Gallery open → pick cannot be measured until a tap event exists.',
+    question: 'Of people who used gallery (inferred), where do they drop off?',
+    how: 'Cohort = crop/clicked minus Photo_clicked. First core step is the inferred gallery pick. Then after crop → submit → success → details among gallery-only users. No shutter, no permission.',
   },
 };
 

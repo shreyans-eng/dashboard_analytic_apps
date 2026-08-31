@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import HomePage from '@/pages/HomePage';
 import ProductAnalyticsPage from '@/pages/ProductAnalyticsPage';
@@ -8,6 +8,7 @@ import MetricPage, { METRIC_CONFIGS } from '@/pages/MetricPage';
 import SqlEditorPage from '@/pages/SqlEditorPage';
 import FunnelPage from '@/pages/FunnelPage';
 import EventsExplorerPage from '@/pages/EventsExplorerPage';
+import EventCatalogPage from '@/pages/EventCatalogPage';
 import LtvPage from '@/pages/LtvPage';
 import UserMixPage from '@/pages/UserMixPage';
 import InstallDayUsagePage from '@/pages/InstallDayUsagePage';
@@ -33,12 +34,12 @@ const FUNNELS = [
   'identify-home',
   'identify-camera',
   'identify-gallery',
-  'catalogue',
   'collection',
   'global',
   'marketplace',
   'feed',
   'paywall',
+  'onboarding',
   'paywall-onboarding',
   'expert',
 ] as const;
@@ -94,9 +95,11 @@ export default function App() {
         <Route path="product" element={<ProductAnalyticsPage />} />
         <Route path="compare" element={<ComparePage />} />
         <Route path="report" element={<ReportPage {...shared} />} />
+        <Route path="funnels/catalogue" element={<Navigate to="/funnels/collection" replace />} />
         {FUNNELS.map((id) => (
           <Route key={id} path={`funnels/${id}`} element={<FunnelPage funnelId={id} {...shared} />} />
         ))}
+        <Route path="events-catalog" element={<EventCatalogPage />} />
         <Route path="events-explorer" element={<EventsExplorerPage {...shared} />} />
         {METRIC_ROUTES.map(([path, metricKey]) => (
           <Route key={path} path={path} element={<MetricRoute metricKey={metricKey} {...shared} />} />

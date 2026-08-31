@@ -62,7 +62,9 @@
         <strong>Funnels → Paywall</strong> (unique people): shown → pack click → CTA (<code>subs_button</code>)
         → Banknote Google sheet (<code>subs_native</code>) → confirm.<br>
         Pack mix table = unique people per <code>pack_name</code> × discounted / non-discounted.<br>
-        <strong>Funnels → Onboarding → subs</strong>: only people who saw onboarding; confirm = subscription taken from that group.
+        <strong>Funnels → Onboarding</strong>: first-run screens through completion.<br>
+        <strong>Funnels → Onboarding → subs</strong>: only people who went through onboarding; confirm = subscription taken from that group.
+        Banknote has no <code>Subs_page_onboarding</code> — first step is <code>subscription_shown</code>.
         Coinzy pages <code>subs_page_onboarding_1/2/3</code> + skip.
       </td>
     </tr>
@@ -81,14 +83,16 @@
     </tr>
     <tr>
       <td>5.8</td>
-      <td>Not only success/(success+failure). Need scan attempted, permission, photo 1/2, submit, 5 results, details, add to collection</td>
+      <td>Not only success/(success+failure). Need permission, photo 1/2, submit, 5 results, details, add to collection</td>
       <td class="ok">Done — two different tabs</td>
       <td>
         <strong>Tab 3 Identify success</strong> stays quality-only:
         success events ÷ (success + failure events). That is AI / photo quality, not the funnel.<br>
-        <strong>Funnels → Identify</strong> is the step path. Core steps now include:
-        entry → camera → permission → photo 1 → photo 2 → scan attempted → submit → success
-        → top 5 results → details → add to collection.
+        <strong>Funnels → Identify</strong> is the step path. Banknote core:
+        entry → camera → permission → photo 1 → photo 2 → submit → success
+        → top 5 → details after match → add to collection.
+        There is no <code>Identification_attempted</code> event in the Banknote app.
+        <code>Identification_done</code> fires with success.
       </td>
     </tr>
     <tr>
@@ -100,7 +104,8 @@
         Chart 1 = private collection (<code>Collection_screen</code> / collection nav).<br>
         Chart 2 = global catalogue (<code>Global_catalogue_screen</code>).<br>
         Step drop-off: <strong>Funnels → Private collection</strong> and
-        <strong>Funnels → Global catalogue</strong>. Do not use Catalogue (all) as the KPI.
+        <strong>Funnels → Global catalogue</strong>. Each starts with people who
+        started a session. There is no mixed Catalogue (all) tab.
       </td>
     </tr>
   </tbody>
@@ -185,8 +190,9 @@
 </table>
 <p>
   Unique people and pack mix live on <strong>Funnels → Paywall</strong>.
+  First-run screens are <strong>Funnels → Onboarding</strong>.
   Onboarding → subscription is <strong>Funnels → Onboarding → subs</strong>
-  (only people who saw onboarding; Coinzy <code>subs_page_onboarding_1/2/3</code> + skip).
+  (only people who went through onboarding; Banknote first step is <code>subscription_shown</code>; Coinzy <code>subs_page_onboarding_1/2/3</code> + skip).
   KPI 5 will not match the funnel because KPI 5 is event counts.
 </p>
 
@@ -234,7 +240,7 @@
 <p>Each row = distinct users who fired that step’s events (not ordered sessions).</p>
 
 <h3>Identify (all) · Scan · bottom nav · Scan · home / banner · Scan · camera · Scan · gallery</h3>
-<p><strong>Banknote</strong> core: entry → camera → permission → first image → second image → attempted → submit → success → results → details → add to collection. Entry differs: all = nav ∪ home; nav-only; home-only. <strong>Scan · camera</strong> = <code>photo_clicked_*</code> only. <strong>Scan · gallery</strong> = <code>photo_uploaded_*</code> only.</p>
+<p><strong>Banknote</strong> core: entry → camera → permission → first image → second image → submit → success → top 5 → details after match → add to collection. The four Scan tabs are <strong>cohorts</strong>, not a relabelled first row: nav = <code>Identify_bottom_nav</code> people only; home = <code>Identify_home</code> people only; camera = <code>photo_clicked_*</code> people only; gallery = <code>photo_uploaded_*</code> people only. There is no <code>Identification_attempted</code> in the app. <code>Identification_done</code> is logged with success.</p>
 <table>
   <tr><th>Core step</th><th>Banknote events</th></tr>
   <tr><td>Identify entry</td><td><code>Identify_bottom_nav</code> · <code>Identify_home</code></td></tr>
@@ -242,14 +248,13 @@
   <tr><td>Camera permission</td><td><code>Camera_permission_popup</code> (granted / denied are side rows)</td></tr>
   <tr><td>First image</td><td><code>photo_clicked_1</code> ∪ <code>photo_uploaded_1</code></td></tr>
   <tr><td>Second image</td><td><code>photo_clicked_2</code> ∪ <code>photo_uploaded_2</code></td></tr>
-  <tr><td>Scan attempted</td><td><code>Identification_attempted</code> · <code>Identification_done</code></td></tr>
   <tr><td>Submit</td><td><code>photo_submit_button</code> · <code>photos_submitted</code></td></tr>
-  <tr><td>Success</td><td><code>identification_done_success</code></td></tr>
+  <tr><td>Success</td><td><code>identification_done_success</code> ∪ <code>Identification_done</code></td></tr>
   <tr><td>Results displayed</td><td><code>identification_top5_matches</code></td></tr>
-  <tr><td>Details opened</td><td><code>identification_details_screen</code> · <code>banknote_details_identification</code></td></tr>
+  <tr><td>Details after match</td><td><code>banknote_details_identification</code></td></tr>
   <tr><td>Added to collection</td><td><code>Added_to_collection_identified</code> · <code>Added_to_collection_owned</code></td></tr>
 </table>
-<p><strong>Coinzy</strong> real funnel: Camera → After crop (both paths) → Submit → ID success → Details. <strong>Scan · camera</strong> is a different step list: camera → shutter → after crop, plus permission. <strong>Scan · gallery</strong>: camera → inferred gallery → after crop — no shutter, no permission. Gallery tap logs nothing. Paths merge at <code>photo_clicked_1/2</code> on Identify (all). <strong>Add-to-collection cannot be measured</strong> (no live Firebase success event).</p>
+<p><strong>Coinzy</strong> Identify (all): Camera → After crop (both paths) → Submit → ID success → Details. <strong>Scan · bottom nav</strong> = people with <code>Identify_bottom_nav</code> and not <code>Identify_home</code> (nav also fires from Home). <strong>Scan · home / banner</strong> = <code>Identify_home</code> people only — later steps are not all camera users. <strong>Scan · camera</strong> = <code>Photo_clicked</code> people only; core starts at shutter. <strong>Scan · gallery</strong> = crop/clicked minus shutter; core starts at inferred gallery. Paths merge at <code>photo_clicked_1/2</code> on Identify (all). <strong>Add-to-collection cannot be measured</strong> (no live Firebase success event).</p>
 <table>
   <tr><th>Core step</th><th>Coinzy events</th></tr>
   <tr><td>Camera / photo screen</td><td><code>Identification_screen</code> · <code>photo_screen</code></td></tr>
@@ -261,9 +266,11 @@
 <p>Coinzy side rows: nav/home taps, shutter (<code>Photo_clicked</code>), inferred gallery, crop screens, API start, quota, failure, all-options, Learn more. Gallery open → pick → crop cannot be measured until a dedicated tap event exists.</p>
 
 <h3>Private collection</h3>
+<p>First step is always people who started a session (<code>session_start</code> · <code>App_open</code> · <code>first_open</code>). Not mixed with global catalogue.</p>
 <table>
   <tr><th>Step</th><th>Banknote</th><th>Coinzy</th></tr>
-  <tr><td>Nav</td><td><code>private_collection_bottom_nav</code></td><td><code>collection_bottom_nav</code></td></tr>
+  <tr><td>Started a session</td><td><code>session_start</code> · <code>App_open</code> · <code>first_open</code></td><td>same</td></tr>
+  <tr><td>Nav (side)</td><td><code>private_collection_bottom_nav</code></td><td><code>collection_bottom_nav</code></td></tr>
   <tr><td>Screen</td><td><code>Collection_screen</code></td><td>same</td></tr>
   <tr><td>Card</td><td><code>Collection_clicked</code></td><td>same</td></tr>
   <tr><td>Sub-collection</td><td><code>Sub_collection_Screen</code></td><td>same</td></tr>
@@ -271,13 +278,17 @@
 </table>
 
 <h3>Global catalogue</h3>
-<p><code>Global_catalogue</code> → <code>Global_catalogue_screen</code> → <code>global_catalogue_item</code> → <code>banknote_details_global</code> / <code>Coin_details_global</code></p>
+<p>First step is always people who started a session. Not mixed with private collection.</p>
+<p><code>session_start</code> / <code>App_open</code> / <code>first_open</code> → <code>Global_catalogue_screen</code> → <code>global_catalogue_item</code> → <code>banknote_details_global</code> / <code>Coin_details_global</code></p>
 
 <h3>Paywall</h3>
 <p>In-app only. Core: shown → pack → CTA → (Banknote: <code>subs_native</code>) → confirm. Pack mix = unique people per pack name × discount flag.</p>
 
+<h3>Onboarding</h3>
+<p>First-run screens through completion. Banknote: <code>onboarding_started</code> / <code>onboarding_screen_view</code> → <code>onboarding_completion</code>. Coinzy: logo → value 1–5 → login → notification → <code>Onboarding_complete</code>.</p>
+
 <h3>Onboarding → subscription</h3>
-<p>Cohort = people who saw onboarding. Pack / CTA / confirm only count that group. Coinzy also shows pages 1/2/3 and skip.</p>
+<p>Cohort = people who went through onboarding. Pack / CTA / confirm only count that group. Banknote first step is <code>subscription_shown</code> (no <code>Subs_page_onboarding</code>). Coinzy also shows pages 1/2/3 and skip.</p>
 
 <h3>Marketplace · Feed · Expert (Coinzy)</h3>
 <table>

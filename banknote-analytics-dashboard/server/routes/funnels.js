@@ -22,6 +22,10 @@ export function mountFunnelRoutes(app, facade) {
 
   const events = Router();
 
+  events.get('/catalog', (_req, res) => {
+    res.json(facade.listEventCatalog());
+  });
+
   events.post('/inventory', async (req, res) => {
     try {
       res.json(await facade.listEvents(req.body || {}));

@@ -16,10 +16,10 @@ Run in dashboard **SQL Editor** (Banknote product selected) or via API `/api/que
 ## Core paths (Banknote)
 
 **8 Identify:**  
-`Identify_bottom_nav` ∪ `Identify_home` → `Identification_screen` / `photo_screen` → capture/upload → crop → submit → `identification_done_success`
+`Identify_bottom_nav` ∪ `Identify_home` → `Identification_screen` / `photo_screen` → capture/upload → submit → `identification_done_success` ∪ `Identification_done` → `identification_top5_matches` → `banknote_details_identification`
 
 **9 Catalogue:**  
-`Collection_screen` ∪ `Global_catalogue_screen` (+ deeper: clicked → sub-collection → details)
+Two separate funnels, each starting with people who started a session (`session_start` · `App_open` · `first_open`). Collection: session → `Collection_screen` → clicked → sub-collection → details. Global catalogue: session → `Global_catalogue_screen` → item → details. There is no mixed Catalogue (all) tab.
 
 **10 Marketplace:**  
 `Marketplace_bottom_nav` → `marketplace_screen` → `market_item_expolre` → `sale_Details_screen` → `market_contact*`  

@@ -199,7 +199,7 @@ SQL: `sql/dashboard/product/01`–`10_*.sql` (Coinzy override under `product/coi
 | 2 | Install → first scan | `day0_first_scan_rate` | Same-day `identification_done_success` ÷ `first_open` **devices**, join on `user_pseudo_id` only |
 | 3 | Identify success | `identification_success_rate` | Success **events** ÷ (success + failure). Coinzy failure also counts `Identification_failed` |
 | 4 | Quota hit | `free_quota_hit_rate` | Distinct scan-quota users ÷ scan-attempt users (not collection limit) |
-| 5 | Paywall → purchase | `paywall_to_confirm_rate` | Confirm **events** ÷ paywall **events**. Unique people, pack mix, and onboarding → purchase are Funnels → Paywall / Onboarding → subs |
+| 5 | Paywall → purchase | `paywall_to_confirm_rate` | Confirm **events** ÷ paywall **events**. Unique people, pack mix, and onboarding → purchase are Funnels → Paywall / Onboarding → subs. First-run screens are Funnels → Onboarding |
 | 6 | D1 / D4 / D7 | `d1_retention_rate` / `d4` / `d7` / `d4_d7` | Returned any event on D+1 / D+4 / D+7; D4–D7 = any of days 4–7. Cohort = `first_open` |
 | 7 | Scans / user | `scans_per_dau` + `scans_p10`…`scans_p99` | Mean = success events ÷ DAU. Percentiles = successful IDs per **scanning** user-day (P10, P25, P50, P75, **P90**, P95, P99) |
 | 8 | Identify funnel | `open_to_success_rate` | Banknote: success ÷ (`Identify_bottom_nav` ∪ `Identify_home`). Coinzy: success (`identification_done_success` ∪ `Identification_done`) ÷ camera (`Identification_screen` ∪ `photo_screen`) — nav is not open |
@@ -220,24 +220,31 @@ gained  = max(0, to − from)   → joined without prior step
 
 | Tab | Core path |
 |-----|-----------|
-| Identify (all) | Banknote: nav ∪ home → camera → photos → submit → success. Coinzy: **Camera → Photos → Submit → Success → Details** (nav is not the start). After camera, shutter ∥ gallery merge at after-crop |
-| Scan · nav / home | Banknote: same with that entry event. Coinzy nav: still starts at camera (`Identify_bottom_nav` also fires from Home). Coinzy home: `Identify_home` then camera |
-| Scan · camera | Shutter-only cohort. Coinzy: **Camera → Shutter → After crop → Submit → Success → Details** (+ permission side). Banknote: permission + `photo_clicked_*`. No gallery rows |
-| Scan · gallery | Gallery-only cohort. Coinzy: **Camera → inferred gallery → After crop → Submit → Success → Details** (no shutter, no permission). Banknote: `photo_uploaded_*` |
-| Collection | Nav → screen → card → sub-collection → details |
-| Global catalogue | Screen → item → details |
+| Identify (all) | Banknote: nav ∪ home → camera → photos → submit → success ∪ `Identification_done` → top 5 → `banknote_details_identification`. Coinzy: **Camera → Photos → Submit → Success → Details** (nav is not the start). After camera, shutter ∥ gallery merge at after-crop |
+| Scan · bottom nav | **Cohort** = `Identify_bottom_nav` (Coinzy: minus `Identify_home`, because nav also fires from Home). Later steps only that group |
+| Scan · home / banner | **Cohort** = `Identify_home`. Later steps only that group |
+| Scan · camera | **Cohort** = shutter (`Photo_clicked` / `photo_clicked_*`). Coinzy core starts at shutter. Banknote core starts at first camera image. No gallery rows |
+| Scan · gallery | **Cohort** = gallery (Banknote `photo_uploaded_*`; Coinzy crop/clicked minus `Photo_clicked`). Core starts at gallery pick |
+| Collection | Started a session → screen → card → sub-collection → details |
+| Global catalogue | Started a session → screen → item → details |
 | Marketplace | Nav → screen → listing → sale details → contact |
 | Feed | Nav → screen → like/comment |
 | Paywall | Impression → confirm (user-unique; MVP 5 is event-count — they will not match) |
+| Onboarding | Banknote: started / screen → completed. Coinzy: logo → value 1–5 → login → notification → `Onboarding_complete` |
+| Onboarding → subs | Banknote: `subscription_shown` → pack → confirm. Coinzy: `Subs_page_onboarding` pages → pack → confirm |
 | Expert | Coinzy only: landing → upload → continue → queued → report (+ credits path) |
 
-Identify needs **both** images on Banknote. Coinzy core Photos is after-crop (`photo_clicked_1/2`) where shutter and gallery merge on Identify (all). **Scan · camera** / **Scan · gallery** are separate tabs. `Photo_clicked` is shutter only; gallery tap has no event. Crop is a **side** step on Banknote. Coinzy crop is 0-indexed (`_0` / `_1`). Coinzy add-to-collection **cannot be measured** (no live success event).
+Identify needs **both** images on Banknote. Banknote has no `Identification_attempted`; `Identification_done` is logged with success. Details after match is `banknote_details_identification` (result UI `identification_details_screen` is a side row). Coinzy core Photos is after-crop (`photo_clicked_1/2`) where shutter and gallery merge on Identify (all). **Scan · camera** / **Scan · gallery** are separate tabs. `Photo_clicked` is shutter only; gallery tap has no event. Crop is a **side** step on Banknote. Coinzy crop is 0-indexed (`_0` / `_1`). Coinzy add-to-collection **cannot be measured** (no live success event).
 
-### 6.5 Event inventory (`/events-explorer`)
+### 6.5 Event catalog (`/events-catalog`)
+
+Mapped events per app (funnels + DAU / KPI extras). Filter Banknote / Coinzy. Download unique-event CSV or full usage CSV. No BigQuery.
+
+### 6.6 Event inventory (`/events-explorer`)
 
 One app only. Hits, unique users, daily chart, top 40 params (this query still UNNESTs). Use it to prove an event fires.
 
-### 6.6 Explorer
+### 6.7 Explorer
 
 Prefer summary → view → raw.
 
@@ -259,7 +266,7 @@ Prefer summary → view → raw.
 
 Incomplete Firebase days are **omitted**, not shown as 0.
 
-### 6.7 Admin & SQL editor
+### 6.8 Admin & SQL editor
 
 Users live in Mongo. Sub-admins need ≥1 app and ≥1 page. Compare needs both apps. Monthly reports: previous calendar month, 1st 08:00 UTC, needs SMTP.
 
