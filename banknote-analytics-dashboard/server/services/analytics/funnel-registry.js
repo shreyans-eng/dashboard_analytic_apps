@@ -10,9 +10,9 @@ import { DAU_EVENT_BASES, dauEventPredicateSql, resolvedUserIdSql } from './dau-
 /** @typedef {{ id: string, title: string, description: string, products: Record<string, FunnelStep[]>, cohortEvents?: Record<string, string[]>, cohortExcludeEvents?: Record<string, string[]>, packMix?: Record<string, PackMixDef> }} FunnelDef */
 
 /**
- * Combined “got an image” (core) plus separate camera vs gallery rows.
- * Core stays click ∪ upload so the main leak is still “never took a photo”.
- * Side rows answer “did they shoot, or pick from gallery?”
+ * Banknote capture: first photo → crop → after crop → second photo → crop → after crop.
+ * Combined photo_* stays core so gallery uploads are not missing from the main path.
+ * photo_click_* / photo_upload_* are the camera vs gallery split.
  */
 function photoCaptureSteps(index, { click, upload, extra = [], cropScreen, cropTick }) {
   const nth = index === 1 ? 'First' : 'Second';
@@ -21,20 +21,20 @@ function photoCaptureSteps(index, { click, upload, extra = [], cropScreen, cropT
   const rows = [
     {
       id: `photo_${index}`,
-      label: hasGallery ? `${nth} image (camera or gallery)` : `${nth} image`,
+      label: hasGallery ? `${nth} photo (clicked or uploaded)` : `${nth} photo clicked`,
       events: [click, upload, ...extra].filter(Boolean),
       core: true,
     },
     {
       id: `photo_click_${index}`,
-      label: hasGallery ? `${nth} image · camera` : `${nth} image · taken`,
+      label: `${nth} photo clicked`,
       events: [click],
     },
   ];
   if (hasGallery) {
     rows.push({
       id: `photo_upload_${index}`,
-      label: `${nth} image · gallery`,
+      label: `${nth} photo uploaded`,
       events: [upload],
     });
   }
@@ -43,11 +43,13 @@ function photoCaptureSteps(index, { click, upload, extra = [], cropScreen, cropT
       id: `crop_${index}`,
       label: `Crop ${lower} image`,
       events: [cropScreen],
+      core: true,
     },
     {
       id: `crop_confirm_${index}`,
-      label: `${nth} crop confirmed`,
+      label: `After ${lower} crop`,
       events: [cropTick],
+      core: true,
     },
   );
   return rows;
@@ -57,9 +59,13 @@ function photoCaptureSteps(index, { click, upload, extra = [], cropScreen, cropT
 const BANKNOTE_IDENTIFY = [
   {
     id: 'entry',
-    label: 'Identify entry (nav ∪ home)',
+    label: 'Nav / home tap (not the only way onto camera)',
     events: ['Identify_bottom_nav', 'Identify_home'],
-    core: true,
+  },
+  {
+    id: 'home_cta',
+    label: 'Home / banner Identify CTA',
+    events: ['Identify_home'],
   },
   {
     id: 'camera',
@@ -166,10 +172,8 @@ const BANKNOTE_IDENTIFY = [
 ];
 
 /**
- * Coinzy Identify — Camera → (shutter ∥ gallery) → after-crop merge → Submit → Success → Details.
- * Identify_bottom_nav also fires when camera opens from Home, so it is not a clean entry.
- * Gallery tap has no event; infer gallery-only as crop/clicked minus Photo_clicked (shutter).
- * Photo_clicked is shutter only. photo_clicked_1/2 fire after crop on both paths.
+ * Coinzy Identify — Camera → shutter ∥ gallery → first crop → first photo after crop →
+ * second crop → second photo after crop → submit → success → details.
  * Camera permission is shutter-only; gallery can skip it.
  * Identification_attempted is API start, not a submit conversion.
  * Identification_done is success (same flow as identification_done_success) — do not also put it on Submit.
@@ -227,12 +231,6 @@ const COINZY_IDENTIFY = [
     excludeEvents: ['Photo_clicked'],
   },
   {
-    id: 'photos',
-    label: 'After crop (both paths)',
-    events: ['photo_clicked_1', 'photo_clicked_2'],
-    core: true,
-  },
-  {
     id: 'crop_1',
     label: 'First crop screen (index 0) — camera or gallery',
     events: ['photo_cropping_screen_0'],
@@ -244,8 +242,9 @@ const COINZY_IDENTIFY = [
   },
   {
     id: 'photo_click_1',
-    label: 'First photo after crop (both paths)',
+    label: 'First photo after crop',
     events: ['photo_clicked_1'],
+    core: true,
   },
   {
     id: 'crop_2',
@@ -259,8 +258,14 @@ const COINZY_IDENTIFY = [
   },
   {
     id: 'photo_click_2',
-    label: 'Second photo after crop (both paths)',
+    label: 'Second photo after crop',
     events: ['photo_clicked_2'],
+    core: true,
+  },
+  {
+    id: 'photos',
+    label: 'Either after-crop photo (image 1 or 2, not both required)',
+    events: ['photo_clicked_1', 'photo_clicked_2'],
   },
   {
     id: 'submit',
@@ -1242,12 +1247,12 @@ const COINZY_GALLERY_INFER = [
 function banknotePhotoSource(steps, { clickOnly, uploadOnly }) {
   return steps.map((s) => {
     if (s.id === 'photo_1') {
-      if (clickOnly) return { ...s, label: 'First image · camera', events: ['photo_clicked_1'] };
-      if (uploadOnly) return { ...s, label: 'First image · gallery', events: ['photo_uploaded_1'] };
+      if (clickOnly) return { ...s, label: 'First photo clicked', events: ['photo_clicked_1'] };
+      if (uploadOnly) return { ...s, label: 'First photo uploaded', events: ['photo_uploaded_1'] };
     }
     if (s.id === 'photo_2') {
-      if (clickOnly) return { ...s, label: 'Second image · camera', events: ['photo_clicked_2'] };
-      if (uploadOnly) return { ...s, label: 'Second image · gallery', events: ['photo_uploaded_2'] };
+      if (clickOnly) return { ...s, label: 'Second photo clicked', events: ['photo_clicked_2'] };
+      if (uploadOnly) return { ...s, label: 'Second photo uploaded', events: ['photo_uploaded_2'] };
     }
     return s;
   });
@@ -1306,7 +1311,8 @@ const BANKNOTE_CAMERA_IDS = new Set([
   'top_matches', 'view_all', 'all_options', 'option_chosen', 'result_screen', 'details', 'add_collection',
 ]);
 const BANKNOTE_CAMERA_CORE = [
-  'photo_1', 'photo_2',
+  'photo_1', 'crop_1', 'crop_confirm_1',
+  'photo_2', 'crop_2', 'crop_confirm_2',
   'submit', 'success', 'top_matches', 'details', 'add_collection',
 ];
 const BANKNOTE_GALLERY_IDS = new Set([
@@ -1317,7 +1323,8 @@ const BANKNOTE_GALLERY_IDS = new Set([
   'top_matches', 'view_all', 'all_options', 'option_chosen', 'result_screen', 'details', 'add_collection',
 ]);
 const BANKNOTE_GALLERY_CORE = [
-  'photo_1', 'photo_2',
+  'photo_1', 'crop_1', 'crop_confirm_1',
+  'photo_2', 'crop_2', 'crop_confirm_2',
   'submit', 'success', 'top_matches', 'details', 'add_collection',
 ];
 
@@ -1331,7 +1338,7 @@ const COINZY_CAMERA_IDS = new Set([
   'submit', 'attempt', 'quota_block', 'success', 'failure',
   'all_options', 'option_chosen', 'details',
 ]);
-const COINZY_CAMERA_CORE = ['shutter', 'photos', 'submit', 'success', 'details'];
+const COINZY_CAMERA_CORE = ['shutter', 'photo_click_1', 'photo_click_2', 'submit', 'success', 'details'];
 
 const COINZY_GALLERY_IDS = new Set([
   'camera',
@@ -1342,14 +1349,14 @@ const COINZY_GALLERY_IDS = new Set([
   'submit', 'attempt', 'quota_block', 'success', 'failure',
   'all_options', 'option_chosen', 'details',
 ]);
-const COINZY_GALLERY_CORE = ['gallery', 'photos', 'submit', 'success', 'details'];
+const COINZY_GALLERY_CORE = ['gallery', 'photo_click_1', 'photo_click_2', 'submit', 'success', 'details'];
 
 /** @type {Record<string, FunnelDef>} */
 export const FUNNELS = {
   identify: {
     id: 'identify',
     title: 'Identify funnel',
-    description: 'Camera → Photos → Submit → ID success → Details (Coinzy). After camera, shutter ∥ gallery then merge at photo_clicked_1. Banknote still starts at Identify open.',
+    description: 'Camera → first photo → crop → after crop → second photo → crop → after crop → submit → ID. Nav/home taps are side rows.',
     products: {
       banknote: BANKNOTE_IDENTIFY,
       coinzy: COINZY_IDENTIFY,
@@ -1360,11 +1367,14 @@ export const FUNNELS = {
     title: 'Scan funnel · bottom nav',
     description: 'Only people who opened Identify from the bottom nav. Every later step is that group only. Coinzy excludes Identify_home because nav also fires from the Home CTA.',
     products: {
-      banknote: withIdentifyEntry(
-        BANKNOTE_IDENTIFY,
-        'Bottom nav Identify',
-        ['Identify_bottom_nav'],
-        { core: true },
+      banknote: dropSteps(
+        withIdentifyEntry(
+          BANKNOTE_IDENTIFY,
+          'Bottom nav Identify',
+          ['Identify_bottom_nav'],
+          { core: true },
+        ),
+        ['home_cta'],
       ),
       coinzy: dropSteps(
         withIdentifyEntry(
@@ -1389,11 +1399,14 @@ export const FUNNELS = {
     title: 'Scan funnel · home / banner',
     description: 'Only people who opened Identify from the home / banner CTA. Every later step is that group only.',
     products: {
-      banknote: withIdentifyEntry(
-        BANKNOTE_IDENTIFY,
-        'Home / banner Identify',
-        ['Identify_home'],
-        { core: true },
+      banknote: dropSteps(
+        withIdentifyEntry(
+          BANKNOTE_IDENTIFY,
+          'Home / banner Identify',
+          ['Identify_home'],
+          { core: true },
+        ),
+        ['home_cta'],
       ),
       coinzy: dropSteps(
         withIdentifyEntry(
@@ -1421,7 +1434,7 @@ export const FUNNELS = {
         BANKNOTE_CAMERA_CORE,
       ),
       coinzy: identifyFlow(COINZY_IDENTIFY, COINZY_CAMERA_IDS, COINZY_CAMERA_CORE, {
-        photos: 'After crop (camera path)',
+        photos: 'Either after-crop photo (camera path)',
         crop_1: 'First crop screen (camera)',
         crop_2: 'Second crop screen (camera)',
         photo_click_1: 'First photo after crop (camera)',
@@ -1444,7 +1457,7 @@ export const FUNNELS = {
         BANKNOTE_GALLERY_CORE,
       ),
       coinzy: identifyFlow(COINZY_IDENTIFY, COINZY_GALLERY_IDS, COINZY_GALLERY_CORE, {
-        photos: 'After crop (gallery path)',
+        photos: 'Either after-crop photo (gallery path)',
         crop_1: 'First crop screen (gallery)',
         crop_2: 'Second crop screen (gallery)',
         photo_click_1: 'First photo after crop (gallery)',

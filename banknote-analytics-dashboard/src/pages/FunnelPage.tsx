@@ -58,13 +58,15 @@ const PATH_TITLES: Record<string, string> = {
   success: 'ID success',
   details: 'Details',
   photo_1: 'First photo',
-  photo_click_1: 'First photo · camera',
-  photo_upload_1: 'First photo · gallery',
+  photo_click_1: 'First photo clicked',
+  photo_upload_1: 'First photo uploaded',
   photo_2: 'Second photo',
-  photo_click_2: 'Second photo · camera',
-  photo_upload_2: 'Second photo · gallery',
-  crop_1: 'Cropped first photo',
-  crop_2: 'Cropped second photo',
+  photo_click_2: 'Second photo clicked',
+  photo_upload_2: 'Second photo uploaded',
+  crop_1: 'Crop first image',
+  crop_confirm_1: 'After first crop',
+  crop_2: 'Crop second image',
+  crop_confirm_2: 'After second crop',
   paywall: 'Paywall shown',
   pack: 'Paywall',
   button: 'Paywall',
@@ -87,7 +89,7 @@ const PATH_TITLES: Record<string, string> = {
 const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }> = {
   identify: {
     question: 'Of everyone who starts a scan, how many get a successful ID — and then open details / add to collection?',
-    how: 'Main steps: open Identify → camera → permission → first image → second image → submit → success → top 5 → details after match → add to collection. Identification_done is success (same moment as identification_done_success), not a scan attempt. Result screen (identification_details_screen) is a side row; details is banknote_details_identification.',
+    how: 'Main steps: camera → first photo → crop → after crop → second photo → crop → after crop → submit → success → top 5 → details → add to collection. First/second photo count clicked or uploaded so gallery is not missing. The clicked vs uploaded rows are the camera/gallery split. Nav/home taps are side rows (tab restore and deep links skip them). Use Scan · camera for click → crop → after crop only.',
   },
   'identify-nav': {
     question: 'Of people who opened Identify from the bottom bar, where do they drop off?',
@@ -99,11 +101,11 @@ const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }>
   },
   'identify-camera': {
     question: 'Of people who used the camera shutter, where do they drop off?',
-    how: 'Every step only counts people who used Photo_clicked / photo_clicked_*. First core step is the shutter (or first camera image on Banknote). Gallery rows are not shown.',
+    how: 'Every step only counts people who used Photo_clicked / photo_clicked_*. Main path is first photo clicked → crop → after crop → second photo clicked → crop → after crop → submit. Gallery rows are not shown.',
   },
   'identify-gallery': {
     question: 'Of people who used the gallery, where do they drop off?',
-    how: 'Every step only counts gallery users. Banknote: photo_uploaded_*. Coinzy has no gallery tap event, so this is crop/clicked minus Photo_clicked. First core step is the gallery pick. Camera permission is not on this tab.',
+    how: 'Every step only counts gallery users. Banknote: first uploaded → crop → after crop → second uploaded → crop → after crop → submit. Coinzy has no gallery tap event, so this is crop/clicked minus Photo_clicked. Camera permission is not on this tab.',
   },
   collection: {
     question: 'Of people who started a session, how many open their own collection and then an item?',
@@ -142,7 +144,7 @@ const FUNNEL_GUIDE: Record<Props['funnelId'], { question: string; how: string }>
 const COINZY_IDENTIFY_GUIDE: Record<'identify' | 'identify-nav' | 'identify-home' | 'identify-camera' | 'identify-gallery', { question: string; how: string }> = {
   identify: {
     question: 'Of everyone who opens the Identify camera, how many submit photos, get a successful ID, and open details?',
-    how: 'Combined path. For the two sources use Scan · camera and Scan · gallery — they are parallel after the camera screen, not later steps. After-crop merge is photo_clicked_1/2. Add-to-collection cannot be measured.',
+    how: 'Main path: camera → first crop → first photo after crop → second crop → second photo after crop → submit. The old combined photo_clicked_1 ∪ photo_clicked_2 row sits after both crops (it is anyone who got image 1 or 2, not “both images”). Shutter vs gallery are parallel sources. Add-to-collection cannot be measured.',
   },
   'identify-nav': {
     question: 'Of people who opened Identify from the bottom bar (and not from Home), where do they drop off?',
@@ -640,21 +642,22 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
                     They skipped a logged step, or the app recorded the later screen without the earlier one.
                   </li>
                   <li>
-                    Main steps are the journey you care about. Other rows (crop, permission, cancel) are extra
-                    context — they are not required to “finish” the journey.
+                    Main steps are the journey you care about. Other rows (permission, gallery split, cancel)
+                    are extra context — they are not required to “finish” the journey.
                   </li>
                   {showPhotoMix && photoMix?.kind === 'banknote' && (
                     <li>
-                      <strong>Camera vs gallery:</strong> the main “first/second image” step counts either
-                      source. The camera / gallery rows underneath tell you whether they shot or uploaded.
+                      <strong>Camera vs gallery:</strong> the main first/second photo step is clicked or
+                      uploaded. Crop and after-crop sit between the two photos. Clicked vs uploaded rows
+                      underneath are the split.
                     </li>
                   )}
                   {showPhotoMix && photoMix?.kind === 'coinzy' && (
                     <li>
-                      <strong>Shutter vs gallery:</strong> parallel after the camera screen, not a later
-                      hop. <code>Photo_clicked</code> is shutter only. Gallery tap logs nothing — gallery-only
-                      people are crop/clicked minus shutter. Paths merge at <code>photo_clicked_1</code>.
-                      Permission is shutter-only.
+                      <strong>Shutter vs gallery:</strong> parallel after the camera screen. Then first
+                      crop → first photo after crop → second crop → second photo after crop → submit.
+                      The “either after-crop photo” row is image 1 <em>or</em> 2, listed after both
+                      crops — it is not a step that happens before cropping.
                     </li>
                   )}
                   {isIdentify && isCoinzy && (

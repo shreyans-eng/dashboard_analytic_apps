@@ -122,7 +122,7 @@ export function useFunnel(funnelId: string, params: QueryParams, enabled = true)
   const { productId } = useProduct();
   const p = withProduct(params, productId);
   return useQuery({
-    queryKey: queryKey(`funnel:${funnelId}:v17`, p),
+    queryKey: queryKey(`funnel:${funnelId}:v20`, p),
     queryFn: () => fetchFunnel(funnelId, p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && productId !== 'compare',
@@ -155,7 +155,7 @@ export function useScopedFunnel(
 ) {
   const p = withProduct(params, productId || '');
   return useQuery({
-    queryKey: queryKey(`funnel:${funnelId}:v17`, p),
+    queryKey: queryKey(`funnel:${funnelId}:v20`, p),
     queryFn: () => fetchFunnel(funnelId, p),
     staleTime: STALE_TIME.DAILY,
     enabled: enabled && Boolean(productId) && productId !== 'compare',
