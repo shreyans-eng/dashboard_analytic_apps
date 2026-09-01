@@ -39,6 +39,7 @@ The sidebar stripe, product switcher, Compare charts, and KPI lines use these co
 | Is Identify quality good? | MVP **3** (success vs fail **events**) |
 | Are people hitting the free scan cap? | MVP **4**, or Coinzy **Free-scan success quota** |
 | Does the paywall convert? | MVP **5** (event counts). Unique people: **Funnels → Paywall** |
+| Which pack did they take? | **Subscriptions → Packs taken** — [PACKS-TAKEN.md](PACKS-TAKEN.md) |
 | Do they come back? | MVP **6** and Explorer **D1 / D7**. Return = opened the app, **not** a push. |
 | How many successful IDs per person? | MVP **7** — average **and** percentiles include people with **0** scans |
 | Identify drop-off | **Funnels → Identify** (not tab 3) |

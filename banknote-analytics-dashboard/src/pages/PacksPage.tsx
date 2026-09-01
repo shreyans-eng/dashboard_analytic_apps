@@ -24,15 +24,20 @@ import {
   CLICKS_ROLLUP,
   LIFETIME_ROLLUP,
   MONTHLY_ROLLUP,
+  YEARLY_FACE_PRICE,
+  YEARLY_NET_SHARE,
   YEARLY_ROLLUP,
+  isHalfYearlyPack,
   isRollupPack,
   n,
   packEventHint,
   packDisplayName,
   packKind,
+  packKindLabel,
   splitPacksByKind,
   yearlyListPrice,
-  type PackKind,
+  yearlyFacePrice,
+  yearlyNetUsd,
   type PackRow,
 } from '@/lib/packs';
 
@@ -44,10 +49,16 @@ interface Props {
 
 const KIND_COLOR: Record<string, string> = {
   Yearly: 'var(--brand-banknote-gold)',
+  'Half yearly': '#fb923c',
+  'Yearly offer': '#fb923c',
   Monthly: 'var(--accent)',
   Lifetime: '#a78bfa',
   Other: 'var(--text-muted)',
 };
+
+function kindSlug(label: string) {
+  return label.toLowerCase().replace(/\s+/g, '');
+}
 
 function pct(part: number, whole: number) {
   return whole > 0 ? part / whole : 0;
@@ -79,43 +90,48 @@ function PackTooltip({
 
 function MixMeter({
   yearly,
+  halfYearly = 0,
   monthly,
   lifetime = 0,
   other = 0,
 }: {
   yearly: number;
+  halfYearly?: number;
   monthly: number;
   lifetime?: number;
   other?: number;
 }) {
   const rest = Math.max(0, other);
-  const total = yearly + monthly + lifetime + rest;
+  const total = yearly + halfYearly + monthly + lifetime + rest;
   const yShare = pct(yearly, total);
+  const hShare = pct(halfYearly, total);
   const mShare = pct(monthly, total);
   const lShare = pct(lifetime, total);
   const oShare = pct(rest, total);
   return (
     <div className="packs-share">
       <div className="packs-share-head">
-        <span>Yearly · monthly · lifetime</span>
+        <span>Yearly · half-yearly · monthly · lifetime</span>
         <strong>
           {total > 0
-            ? `${fmtPercent(yShare)} yearly · ${fmtPercent(mShare)} monthly · ${fmtPercent(lShare)} lifetime`
+            ? `${fmtPercent(yShare)} yearly · ${fmtPercent(hShare)} half · ${fmtPercent(mShare)} monthly · ${fmtPercent(lShare)} lifetime`
             : '—'}
         </strong>
       </div>
       <div
         className="packs-share-track"
         role="img"
-        aria-label={total > 0 ? 'Yearly monthly lifetime mix' : 'No pack confirms'}
+        aria-label={total > 0 ? 'Yearly half-yearly monthly lifetime mix' : 'No pack confirms'}
       >
         <i className="packs-share-yearly" style={{ width: `${total > 0 ? yShare * 100 : 0}%` }} />
+        {halfYearly > 0 && <i className="packs-share-half" style={{ width: `${hShare * 100}%` }} />}
         <i className="packs-share-monthly" style={{ width: `${total > 0 ? mShare * 100 : 0}%` }} />
         <i className="packs-share-lifetime" style={{ width: `${total > 0 ? lShare * 100 : 0}%` }} />
         {rest > 0 && <i className="packs-share-other" style={{ width: `${oShare * 100}%` }} />}
       </div>
       <div className="packs-share-legend">
         <span><i className="packs-dot yearly" /> Yearly {fmtNumber(yearly)}</span>
+        <span><i className="packs-dot half" /> Half yearly {fmtNumber(halfYearly)}</span>
         <span><i className="packs-dot monthly" /> Monthly {fmtNumber(monthly)}</span>
         <span><i className="packs-dot lifetime" /> Lifetime {fmtNumber(lifetime)}</span>
         {rest > 0 && <span><i className="packs-dot other" /> Other {fmtNumber(rest)}</span>}
@@ -160,17 +176,17 @@ function OfferMeter({
 function RankedPacks({
   packs,
   total,
-  listPrice,
   showApp,
   colorByLabel,
   empty,
+  productId,
 }: {
   packs: PackRow[];
   total: number;
-  listPrice?: number | null;
   showApp?: boolean;
   colorByLabel?: Record<string, string>;
   empty?: string;
+  productId?: string;
 }) {
   const maxUsers = Math.max(...packs.map((p) => n(p.unique_users)), 1);
   if (packs.length === 0) {
@@ -180,11 +196,11 @@ function RankedPacks({
     <ol className="packs-rank">
       {packs.map((p) => {
         const kind = packKind(p);
+        const label = packKindLabel(p);
         const users = n(p.unique_users);
         const share = pct(users, total || maxUsers);
         const bar = pct(users, maxUsers);
-        const price = listPrice ?? yearlyListPrice(String(p.product_id || ''));
-        const est = kind === 'Yearly' && price != null ? users * price : null;
+        const est = kind === 'Yearly' ? yearlyNetUsd(users, p.product_id || productId, p.pack_name) : null;
         return (
           <li key={`${p.product || ''}-${p.pack_name}`}>
             <div className="packs-rank-meta">
@@ -194,10 +210,10 @@ function RankedPacks({
                 )}
                 {String(packDisplayName(p.pack_name))}
               </span>
-              <span className={`pack-kind kind-${kind.toLowerCase()}`}>{kind}</span>
+              <span className={`pack-kind kind-${kindSlug(label)}`}>{label}</span>
             </div>
             <div className="packs-rank-bar">
-              <i style={{ width: `${bar * 100}%`, background: KIND_COLOR[kind] || KIND_COLOR.Other }} />
+              <i style={{ width: `${bar * 100}%`, background: KIND_COLOR[label] || KIND_COLOR.Other }} />
             </div>
             <div className="packs-rank-stats">
               <strong>{fmtNumber(users)}</strong>
@@ -218,6 +234,8 @@ type PackSummary = {
   unique_users?: number;
   takes?: number;
   yearly_users?: number;
+  yearly_full_users?: number;
+  yearly_half_users?: number;
   monthly_users?: number;
   lifetime_users?: number;
   clickers?: number;
@@ -228,9 +246,8 @@ type PackSummary = {
   trial_users?: number;
   yearly_list_price?: number | null;
   yearly_revenue?: number | null;
+  yearly_half_revenue?: number | null;
 };
-
-const KIND_ORDER: PackKind[] = ['Yearly', 'Monthly', 'Lifetime', 'Other'];
 
 export default function PacksPage({ params, setParams, applyFilters }: Props) {
   const { product, productId, isCompare, products } = useProduct();
@@ -238,7 +255,6 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
   const q = useSubscriptionPacks(params, !isCompare);
   const compareQ = useCompareSubscriptions(params, isCompare);
   const rows = (q.data?.rows || []) as PackRow[];
-  const listPrice = q.data?.yearly_list_price ?? yearlyListPrice(productId);
 
   const rangePacks = useMemo(
     () =>
@@ -254,11 +270,10 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
   const rangeLifetime = rows.find((r) => r.grain === 'range' && r.pack_name === LIFETIME_ROLLUP);
   const rangeClicks = rows.find((r) => r.grain === 'range' && r.pack_name === CLICKS_ROLLUP);
   const uniqueUsers = n(rangeAll?.unique_users);
-  const yearlyUsers = n(rangeYearly?.unique_users);
+  const yearlyUsersAll = n(rangeYearly?.unique_users);
   const monthlyUsers = n(rangeMonthly?.unique_users);
   const lifetimeUsers = n(rangeLifetime?.unique_users);
   const clickers = n(rangeClicks?.unique_users);
-  const otherUsers = Math.max(0, uniqueUsers - yearlyUsers - monthlyUsers - lifetimeUsers);
   const clickRate = clickers > 0 ? uniqueUsers / clickers : null;
   const retries = uniqueUsers > 0 ? n(rangeAll?.takes) / uniqueUsers : null;
   const offerMix = rangePacks.reduce(
@@ -274,37 +289,69 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
   const fullUsers = offerMix.full;
   const halfUsers = offerMix.half;
   const trialUsers = offerMix.trial;
-  const yearlyRevenue = listPrice == null ? null : yearlyUsers * listPrice;
+  const { yearly: yearlyPacks, yearlyHalf: yearlyHalfPacks, monthly: monthlyPacks, lifetime: lifetimePacks, other: otherPacks } = splitPacksByKind(rangePacks);
+  const yearlyFromPacks = yearlyPacks.reduce((s, p) => s + n(p.unique_users), 0);
+  const yearlyHalfUsers = yearlyHalfPacks.reduce((s, p) => s + n(p.unique_users), 0);
+  const yearlyUsers = yearlyFromPacks + Math.max(0, yearlyUsersAll - yearlyFromPacks - yearlyHalfUsers);
+  const otherUsers = Math.max(0, uniqueUsers - yearlyUsers - yearlyHalfUsers - monthlyUsers - lifetimeUsers);
+  const yearlyRevenue = yearlyNetUsd(yearlyUsers, productId);
+  const yearlyHalfRevenue = yearlyNetUsd(yearlyHalfUsers, productId, 'yearly_offer');
+  const facePrice = yearlyListPrice(productId) ?? YEARLY_FACE_PRICE;
+  const offerPrice = yearlyFacePrice(productId, 'yearly_offer');
   const yearlyShare = pct(yearlyUsers, uniqueUsers);
+  const yearlyHalfShare = pct(yearlyHalfUsers, uniqueUsers);
   const monthlyShare = pct(monthlyUsers, uniqueUsers);
   const lifetimeShare = pct(lifetimeUsers, uniqueUsers);
-  const { yearly: yearlyPacks, monthly: monthlyPacks, lifetime: lifetimePacks, other: otherPacks } = splitPacksByKind(rangePacks);
 
   const kindCounts = useMemo(() => {
-    const map: Record<string, number> = { Yearly: 0, Monthly: 0, Lifetime: 0, Other: 0 };
+    const map: Record<string, number> = { Yearly: 0, 'Half yearly': 0, Monthly: 0, Lifetime: 0, Other: 0 };
     for (const p of rangePacks) {
-      const kind = packKind(p);
-      map[kind] = (map[kind] || 0) + n(p.unique_users);
+      const label = packKindLabel(p);
+      map[label] = (map[label] || 0) + n(p.unique_users);
     }
-    return KIND_ORDER.filter((k) => map[k] > 0).map((k) => ({ kind: k, users: map[k] }));
+    return (['Yearly', 'Yearly offer', 'Half yearly', 'Monthly', 'Lifetime', 'Other'] as const)
+      .filter((k) => map[k] > 0)
+      .map((k) => ({ kind: k, users: map[k] }));
   }, [rangePacks]);
 
   const daily = useMemo(
     () => {
-      const byDate = new Map<string, { day: string; Yearly: number; Monthly: number; Lifetime: number }>();
+      const byDate = new Map<string, {
+        day: string;
+        Yearly: number;
+        HalfYearly: number;
+        Monthly: number;
+        Lifetime: number;
+        _yearlyRollup: number;
+      }>();
       for (const r of rows) {
         if (r.grain !== 'day') continue;
         const date = String(r.event_date || '').slice(0, 10);
         if (!date) continue;
-        const cur = byDate.get(date) || { day: date.slice(5), Yearly: 0, Monthly: 0, Lifetime: 0 };
-        if (r.pack_name === YEARLY_ROLLUP) cur.Yearly = n(r.unique_users);
+        const cur = byDate.get(date) || {
+          day: date.slice(5),
+          Yearly: 0,
+          HalfYearly: 0,
+          Monthly: 0,
+          Lifetime: 0,
+          _yearlyRollup: 0,
+        };
         if (r.pack_name === MONTHLY_ROLLUP) cur.Monthly = n(r.unique_users);
-        if (r.pack_name === LIFETIME_ROLLUP) cur.Lifetime = n(r.unique_users);
+        else if (r.pack_name === LIFETIME_ROLLUP) cur.Lifetime = n(r.unique_users);
+        else if (r.pack_name === YEARLY_ROLLUP) cur._yearlyRollup = n(r.unique_users);
+        else if (!isRollupPack(r.pack_name) && packKind(r) === 'Yearly') {
+          if (isHalfYearlyPack(r.pack_name)) cur.HalfYearly += n(r.unique_users);
+          else cur.Yearly += n(r.unique_users);
+        }
         byDate.set(date, cur);
       }
       return Array.from(byDate.entries())
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([, v]) => v);
+        .map(([, v]) => {
+          if (v.Yearly + v.HalfYearly === 0 && v._yearlyRollup > 0) v.Yearly = v._yearlyRollup;
+          const { _yearlyRollup: _, ...row } = v;
+          return row;
+        });
     },
     [rows],
   );
@@ -366,8 +413,8 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
           </h2>
           <p>
             {isCompare
-              ? 'Unique people who confirmed a pack. Banknote uses Subs_pack / Subs_confirm. Coinzy uses subs_pack / subs_confirm (and paid_purchase).'
-              : `Unique people who confirmed a pack in ${product.shortName}. ${packEventHint(productId)}. Yearly list price $${listPrice ?? '—'}.`}
+              ? 'Unique people who took a pack. Banknote uses store in_app_purchase product IDs (same as GA4). Coinzy uses subs_pack / subs_confirm (and paid_purchase).'
+              : `Unique people who confirmed a pack in ${product.shortName}. ${packEventHint(productId)}. Yearly $ is unique people × ${YEARLY_NET_SHARE * 100}% × $${facePrice} (full) or $${offerPrice} (discounted offer).`}
           </p>
         </div>
         <FilterBar params={params} onChange={setParams} onApply={applyFilters} />
@@ -385,10 +432,11 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                 const row = compareSummary.find((s) => matchProduct(s.product, p.shortName))
                   || compareSummary.find((s) => String(s.product_id) === p.id);
                 const unique = n(row?.unique_users);
-                const yearly = n(row?.yearly_users);
+                const yearly = row?.yearly_full_users != null ? n(row.yearly_full_users) : n(row?.yearly_users);
+                const yearlyHalf = n(row?.yearly_half_users);
                 const monthly = n(row?.monthly_users);
                 const lifetime = n(row?.lifetime_users);
-                const other = Math.max(0, unique - yearly - monthly - lifetime);
+                const other = Math.max(0, unique - yearly - yearlyHalf - monthly - lifetime);
                 const clickers = n(row?.clickers);
                 const clickRate = clickers > 0 ? unique / clickers : row?.click_to_confirm_rate;
                 return (
@@ -408,6 +456,10 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                         <dd>{fmtNumber(yearly)}</dd>
                       </div>
                       <div>
+                        <dt>Half yearly</dt>
+                        <dd>{fmtNumber(yearlyHalf)}</dd>
+                      </div>
+                      <div>
                         <dt>Monthly</dt>
                         <dd>{fmtNumber(monthly)}</dd>
                       </div>
@@ -421,10 +473,14 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                       </div>
                       <div>
                         <dt>Est. yearly</dt>
-                        <dd>{row?.yearly_revenue == null ? '—' : fmtUsd(row.yearly_revenue)}</dd>
+                        <dd>{fmtUsd(row?.yearly_revenue ?? yearlyNetUsd(yearly, p.id))}</dd>
+                      </div>
+                      <div>
+                        <dt>Est. half yearly</dt>
+                        <dd>{fmtUsd(row?.yearly_half_revenue ?? yearlyNetUsd(yearlyHalf, p.id, 'yearly_offer'))}</dd>
                       </div>
                     </dl>
-                    <MixMeter yearly={yearly} monthly={monthly} lifetime={lifetime} other={other} />
+                    <MixMeter yearly={yearly} halfYearly={yearlyHalf} monthly={monthly} lifetime={lifetime} other={other} />
                     {p.id === 'coinzy' && (
                       <OfferMeter
                         full={n(row?.full_users)}
@@ -464,7 +520,7 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
               </ResponsiveContainer>
             </ChartCard>
 
-            <div className="packs-split">
+            <div className="packs-split packs-split-4">
               <section className="packs-panel" data-kind="yearly">
                 <h3>Yearly packs</h3>
                   <RankedPacks
@@ -473,6 +529,16 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                   showApp
                   colorByLabel={colorByLabel}
                   empty="No yearly packs in this range."
+                />
+              </section>
+              <section className="packs-panel" data-kind="half-yearly">
+                <h3>Half-yearly / offer packs</h3>
+                <RankedPacks
+                  packs={compareByKind.yearlyHalf}
+                  total={compareTotal}
+                  showApp
+                  colorByLabel={colorByLabel}
+                  empty="No half-yearly or offer packs in this range."
                 />
               </section>
               <section className="packs-panel" data-kind="monthly">
@@ -524,6 +590,8 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                 {' '}
                 Yearly <strong>{fmtNumber(yearlyUsers)}</strong>
                 {uniqueUsers > 0 ? ` (${fmtPercent(yearlyShare)})` : ''}
+                {' · '}half-yearly <strong>{fmtNumber(yearlyHalfUsers)}</strong>
+                {uniqueUsers > 0 ? ` (${fmtPercent(yearlyHalfShare)})` : ''}
                 {' · '}monthly <strong>{fmtNumber(monthlyUsers)}</strong>
                 {uniqueUsers > 0 ? ` (${fmtPercent(monthlyShare)})` : ''}
                 {' · '}lifetime <strong>{fmtNumber(lifetimeUsers)}</strong>
@@ -531,9 +599,8 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                 {clickRate != null && (
                   <> Pack click → confirm {fmtPercent(clickRate)}.</>
                 )}
-                {yearlyRevenue != null && (
-                  <> Estimated yearly <strong>{fmtUsd(yearlyRevenue)}</strong>.</>
-                )}
+                {' '}Estimated yearly <strong>{fmtUsd(yearlyRevenue)}</strong>
+                {' · '}half-yearly <strong>{fmtUsd(yearlyHalfRevenue)}</strong>.
               </p>
             </div>
 
@@ -550,6 +617,12 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                 <div className="value">{fmtNumber(yearlyUsers)}</div>
                 <div className="why">{uniqueUsers > 0 ? fmtPercent(yearlyShare) : '—'} of people who bought</div>
               </div>
+              <div className="kpi-card packs-kpi" data-tone="half">
+                <div className="packs-kpi-icon"><Calendar size={16} /></div>
+                <div className="label">Half-yearly unique</div>
+                <div className="value">{fmtNumber(yearlyHalfUsers)}</div>
+                <div className="why">{uniqueUsers > 0 ? fmtPercent(yearlyHalfShare) : '—'} of people who bought</div>
+              </div>
               <div className="kpi-card packs-kpi" data-tone="monthly">
                 <div className="packs-kpi-icon"><CalendarDays size={16} /></div>
                 <div className="label">Monthly unique</div>
@@ -565,12 +638,14 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
               <div className="kpi-card packs-kpi" data-tone="money">
                 <div className="packs-kpi-icon"><CircleDollarSign size={16} /></div>
                 <div className="label">Yearly estimated</div>
-                <div className="value">{yearlyRevenue == null ? '—' : fmtUsd(yearlyRevenue)}</div>
-                <div className="why">
-                  {listPrice == null
-                    ? 'No yearly list price for this app'
-                    : `${fmtNumber(yearlyUsers)} × $${listPrice} list — not store USD`}
-                </div>
+                <div className="value">{fmtUsd(yearlyRevenue)}</div>
+                <div className="why">{`${fmtNumber(yearlyUsers)} × ${YEARLY_NET_SHARE * 100}% × $${facePrice} — Play US list, not GA4 USD`}</div>
+              </div>
+              <div className="kpi-card packs-kpi" data-tone="half">
+                <div className="packs-kpi-icon"><CircleDollarSign size={16} /></div>
+                <div className="label">Half-yearly estimated</div>
+                <div className="value">{fmtUsd(yearlyHalfRevenue)}</div>
+                <div className="why">{`${fmtNumber(yearlyHalfUsers)} × ${YEARLY_NET_SHARE * 100}% × $${offerPrice} — Play US discounted list`}</div>
               </div>
               <div className="kpi-card packs-kpi" data-tone="people">
                 <div className="packs-kpi-icon"><MousePointerClick size={16} /></div>
@@ -593,7 +668,7 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
             </div>
 
             <div className="packs-mix-row">
-              <MixMeter yearly={yearlyUsers} monthly={monthlyUsers} lifetime={lifetimeUsers} other={otherUsers} />
+              <MixMeter yearly={yearlyUsers} halfYearly={yearlyHalfUsers} monthly={monthlyUsers} lifetime={lifetimeUsers} other={otherUsers} />
               {productId === 'coinzy' ? (
                 <OfferMeter full={fullUsers} half={halfUsers} trial={trialUsers} />
               ) : kindCounts.length > 0 ? (
@@ -601,7 +676,7 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                   <span>By kind</span>
                   <div className="packs-kind-pills">
                     {kindCounts.map((k) => (
-                      <span key={k.kind} className={`pack-kind kind-${k.kind.toLowerCase()}`}>
+                      <span key={k.kind} className={`pack-kind kind-${kindSlug(k.kind)}`}>
                         {k.kind} · {fmtNumber(k.users)}
                       </span>
                     ))}
@@ -610,7 +685,7 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
               ) : null}
             </div>
 
-            <ChartCard title="Yearly vs monthly vs lifetime, unique people per day">
+            <ChartCard title="Yearly vs half-yearly vs monthly vs lifetime, unique people per day">
               <ResponsiveContainer width="100%" height={300}>
                 <ComposedChart data={daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" vertical={false} />
@@ -619,31 +694,36 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                   <Tooltip content={<PackTooltip />} />
                   <Legend />
                   <Bar dataKey="Yearly" name="Yearly" fill="var(--brand-banknote-gold)" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                  <Bar dataKey="HalfYearly" name="Half yearly" fill="#fb923c" radius={[3, 3, 0, 0]} maxBarSize={16} />
                   <Bar dataKey="Monthly" name="Monthly" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={16} />
                   <Bar dataKey="Lifetime" name="Lifetime" fill="#a78bfa" radius={[3, 3, 0, 0]} maxBarSize={16} />
                 </ComposedChart>
               </ResponsiveContainer>
             </ChartCard>
 
-            <div className="packs-split packs-split-3">
+            <div className="packs-split packs-split-4">
               <section className="packs-panel" data-kind="yearly">
                 <h3>Yearly packs</h3>
-                <RankedPacks packs={yearlyPacks} total={uniqueUsers} listPrice={listPrice} empty="No yearly packs in this range." />
+                <RankedPacks packs={yearlyPacks} total={uniqueUsers} productId={productId} empty="No yearly packs in this range." />
+              </section>
+              <section className="packs-panel" data-kind="half-yearly">
+                <h3>Half-yearly / offer packs</h3>
+                <RankedPacks packs={yearlyHalfPacks} total={uniqueUsers} productId={productId} empty="No half-yearly or offer packs in this range." />
               </section>
               <section className="packs-panel" data-kind="monthly">
                 <h3>Monthly packs</h3>
-                <RankedPacks packs={monthlyPacks} total={uniqueUsers} listPrice={listPrice} empty="No monthly packs in this range." />
+                <RankedPacks packs={monthlyPacks} total={uniqueUsers} productId={productId} empty="No monthly packs in this range." />
               </section>
               <section className="packs-panel" data-kind="lifetime">
                 <h3>Lifetime packs</h3>
-                <RankedPacks packs={lifetimePacks} total={uniqueUsers} listPrice={listPrice} empty="No lifetime packs in this range." />
+                <RankedPacks packs={lifetimePacks} total={uniqueUsers} productId={productId} empty="No lifetime packs in this range." />
               </section>
             </div>
 
             {otherPacks.length > 0 && (
               <section className="packs-panel">
                 <h3>Other packs</h3>
-                <RankedPacks packs={otherPacks} total={uniqueUsers} listPrice={listPrice} />
+                <RankedPacks packs={otherPacks} total={uniqueUsers} productId={productId} />
               </section>
             )}
 
@@ -660,21 +740,22 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  { [...yearlyPacks, ...monthlyPacks, ...lifetimePacks, ...otherPacks].map((p) => {
+                  { [...yearlyPacks, ...yearlyHalfPacks, ...monthlyPacks, ...lifetimePacks, ...otherPacks].map((p) => {
                     const kind = packKind(p);
+                    const label = packKindLabel(p);
                     const users = n(p.unique_users);
                     const share = pct(users, uniqueUsers);
-                    const est = kind === 'Yearly' && listPrice != null ? users * listPrice : null;
+                    const est = kind === 'Yearly' ? yearlyNetUsd(users, productId, p.pack_name) : null;
                     return (
                       <tr key={String(p.pack_name)}>
                         <td>{packDisplayName(p.pack_name)}</td>
                         <td>
-                          <span className={`pack-kind kind-${kind.toLowerCase()}`}>{kind}</span>
+                          <span className={`pack-kind kind-${kindSlug(label)}`}>{label}</span>
                         </td>
                         <td>
                           <div className="packs-cell-bar">
                             <span className="packs-cell-track">
-                              <i style={{ width: `${share * 100}%`, background: KIND_COLOR[kind] }} />
+                              <i style={{ width: `${share * 100}%`, background: KIND_COLOR[label] }} />
                             </span>
                             <span>{fmtNumber(users)}</span>
                           </div>
@@ -690,19 +771,20 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
             </div>
 
             <div className="packs-cards">
-              {[...yearlyPacks, ...monthlyPacks, ...lifetimePacks, ...otherPacks].map((p) => {
+              {[...yearlyPacks, ...yearlyHalfPacks, ...monthlyPacks, ...lifetimePacks, ...otherPacks].map((p) => {
                 const kind = packKind(p);
+                const label = packKindLabel(p);
                 const users = n(p.unique_users);
                 const share = pct(users, uniqueUsers);
-                const est = kind === 'Yearly' && listPrice != null ? users * listPrice : null;
+                const est = kind === 'Yearly' ? yearlyNetUsd(users, productId, p.pack_name) : null;
                 return (
                   <article key={String(p.pack_name)} className="packs-card">
                     <header>
                       <strong>{packDisplayName(p.pack_name)}</strong>
-                      <span className={`pack-kind kind-${kind.toLowerCase()}`}>{kind}</span>
+                      <span className={`pack-kind kind-${kindSlug(label)}`}>{label}</span>
                     </header>
                     <div className="packs-rank-bar">
-                      <i style={{ width: `${share * 100}%`, background: KIND_COLOR[kind] }} />
+                      <i style={{ width: `${share * 100}%`, background: KIND_COLOR[label] }} />
                     </div>
                     <dl>
                       <div>

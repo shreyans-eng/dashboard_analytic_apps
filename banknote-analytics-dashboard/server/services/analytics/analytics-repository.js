@@ -516,7 +516,7 @@ export class AnalyticsRepository {
 
   async getSubscriptionPacks(params) {
     const sqlPath = this._resolveProductSql('dashboard/raw/18_subscription_packs.sql');
-    const key = cacheKey(`${this.productId}:dashboard:subscription-packs:v6`, params);
+    const key = cacheKey(`${this.productId}:dashboard:subscription-packs:v8`, params);
     const result = await cached('subscription-packs', key, () =>
       this._executeSql(sqlPath, params, 'raw'),
     );

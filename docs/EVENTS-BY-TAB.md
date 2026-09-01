@@ -275,6 +275,7 @@ Whatever event you pick. Hits + unique users. Use this to check an event actuall
 | D1 / D7 Retention | Same as MVP 6 |
 | Top Countries / Platform | Any event |
 | Top Events | All events (`COUNT(*)`) |
+| Packs taken | Banknote: `in_app_purchase` product ID. Coinzy: `subs_confirm` / `paid_purchase`. Pack click is `Subs_pack` / `subs_pack` |
 | Cohort LTV | Install = `first_open` · revenue = `in_app_purchase` / `purchase` (**not** `Subs_confirm`) |
 
 ---

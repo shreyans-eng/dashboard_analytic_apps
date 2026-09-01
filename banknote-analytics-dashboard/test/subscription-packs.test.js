@@ -9,13 +9,20 @@ import {
   COINZY_PACK_SKUS,
   LIFETIME_ROLLUP,
   MONTHLY_ROLLUP,
+  YEARLY_FACE_PRICE,
   YEARLY_LIST_PRICE,
+  YEARLY_NET_SHARE,
+  YEARLY_OFFER_LIST_PRICE,
   YEARLY_ROLLUP,
+  classifyBanknotePack,
   classifyCoinzyPack,
   classifyPack,
+  isHalfYearlyPack,
   isRollupPack,
   summarizePackRows,
   yearlyListPrice,
+  yearlyOfferListPrice,
+  yearlyNetUsd,
 } from '../server/services/analytics/subscription-packs.js';
 
 const sqlPath = path.resolve(
@@ -28,12 +35,29 @@ const sqlPath = path.resolve(
   '18_subscription_packs.sql',
 );
 
-test('yearly list price is Banknote $20 and Coinzy $15', () => {
-  assert.equal(YEARLY_LIST_PRICE.banknote, 20);
-  assert.equal(YEARLY_LIST_PRICE.coinzy, 15);
-  assert.equal(yearlyListPrice('banknote'), 20);
-  assert.equal(yearlyListPrice('coinzy'), 15);
+test('yearly estimate is unique people × 0.20 × Play US list (Banknote $22.99)', () => {
+  assert.equal(YEARLY_FACE_PRICE, 22.99);
+  assert.equal(YEARLY_NET_SHARE, 0.20);
+  assert.equal(YEARLY_LIST_PRICE.banknote, 22.99);
+  assert.equal(YEARLY_LIST_PRICE.coinzy, 23.99);
+  assert.equal(yearlyListPrice('banknote'), 22.99);
+  assert.equal(yearlyListPrice('coinzy'), 23.99);
   assert.equal(yearlyListPrice('unknown'), null);
+  assert.equal(yearlyNetUsd(81, 'banknote', 'yearly_banknote_pack'), 81 * 0.20 * 22.99);
+  assert.equal(yearlyNetUsd(14, 'banknote', 'yearly_banknote_pack_offer'), 14 * 0.20 * 11.99);
+  assert.equal(yearlyOfferListPrice('banknote'), 11.99);
+  assert.equal(YEARLY_OFFER_LIST_PRICE.banknote, 11.99);
+  assert.equal(yearlyNetUsd(81, 'coinzy'), 81 * 0.20 * 23.99);
+  assert.equal(yearlyNetUsd(81), 81 * 0.20 * 22.99);
+  assert.equal(yearlyNetUsd(0), 0);
+  assert.equal(isHalfYearlyPack('yearly_coin_half_pack'), true);
+  assert.equal(isHalfYearlyPack('yearly_coinzy_pack_trial_half_price'), true);
+  assert.equal(isHalfYearlyPack('yearly_banknote_pack_offer'), true);
+  assert.equal(isHalfYearlyPack('yearly_banknote_pack'), false);
+  assert.equal(isHalfYearlyPack('yearly_coin_pack'), false);
+  assert.equal(isHalfYearlyPack('yearly_coinzy_pack_trial'), false);
+  assert.equal(isHalfYearlyPack('lifetime_pack_half_price'), false);
+  assert.equal(isHalfYearlyPack('lifetime_banknote_pack_offer'), false);
 });
 
 test('pack SQL counts unique users per day per pack from confirms, not IAP tiers', () => {
@@ -54,7 +78,7 @@ test('pack SQL counts unique users per day per pack from confirms, not IAP tiers
   assert.doesNotMatch(body, /subscription_tier/);
 });
 
-test('Banknote pack SQL uses Subs_confirm and attributes pack from Subs_pack', () => {
+test('Banknote pack SQL counts store in_app_purchase product IDs, not Subs_confirm', () => {
   const banknotePath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '..',
@@ -69,12 +93,17 @@ test('Banknote pack SQL uses Subs_confirm and attributes pack from Subs_pack', (
     .split('\n')
     .filter((line) => !line.trim().startsWith('--'))
     .join('\n');
-  assert.match(body, /event_name_base = 'Subs_confirm'/);
   assert.match(body, /event_name_base = 'Subs_pack'/);
-  assert.match(body, /pack_clicks/);
+  assert.match(body, /in_app_purchase/);
+  assert.match(body, /UNNEST\(items\)/);
+  assert.match(body, /yearly_banknote_pack/);
+  assert.match(body, /monthly_banknote_pack/);
+  assert.match(body, /lifetime_banknote_pack/);
+  assert.match(body, /FROM purchases/);
   assert.match(body, /\(monthly\)/);
+  assert.doesNotMatch(body, /Subs_confirm/);
+  assert.doesNotMatch(body, /pack_source/);
   assert.doesNotMatch(body, /paid_purchase/);
-  assert.doesNotMatch(body, /in_app_purchase/);
   assert.doesNotMatch(body, /subs_pack/);
   assert.doesNotMatch(body, /subs_confirm/);
 });
@@ -110,6 +139,16 @@ test('Coinzy SKUs map yearly / monthly / lifetime from the paywall JSON', () => 
   assert.equal(Object.keys(COINZY_PACK_SKUS).length, 7);
 });
 
+test('Banknote SKUs map GA product IDs to yearly / monthly / lifetime', () => {
+  assert.equal(classifyPack('yearly_banknote_pack', 'banknote').kind, 'Yearly');
+  assert.equal(classifyPack('yearly_banknote_pack', 'banknote').offer, 'full_pack');
+  assert.equal(classifyPack('yearly_banknote_pack_offer', 'banknote').kind, 'Yearly');
+  assert.equal(classifyPack('yearly_banknote_pack_offer', 'banknote').offer, 'half_pack');
+  assert.equal(classifyPack('monthly_banknote_pack', 'banknote').kind, 'Monthly');
+  assert.equal(classifyPack('lifetime_banknote_pack_offer', 'banknote').kind, 'Lifetime');
+  assert.equal(classifyBanknotePack('yearly_banknote_pack_offer').sku, 'yearly_banknote_pack_offer');
+});
+
 test('Banknote paywall SQL is in-app Subs_page and Subs_confirm only', () => {
   const paywallPath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -132,7 +171,7 @@ test('Banknote paywall SQL is in-app Subs_page and Subs_confirm only', () => {
   assert.doesNotMatch(body, /paid_purchase/);
 });
 
-test('summarizePackRows uses yearly unique people times list price', () => {
+test('summarizePackRows splits yearly vs half-yearly and uses Play US list × 20%', () => {
   const rows = [
     { grain: 'range', pack_name: ALL_PACKS, unique_users: 10, takes: 12 },
     { grain: 'range', pack_name: YEARLY_ROLLUP, unique_users: 4, takes: 4 },
@@ -146,17 +185,23 @@ test('summarizePackRows uses yearly unique people times list price', () => {
   const banknote = summarizePackRows(rows, 'banknote');
   assert.equal(banknote.unique_users, 10);
   assert.equal(banknote.yearly_users, 4);
+  assert.equal(banknote.yearly_full_users, 5);
+  assert.equal(banknote.yearly_half_users, 1);
   assert.equal(banknote.monthly_users, 5);
   assert.equal(banknote.lifetime_users, 1);
   assert.equal(banknote.clickers, 20);
   assert.equal(banknote.click_to_confirm_rate, 0.5);
   assert.equal(banknote.retries_per_user, 1.2);
-  assert.equal(banknote.yearly_list_price, 20);
-  assert.equal(banknote.yearly_revenue, 80);
+  assert.equal(banknote.yearly_list_price, 22.99);
+  assert.equal(banknote.yearly_revenue, yearlyNetUsd(5, 'banknote'));
+  assert.equal(banknote.yearly_half_revenue, yearlyNetUsd(1, 'banknote', 'yearly_offer'));
 
   const coinzy = summarizePackRows(rows, 'coinzy');
-  assert.equal(coinzy.yearly_list_price, 15);
-  assert.equal(coinzy.yearly_revenue, 60);
+  assert.equal(coinzy.yearly_list_price, 23.99);
+  assert.equal(coinzy.yearly_full_users, 5);
+  assert.equal(coinzy.yearly_half_users, 1);
+  assert.equal(coinzy.yearly_revenue, yearlyNetUsd(5, 'coinzy'));
+  assert.equal(coinzy.yearly_half_revenue, yearlyNetUsd(1, 'coinzy', 'yearly_offer'));
   assert.equal(coinzy.monthly_users, 5);
   assert.equal(coinzy.full_users, 3);
   assert.equal(coinzy.half_users, 1);

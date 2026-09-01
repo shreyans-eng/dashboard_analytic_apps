@@ -417,7 +417,7 @@ export class ProductAnalyticsFacade {
 
   /**
    * Packs taken (unique people per day per pack) per registered product.
-   * Yearly revenue uses list price: Banknote $20, Coinzy $15 — not IAP USD.
+   * Yearly $ is unique people × 20% × Play US list (Banknote $22.99 / offer $11.99).
    */
   async compareSubscriptions(params = {}) {
     const results = await Promise.all(

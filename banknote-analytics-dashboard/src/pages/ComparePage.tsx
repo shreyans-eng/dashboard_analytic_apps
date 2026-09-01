@@ -11,7 +11,7 @@ import { useTheme } from '@/lib/theme';
 import { useDashboardMetric, useCompareLtv, useCompareSubscriptions } from '@/hooks/useAnalytics';
 import { fmtNumber, fmtPercent, fmtUsd, fmtDecimal, QueryParams, defaultDateRange } from '@/lib/api';
 import { useProduct } from '@/lib/product';
-import { ALL_PACKS, isRollupPack, n, packDisplayName, packEventHint, packKind, splitPacksByKind, yearlyListPrice, type PackRow } from '@/lib/packs';
+import { ALL_PACKS, YEARLY_LIST_PRICE, YEARLY_NET_SHARE, YEARLY_OFFER_LIST_PRICE, isRollupPack, n, packDisplayName, packEventHint, packKind, packKindLabel, splitPacksByKind, yearlyNetUsd, type PackRow } from '@/lib/packs';
 
 type SummaryRow = {
   product: string;
@@ -79,10 +79,13 @@ type PackSummary = {
   unique_users?: number;
   takes?: number;
   yearly_users?: number;
+  yearly_full_users?: number;
+  yearly_half_users?: number;
   monthly_users?: number;
   yearly_takes?: number;
   yearly_list_price?: number | null;
   yearly_revenue?: number | null;
+  yearly_half_revenue?: number | null;
 };
 
 type LtvCompareRow = {
@@ -375,7 +378,8 @@ export default function ComparePage() {
           </h2>
           <p>
             {labels.join(' vs ')} on the same date range. DAU is people who opened the app.
-            Yearly pack estimate is $20 (Banknote) and $15 (Coinzy) per unique person.
+            Yearly estimate is unique people × {YEARLY_NET_SHARE * 100}% × Play US list
+            (Banknote full ${YEARLY_LIST_PRICE.banknote}, discounted ${YEARLY_OFFER_LIST_PRICE.banknote}; Coinzy ${YEARLY_LIST_PRICE.coinzy}).
           </p>
         </div>
         <FilterBar
@@ -470,9 +474,10 @@ export default function ComparePage() {
           <div className="packs-compare-head">
             <h3>Packs taken</h3>
             <p>
-              Unique people who confirmed a pack, per day. Banknote: Subs_pack / Subs_confirm.
-              Coinzy: subs_pack / subs_confirm (and paid_purchase). Yearly estimate uses list price
-              (Banknote $20, Coinzy $15).
+              Unique people who took a pack, per day. Banknote: store in_app_purchase
+              product ID (same as GA4). Coinzy: subs_pack / subs_confirm (and paid_purchase).
+              Yearly $ is unique people × {YEARLY_NET_SHARE * 100}% × Play US list
+              (Banknote full ${YEARLY_LIST_PRICE.banknote}, discounted ${YEARLY_OFFER_LIST_PRICE.banknote}; Coinzy ${YEARLY_LIST_PRICE.coinzy}).
             </p>
           </div>
           {subsQ.error && (
@@ -483,10 +488,12 @@ export default function ComparePage() {
               const row = subSummary.find((s) => matchProduct(s.product, p.shortName))
                 || subSummary.find((s) => String(s.product_id) === p.id);
               const unique = n(row?.unique_users);
-              const yearly = n(row?.yearly_users);
+              const yearly = row?.yearly_full_users != null ? n(row.yearly_full_users) : n(row?.yearly_users);
+              const yearlyHalf = n(row?.yearly_half_users);
               const monthly = n(row?.monthly_users);
-              const other = Math.max(0, unique - yearly - monthly);
+              const other = Math.max(0, unique - yearly - yearlyHalf - monthly);
               const yShare = unique > 0 ? yearly / unique : 0;
+              const hShare = unique > 0 ? yearlyHalf / unique : 0;
               const mShare = unique > 0 ? monthly / unique : 0;
               return (
                 <div key={p.id} className="packs-compare-card" data-app={p.id}>
@@ -505,6 +512,10 @@ export default function ComparePage() {
                       <dd>{subsQ.isLoading ? '…' : fmtNumber(yearly)}</dd>
                     </div>
                     <div>
+                      <dt>Half yearly</dt>
+                      <dd>{subsQ.isLoading ? '…' : fmtNumber(yearlyHalf)}</dd>
+                    </div>
+                    <div>
                       <dt>Monthly</dt>
                       <dd>{subsQ.isLoading ? '…' : fmtNumber(monthly)}</dd>
                     </div>
@@ -513,23 +524,32 @@ export default function ComparePage() {
                       <dd>
                         {subsQ.isLoading
                           ? '…'
-                          : row?.yearly_revenue == null
-                            ? '—'
-                            : fmtUsd(row.yearly_revenue)}
+                          : fmtUsd(row?.yearly_revenue ?? yearlyNetUsd(yearly, p.id))}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Est. half yearly</dt>
+                      <dd>
+                        {subsQ.isLoading
+                          ? '…'
+                          : fmtUsd(row?.yearly_half_revenue ?? yearlyNetUsd(yearlyHalf, p.id, 'yearly_offer'))}
                       </dd>
                     </div>
                   </dl>
                   <div className="packs-share">
                     <div className="packs-share-head">
-                      <span>Yearly vs monthly</span>
+                      <span>Yearly · half-yearly · monthly</span>
                       <strong>
                         {unique > 0
-                          ? `${fmtPercent(yShare)} yearly · ${fmtPercent(mShare)} monthly`
+                          ? `${fmtPercent(yShare)} yearly · ${fmtPercent(hShare)} half · ${fmtPercent(mShare)} monthly`
                           : '—'}
                       </strong>
                     </div>
                     <div className="packs-share-track">
                       <i className="packs-share-yearly" style={{ width: `${unique > 0 ? yShare * 100 : 0}%` }} />
+                      {yearlyHalf > 0 && (
+                        <i className="packs-share-half" style={{ width: `${hShare * 100}%` }} />
+                      )}
                       <i className="packs-share-monthly" style={{ width: `${unique > 0 ? mShare * 100 : 0}%` }} />
                       {other > 0 && (
                         <i className="packs-share-other" style={{ width: `${unique > 0 ? (other / unique) * 100 : 0}%` }} />
@@ -593,12 +613,11 @@ export default function ComparePage() {
                 {!subsQ.isLoading && subPacks.length === 0 && (
                   <tr><td colSpan={6} className="muted">No pack confirms in this range.</td></tr>
                 )}
-                { [...subByKind.yearly, ...subByKind.monthly, ...subByKind.lifetime, ...subByKind.other].map((p) => {
+                { [...subByKind.yearly, ...subByKind.yearlyHalf, ...subByKind.monthly, ...subByKind.lifetime, ...subByKind.other].map((p) => {
                   const kind = packKind(p);
-                  const productId = String(p.product_id || '');
-                  const price = yearlyListPrice(productId);
+                  const label = packKindLabel(p);
                   const users = n(p.unique_users);
-                  const est = kind === 'Yearly' && price != null ? users * price : null;
+                  const est = kind === 'Yearly' ? yearlyNetUsd(users, p.product_id, p.pack_name) : null;
                   return (
                     <tr key={`${p.product}-${p.pack_name}`}>
                       <td style={{ color: colorByLabel[String(p.product)] || undefined }}>
@@ -606,7 +625,7 @@ export default function ComparePage() {
                       </td>
                       <td>{packDisplayName(p.pack_name)}</td>
                       <td>
-                        <span className={`pack-kind kind-${kind.toLowerCase()}`}>{kind}</span>
+                        <span className={`pack-kind kind-${label.toLowerCase().replace(/\s+/g, '')}`}>{label}</span>
                       </td>
                       <td>{fmtNumber(users)}</td>
                       <td>{fmtNumber(n(p.takes))}</td>
@@ -619,17 +638,16 @@ export default function ComparePage() {
           </div>
 
           <div className="packs-cards packs-cards-compare">
-            { [...subByKind.yearly, ...subByKind.monthly, ...subByKind.lifetime, ...subByKind.other].map((p) => {
+            { [...subByKind.yearly, ...subByKind.yearlyHalf, ...subByKind.monthly, ...subByKind.lifetime, ...subByKind.other].map((p) => {
               const kind = packKind(p);
-              const productId = String(p.product_id || '');
-              const price = yearlyListPrice(productId);
+              const label = packKindLabel(p);
               const users = n(p.unique_users);
-              const est = kind === 'Yearly' && price != null ? users * price : null;
+              const est = kind === 'Yearly' ? yearlyNetUsd(users, p.product_id, p.pack_name) : null;
               return (
                 <article key={`${p.product}-${p.pack_name}`} className="packs-card">
                   <header>
                     <strong>{packDisplayName(p.pack_name)}</strong>
-                    <span className={`pack-kind kind-${kind.toLowerCase()}`}>{kind}</span>
+                    <span className={`pack-kind kind-${label.toLowerCase().replace(/\s+/g, '')}`}>{label}</span>
                   </header>
                   <p className="packs-card-app" style={{ color: colorByLabel[String(p.product)] }}>
                     {String(p.product || '')}

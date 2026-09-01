@@ -1,6 +1,7 @@
 /**
  * Packs taken: unique people per day per pack.
- * Yearly list price is a product constant — not Firebase in_app_purchase USD.
+ * Yearly $ is unique people × 20% × Play US list
+ * (Banknote full $22.99, offer $11.99; Coinzy $23.99) — not Firebase in_app_purchase USD.
  */
 export const ALL_PACKS = '(all packs)';
 export const YEARLY_ROLLUP = '(yearly)';
@@ -12,6 +13,17 @@ export const CLICKS_ROLLUP = '(pack clicks)';
  * Coinzy store SKUs from the paywall JSON (full_pack / half_pack / trial variants).
  * Lifetime is a one-time IAP; yearly and monthly are subscriptions.
  */
+/**
+ * Banknote store SKUs from GA Product ID (in_app_purchase items.item_id).
+ * yearly_*_offer is the promo yearly wall — keep it out of the full yearly list.
+ */
+export const BANKNOTE_PACK_SKUS = Object.freeze({
+  yearly_banknote_pack_offer: { kind: 'Yearly', offer: 'half_pack', billing: 'SUBS' },
+  yearly_banknote_pack: { kind: 'Yearly', offer: 'full_pack', billing: 'SUBS' },
+  monthly_banknote_pack: { kind: 'Monthly', offer: 'full_pack', billing: 'SUBS' },
+  lifetime_banknote_pack_offer: { kind: 'Lifetime', offer: 'half_pack', billing: 'IAP' },
+});
+
 export const COINZY_PACK_SKUS = Object.freeze({
   yearly_coin_pack: { kind: 'Yearly', offer: 'full_pack', billing: 'SUBS' },
   monthly_coin_pack: { kind: 'Monthly', offer: 'full_pack', billing: 'SUBS' },
@@ -21,6 +33,31 @@ export const COINZY_PACK_SKUS = Object.freeze({
   yearly_coinzy_pack_trial: { kind: 'Yearly', offer: 'full_pack1', billing: 'SUBS' },
   yearly_coinzy_pack_trial_half_price: { kind: 'Yearly', offer: 'half_pack1', billing: 'SUBS' },
 });
+
+export function classifyBanknotePack(packName) {
+  const key = String(packName || '').toLowerCase();
+  const skus = Object.keys(BANKNOTE_PACK_SKUS).sort((a, b) => b.length - a.length);
+  for (const sku of skus) {
+    if (key === sku || key.includes(sku)) return { sku, ...BANKNOTE_PACK_SKUS[sku] };
+  }
+  if (/lifetime|life_time|life.?time/.test(key)) {
+    return { sku: null, kind: 'Lifetime', offer: /half|discount|offer/.test(key) ? 'half_pack' : 'full_pack', billing: 'IAP' };
+  }
+  if (/yearly|year|annual/.test(key)) {
+    const trial = /trial/.test(key);
+    const half = /half|discount|offer/.test(key);
+    return {
+      sku: null,
+      kind: 'Yearly',
+      offer: half ? 'half_pack' : trial ? 'full_pack1' : 'full_pack',
+      billing: 'SUBS',
+    };
+  }
+  if (/monthly|month/.test(key)) {
+    return { sku: null, kind: 'Monthly', offer: /half|discount|offer/.test(key) ? 'half_pack' : 'full_pack', billing: 'SUBS' };
+  }
+  return { sku: null, kind: 'Other', offer: null, billing: null };
+}
 
 export function classifyCoinzyPack(packName) {
   const key = String(packName || '').toLowerCase();
@@ -34,9 +71,18 @@ export function classifyCoinzyPack(packName) {
   return { sku: null, kind: 'Other', offer: null, billing: null };
 }
 
+/** Play Console US: yearly_banknote_pack $22.99 · yearly_banknote_pack_offer $11.99. */
+export const BANKNOTE_YEARLY_FACE_PRICE = 22.99;
+export const BANKNOTE_YEARLY_OFFER_FACE_PRICE = 11.99;
+export const COINZY_YEARLY_FACE_PRICE = 23.99;
+export const YEARLY_FACE_PRICE = BANKNOTE_YEARLY_FACE_PRICE;
+export const YEARLY_NET_SHARE = 0.20;
 export const YEARLY_LIST_PRICE = Object.freeze({
-  banknote: 20,
-  coinzy: 15,
+  banknote: BANKNOTE_YEARLY_FACE_PRICE,
+  coinzy: COINZY_YEARLY_FACE_PRICE,
+});
+export const YEARLY_OFFER_LIST_PRICE = Object.freeze({
+  banknote: BANKNOTE_YEARLY_OFFER_FACE_PRICE,
 });
 
 export function yearlyListPrice(productId) {
@@ -44,6 +90,33 @@ export function yearlyListPrice(productId) {
   return Object.prototype.hasOwnProperty.call(YEARLY_LIST_PRICE, id)
     ? YEARLY_LIST_PRICE[id]
     : null;
+}
+
+export function yearlyOfferListPrice(productId) {
+  const id = String(productId || '').toLowerCase();
+  return Object.prototype.hasOwnProperty.call(YEARLY_OFFER_LIST_PRICE, id)
+    ? YEARLY_OFFER_LIST_PRICE[id]
+    : null;
+}
+
+export function yearlyFacePrice(productId, packName) {
+  if (isHalfYearlyPack(packName)) {
+    return yearlyOfferListPrice(productId) ?? yearlyListPrice(productId) ?? YEARLY_FACE_PRICE;
+  }
+  return yearlyListPrice(productId) ?? YEARLY_FACE_PRICE;
+}
+
+/** unique people × 0.20 × Play US list. Banknote offer SKUs use $11.99. */
+export function yearlyNetUsd(uniqueUsers, productId, packName) {
+  const users = Number(uniqueUsers || 0);
+  if (!Number.isFinite(users) || users <= 0) return 0;
+  return users * YEARLY_NET_SHARE * yearlyFacePrice(productId, packName);
+}
+
+export function isHalfYearlyPack(packName) {
+  const key = String(packName || '').toLowerCase();
+  if (!/year|annual/.test(key)) return false;
+  return /half|offer/.test(key);
 }
 
 export function offerBucket(classified) {
@@ -57,24 +130,7 @@ export function offerBucket(classified) {
 export function classifyPack(packName, productId) {
   const id = String(productId || '').toLowerCase();
   if (id === 'coinzy') return classifyCoinzyPack(packName);
-  const key = String(packName || '').toLowerCase();
-  if (/lifetime|life_time|life.?time/.test(key)) {
-    return { sku: null, kind: 'Lifetime', offer: /half|discount/.test(key) ? 'half_pack' : 'full_pack', billing: 'IAP' };
-  }
-  if (/yearly|year|annual/.test(key)) {
-    const trial = /trial/.test(key);
-    const half = /half|discount/.test(key);
-    return {
-      sku: null,
-      kind: 'Yearly',
-      offer: half ? 'half_pack' : trial ? 'full_pack1' : 'full_pack',
-      billing: 'SUBS',
-    };
-  }
-  if (/monthly|month/.test(key)) {
-    return { sku: null, kind: 'Monthly', offer: /half|discount/.test(key) ? 'half_pack' : 'full_pack', billing: 'SUBS' };
-  }
-  return { sku: null, kind: 'Other', offer: null, billing: null };
+  return classifyBanknotePack(packName);
 }
 
 export function isRollupPack(packName) {
@@ -102,14 +158,27 @@ export function summarizePackRows(rows, productId) {
   const clickers = Number(rangeClicks?.unique_users || 0);
   const named = list.filter((r) => r.grain === 'range' && !isRollupPack(r.pack_name));
   const offers = { full: 0, half: 0, trial: 0, other: 0 };
+  let yearlyFullUsers = 0;
+  let yearlyHalfUsers = 0;
   for (const row of named) {
-    const bucket = offerBucket(classifyPack(row.pack_name, productId));
+    const classified = classifyPack(row.pack_name, productId);
+    const bucket = offerBucket(classified);
     offers[bucket] = (offers[bucket] || 0) + Number(row.unique_users || 0);
+    if (classified.kind !== 'Yearly') continue;
+    const users = Number(row.unique_users || 0);
+    if (isHalfYearlyPack(row.pack_name) || bucket === 'half') yearlyHalfUsers += users;
+    else yearlyFullUsers += users;
   }
+  const leftoverYearly = Math.max(0, yearlyUsers - yearlyFullUsers - yearlyHalfUsers);
+  yearlyFullUsers += leftoverYearly;
+  const yearlyFullRevenue = yearlyNetUsd(yearlyFullUsers, productId);
+  const yearlyHalfRevenue = yearlyNetUsd(yearlyHalfUsers, productId, 'yearly_offer');
   return {
     unique_users: uniqueUsers,
     takes,
     yearly_users: yearlyUsers,
+    yearly_full_users: yearlyFullUsers,
+    yearly_half_users: yearlyHalfUsers,
     yearly_takes: Number(rangeYearly?.takes || 0),
     monthly_users: monthlyUsers,
     monthly_takes: Number(rangeMonthly?.takes || 0),
@@ -123,6 +192,9 @@ export function summarizePackRows(rows, productId) {
     subs_users: yearlyUsers + monthlyUsers,
     iap_users: lifetimeUsers,
     yearly_list_price: price,
-    yearly_revenue: price == null ? null : yearlyUsers * price,
+    yearly_face_price: price ?? YEARLY_FACE_PRICE,
+    yearly_net_share: YEARLY_NET_SHARE,
+    yearly_revenue: yearlyFullRevenue,
+    yearly_half_revenue: yearlyHalfRevenue,
   };
 }

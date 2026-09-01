@@ -44,6 +44,8 @@ export interface QueryResult {
   yearly_list_prices?: Record<string, number>;
   unique_users?: number;
   yearly_users?: number;
+  yearly_full_users?: number;
+  yearly_half_users?: number;
   monthly_users?: number;
   lifetime_users?: number;
   clickers?: number;
@@ -52,6 +54,8 @@ export interface QueryResult {
   full_users?: number;
   half_users?: number;
   trial_users?: number;
+  yearly_revenue?: number | null;
+  yearly_half_revenue?: number | null;
   packs?: Record<string, unknown>[];
 }
 
