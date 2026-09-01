@@ -231,6 +231,38 @@ function collectKpiRows(rows, seen) {
     role: 'kpi',
   });
   addEvents(rows, seen, {
+    products: ['banknote'],
+    events: ['Subs_pack', 'subs_pack'],
+    surface: 'Subscriptions · Packs taken',
+    tab: 'explorer.packs',
+    step: 'Pack click',
+    role: 'kpi',
+  });
+  addEvents(rows, seen, {
+    products: ['coinzy'],
+    events: ['subs_pack', 'subs_pack_discount'],
+    surface: 'Subscriptions · Packs taken',
+    tab: 'explorer.packs',
+    step: 'Pack click',
+    role: 'kpi',
+  });
+  addEvents(rows, seen, {
+    products: ['banknote'],
+    events: ['Subs_confirm'],
+    surface: 'Subscriptions · Packs taken',
+    tab: 'explorer.packs',
+    step: 'Confirm (unique people)',
+    role: 'kpi',
+  });
+  addEvents(rows, seen, {
+    products: ['coinzy'],
+    events: ['subs_confirm', 'subs_confirm_discount', 'paid_purchase', 'trial_purchase'],
+    surface: 'Subscriptions · Packs taken',
+    tab: 'explorer.packs',
+    step: 'Confirm (unique people)',
+    role: 'kpi',
+  });
+  addEvents(rows, seen, {
     products: PRODUCTS,
     events: ['user_engagement'],
     surface: 'Explorer · Time used',

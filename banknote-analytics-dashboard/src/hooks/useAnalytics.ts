@@ -59,6 +59,8 @@ function dashboardQueryVersion(name: string) {
   if (name === 'mvp-identify-funnel') return 'v5';
   if (name === 'country-list') return 'v2';
   if (name === 'free-scan-quota') return 'v1';
+  if (name === 'mvp-paywall') return 'v3';
+  if (name === 'subscription-packs' || name === 'subscription-tiers') return 'v4';
   return 'v4';
 }
 
@@ -69,6 +71,7 @@ export function useDashboardMetric(name: string, params: QueryParams, enabled = 
     name.startsWith('compare')
     || (name === 'ltv' && productId === 'compare')
     || (name === 'subscription-tiers' && productId === 'compare')
+    || (name === 'subscription-packs' && productId === 'compare')
     || ((name === 'country-list' || name === 'countries') && productId === 'compare')
       ? 'compare'
       : productId;
@@ -86,10 +89,21 @@ export function useDashboardMetric(name: string, params: QueryParams, enabled = 
 export function useCompareSubscriptions(params: QueryParams, enabled = true) {
   const p = withProduct(params, 'compare');
   return useQuery({
-    queryKey: queryKey('dashboard:compare-subscriptions:v1', p),
+    queryKey: queryKey('dashboard:compare-subscriptions:v4', p),
     queryFn: () => runDashboardQuery('compare-subscriptions', p),
     staleTime: STALE_TIME.DAILY,
     enabled,
+  });
+}
+
+export function useSubscriptionPacks(params: QueryParams, enabled = true) {
+  const { productId } = useProduct();
+  const p = withProduct(params, productId);
+  return useQuery({
+    queryKey: queryKey('dashboard:subscription-packs:v4', p),
+    queryFn: () => runDashboardQuery('subscription-packs', p),
+    staleTime: STALE_TIME.DAILY,
+    enabled: enabled && productId !== 'compare',
   });
 }
 

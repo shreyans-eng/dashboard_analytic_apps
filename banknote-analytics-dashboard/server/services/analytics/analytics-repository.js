@@ -19,6 +19,7 @@ import {
   requestedRangeHasIncompleteDates,
   shouldUseSummaryForDau,
 } from './dau-definition.js';
+import { yearlyListPrice } from './subscription-packs.js';
 import {
   cohortLtvMongoReady,
   countCohortLtv,
@@ -103,9 +104,13 @@ const QUERY_MAP = {
     raw: 'dashboard/raw/10_cohort_ltv.sql',
     metric: 'ltv',
   },
+  'subscription-packs': {
+    raw: 'dashboard/raw/18_subscription_packs.sql',
+    metric: 'subscription-packs',
+  },
   'subscription-tiers': {
-    raw: 'dashboard/raw/18_subscription_tiers.sql',
-    metric: 'subscription-tiers',
+    raw: 'dashboard/raw/18_subscription_packs.sql',
+    metric: 'subscription-packs',
   },
   'user-mix': {
     raw: 'dashboard/raw/19_user_mix.sql',
@@ -440,13 +445,16 @@ export class AnalyticsRepository {
   }
 
   async getProductDailySignals(params) {
-    const key = cacheKey(`${this.productId}:daily-signals:v8`, params);
+    const key = cacheKey(`${this.productId}:daily-signals:v11`, params);
     return cached('compare', key, async () => {
       const rawPath = this._resolveProductSql('dashboard/raw/16_product_daily_signals.sql');
       const rawSource = rawPath === 'dashboard/raw/16_product_daily_signals.sql' ? 'raw' : 'product';
       const skipSummary = hasDimensionFilter(params);
+      // Coinzy summary was historically Banknote-shaped (Identify_bottom_nav,
+      // Subs_confirm). Banknote summary mixed onboarding into in-app paywall.
+      const skipStalePaywallSummary = this.productId === 'banknote';
 
-      if (!this.preferRaw && this.useSummary && !skipSummary) {
+      if (!this.preferRaw && this.useSummary && !skipSummary && !skipStalePaywallSummary) {
         try {
           const summary = await this._executeSql(
             'dashboard/summary/16_product_daily_signals.sql',
@@ -498,11 +506,25 @@ export class AnalyticsRepository {
   }
 
   async getScanLimits(params) {
-    const key = cacheKey(`${this.productId}:dashboard:scan-limits:v1`, params);
+    const sqlPath = this._resolveProductSql('dashboard/raw/21_scan_limits.sql');
+    const key = cacheKey(`${this.productId}:dashboard:scan-limits:v2`, params);
     const result = await cached('scan-limits', key, () =>
-      this._executeSql('dashboard/raw/21_scan_limits.sql', params, 'raw'),
+      this._executeSql(sqlPath, params, 'raw'),
     );
     return this._attachCompleteness(result, params);
+  }
+
+  async getSubscriptionPacks(params) {
+    const sqlPath = this._resolveProductSql('dashboard/raw/18_subscription_packs.sql');
+    const key = cacheKey(`${this.productId}:dashboard:subscription-packs:v3`, params);
+    const result = await cached('subscription-packs', key, () =>
+      this._executeSql(sqlPath, params, 'raw'),
+    );
+    const clipped = await this._attachCompleteness(result, params);
+    return {
+      ...clipped,
+      yearly_list_price: yearlyListPrice(this.productId),
+    };
   }
 
   async getFreeScanQuota(params) {
@@ -756,6 +778,8 @@ export class AnalyticsRepository {
       'install-day-usage': () => this.getInstallDayUsage(params),
       'd0-d1-percentiles': () => this.getD0D1Percentiles(params),
       'scan-limits': () => this.getScanLimits(params),
+      'subscription-packs': () => this.getSubscriptionPacks(params),
+      'subscription-tiers': () => this.getSubscriptionPacks(params),
       'free-scan-quota': () => this.getFreeScanQuota(params),
       mau: () => this.getMonthlyUsers(params),
       'new-users': () => this.getNewUsers(params),
@@ -788,13 +812,14 @@ export class AnalyticsRepository {
     const spec = MVP_KPI_MAP[name];
     if (!spec) throw new Error(`Unknown MVP metric: ${name}`);
 
-    const key = cacheKey(`${this.productId}:mvp:v13:${name}`, params);
+    const key = cacheKey(`${this.productId}:mvp:v16:${name}`, params);
     const result = await cached('kpi', key, async () => {
       if (spec.useRetention) {
         return this.getRetention(params);
       }
 
-      const skipSignals = name === 'mvp-dau' && !shouldUseSummaryForDau(params);
+      const skipSignals = (name === 'mvp-dau' && !shouldUseSummaryForDau(params))
+        || name === 'mvp-paywall';
       const needUserDayGrain = name === 'mvp-scans-per-user';
       if (spec.signalKey && !this.preferRaw && !skipSignals && !needUserDayGrain) {
         try {

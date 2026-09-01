@@ -1,6 +1,8 @@
 -- =============================================================================
--- Coinzy MVP #5 — Paywall → purchase (raw events)
--- Confirm is lowercase subs_confirm (BillingViewModel.kt) — NOT Subs_confirm
+-- Banknote MVP #5 — Paywall → purchase (raw events)
+-- In-app only: Subs_page / Subs_page_discount / Subscription_screen
+-- Confirm is Subs_confirm only.
+-- Do not mix onboarding subscription_shown (that is Funnels → Onboarding → subs).
 -- Conversion is unique people / unique people — retry taps must not inflate the rate.
 -- =============================================================================
 
@@ -12,11 +14,7 @@ WITH bounds AS (
 base AS (
   SELECT
     PARSE_DATE('%Y%m%d', event_date) AS event_date,
-    COALESCE(
-      user_id,
-      (SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'user_id'),
-      user_pseudo_id
-    ) AS resolved_user_id,
+    {{resolved_user_id_cheap}} AS resolved_user_id,
     REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base
   FROM `{PROJECT}.{DATASET}.events_*`, bounds
   WHERE _TABLE_SUFFIX BETWEEN start_s AND end_s
@@ -32,28 +30,22 @@ SELECT
   COUNT(DISTINCT CASE WHEN event_name_base IN (
     'Subs_page', 'Subs_page_discount', 'Subscription_screen'
   ) THEN resolved_user_id END) AS users_saw_paywall,
-  COUNTIF(event_name_base IN (
-    'subs_confirm', 'subs_confirm_discount',
-    'paid_purchase', 'trial_purchase'
-  )) AS purchase_confirms,
-  COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'subs_confirm', 'subs_confirm_discount',
-    'paid_purchase', 'trial_purchase'
-  ) THEN resolved_user_id END) AS paying_users,
+  COUNTIF(event_name_base = 'Subs_confirm') AS purchase_confirms,
+  COUNT(DISTINCT CASE
+    WHEN event_name_base = 'Subs_confirm'
+    THEN resolved_user_id END) AS paying_users,
   SAFE_DIVIDE(
-    COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'subs_confirm', 'subs_confirm_discount',
-      'paid_purchase', 'trial_purchase'
-    ) THEN resolved_user_id END),
+    COUNT(DISTINCT CASE
+      WHEN event_name_base = 'Subs_confirm'
+      THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Subs_page', 'Subs_page_discount', 'Subscription_screen'
     ) THEN resolved_user_id END)
   ) AS paywall_to_confirm_rate,
   SAFE_DIVIDE(
-    COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'subs_confirm', 'subs_confirm_discount',
-      'paid_purchase', 'trial_purchase'
-    ) THEN resolved_user_id END),
+    COUNT(DISTINCT CASE
+      WHEN event_name_base = 'Subs_confirm'
+      THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Subs_page', 'Subs_page_discount', 'Subscription_screen'
     ) THEN resolved_user_id END)

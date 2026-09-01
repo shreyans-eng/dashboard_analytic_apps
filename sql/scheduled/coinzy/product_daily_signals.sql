@@ -1,16 +1,10 @@
 -- =============================================================================
--- Scheduled / refresh: product_daily_signals (Banknote events)
--- Coinzy uses sql/scheduled/coinzy/product_daily_signals.sql via refresh-product-summaries.js
+-- Scheduled / refresh: product_daily_signals (Coinzy events)
+-- Banknote uses sql/scheduled/product_daily_signals.sql
 -- Common KPI daily grain for MVP + Compare (one row per event_date)
 -- Source: raw Firebase events_* (never mutates raw)
 -- Idempotent: DELETE window then INSERT
 -- Placeholders: {PROJECT} {DATASET} {SUMMARY_DATASET} {START_SUFFIX} {END_SUFFIX}
---
--- DAU fields (computed from events_*, never copied from an older `dau` column):
---   app_open_dau      = distinct users with session_start / App_open / first_open
---   notification_dau  = distinct users with push display/receive/open/interact
---   any_event_dau     = distinct users with any Firebase event that day
---   dau               = synonym of app_open_dau (backward compatible dashboard field)
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS `{PROJECT}.{SUMMARY_DATASET}.product_daily_signals` (
@@ -89,46 +83,54 @@ counts AS (
       'identification_done_success', 'Identification_done_success'
     )) AS success_scans,
     COUNTIF(event_name_base IN (
-      'identification_done_failure', 'Identification_done_failure'
+      'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful'
     )) AS failure_scans,
     COUNTIF(event_name_base IN (
       'identification_done_success', 'Identification_done_success',
-      'identification_done_failure', 'Identification_done_failure'
+      'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful'
     )) AS identify_outcomes,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'identiifcation_limit_exceeded', 'identification_limit_exceeded',
       'Identified_limit_reached', 'identified_limit_reached',
-      'scan_quota_exhausted', 'Scan_quota_exhausted',
-      'limit_exceeded', 'Limit_exceeded'
+      'free_scan_limit_exceeded', 'free_scan_blocked',
+      'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
+      'Identification_unsuccessful_limit_reached',
+      'scan_quota_exhausted', 'limit_exceeded'
     ) THEN resolved_user_id END) AS quota_hit_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'identification_done_success', 'Identification_done_success',
       'identification_done_failure', 'Identification_done_failure',
+      'Identification_failed', 'Identification_unsuccessful',
       'Identification_done'
     ) THEN resolved_user_id END) AS identify_users,
-    COUNTIF(event_name_base = 'Subs_confirm') AS purchase_confirms,
+    COUNTIF(event_name_base IN (
+      'subs_confirm', 'subs_confirm_discount',
+      'paid_purchase', 'trial_purchase'
+    )) AS purchase_confirms,
     COUNTIF(event_name_base IN (
       'Subs_page', 'Subs_page_discount', 'Subscription_screen'
     )) AS paywall_impressions,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'identification_done_success', 'Identification_done_success'
+      'identification_done_success', 'Identification_done_success', 'Identification_done'
     ) THEN resolved_user_id END) AS success_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Identify_bottom_nav', 'Identify_home'
+      'Identification_screen', 'photo_screen'
     ) THEN resolved_user_id END) AS identify_open_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Collection_screen', 'Global_catalogue_screen', 'Global_catalogue',
-      'private_collection_bottom_nav'
+      'Collection_screen', 'Global_catalogue_screen', 'collection_bottom_nav'
     ) THEN resolved_user_id END) AS catalogue_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'marketplace_screen', 'Marketplace_bottom_nav', 'marketplace_bottom_nav',
+      'marketplace_screen', 'marketplace_bottom_nav', 'Marketplace_bottom_nav',
       'market_item_expolre'
     ) THEN resolved_user_id END) AS marketplace_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Subs_page', 'Subs_page_discount', 'Subscription_screen'
     ) THEN resolved_user_id END) AS paywall_users,
-    COUNT(DISTINCT CASE WHEN event_name_base = 'Subs_confirm'
-      THEN resolved_user_id END) AS paying_users
+    COUNT(DISTINCT CASE WHEN event_name_base IN (
+      'subs_confirm', 'subs_confirm_discount',
+      'paid_purchase', 'trial_purchase'
+    ) THEN resolved_user_id END) AS paying_users
   FROM base
   GROUP BY event_date
 )

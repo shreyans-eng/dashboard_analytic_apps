@@ -40,6 +40,9 @@ export interface QueryResult {
   dataUnavailable?: boolean;
   /** Compare-ltv: per-product sources */
   sources?: { product: string; source: string | null }[];
+  yearly_list_price?: number | null;
+  yearly_list_prices?: Record<string, number>;
+  packs?: Record<string, unknown>[];
 }
 
 export interface KpiSummary {

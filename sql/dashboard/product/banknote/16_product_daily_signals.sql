@@ -1,8 +1,8 @@
 -- =============================================================================
--- Coinzy daily product signals (raw events) — Compare + MVP rollup
--- Verified from CoinzyAndroid: Collection_screen / collection_bottom_nav,
--- marketplace_screen / marketplace_bottom_nav, Subs_page / subs_confirm.
--- Cheap identity: GA4 user_id (skip placeholders) then user_pseudo_id — no event_params UNNEST.
+-- Banknote daily product signals (raw events) — Compare + MVP rollup
+-- Confirm is Subs_confirm only. Identify open is nav ∪ home.
+-- In-app paywall only (not onboarding subscription_shown).
+-- Cheap identity: GA4 user_id then user_pseudo_id — no event_params UNNEST.
 -- =============================================================================
 
 WITH base AS (
@@ -32,15 +32,13 @@ SELECT
     'identification_done_success', 'Identification_done_success'
   )) AS success_scans,
   COUNTIF(event_name_base IN (
-    'identification_done_failure', 'Identification_done_failure',
-    'Identification_failed', 'Identification_unsuccessful'
+    'identification_done_failure', 'Identification_done_failure'
   )) AS failure_scans,
   SAFE_DIVIDE(
     COUNTIF(event_name_base IN ('identification_done_success', 'Identification_done_success')),
     COUNTIF(event_name_base IN (
       'identification_done_success', 'Identification_done_success',
-      'identification_done_failure', 'Identification_done_failure',
-      'Identification_failed', 'Identification_unsuccessful'
+      'identification_done_failure', 'Identification_done_failure'
     ))
   ) AS identification_success_rate,
   SAFE_DIVIDE(
@@ -49,61 +47,52 @@ SELECT
   ) AS scans_per_dau,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
+      'identiifcation_limit_exceeded', 'identification_limit_exceeded',
       'Identified_limit_reached', 'identified_limit_reached',
-      'scan_quota_exhausted', 'limit_exceeded',
-      'free_scan_limit_exceeded', 'free_scan_blocked',
-      'free_scan_success_quota_exhausted', 'free_scan_fail_quota_exhausted',
-      'Identification_unsuccessful_limit_reached',
-      'identiifcation_limit_exceeded'
+      'scan_quota_exhausted', 'Scan_quota_exhausted',
+      'limit_exceeded', 'Limit_exceeded'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'identification_done_success', 'Identification_done_success',
       'identification_done_failure', 'Identification_done_failure',
-      'Identification_failed', 'Identification_unsuccessful',
       'Identification_done'
     ) THEN resolved_user_id END)
   ) AS free_quota_hit_rate,
   SAFE_DIVIDE(
-    COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'subs_confirm', 'subs_confirm_discount',
-      'paid_purchase', 'trial_purchase'
-    ) THEN resolved_user_id END),
+    COUNT(DISTINCT CASE WHEN event_name_base = 'Subs_confirm'
+      THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Subs_page', 'Subs_page_discount', 'Subscription_screen'
     ) THEN resolved_user_id END)
   ) AS paywall_to_confirm_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'identification_done_success', 'Identification_done_success', 'Identification_done'
+      'identification_done_success', 'Identification_done_success'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Identification_screen', 'photo_screen'
+      'Identify_bottom_nav', 'Identify_home'
     ) THEN resolved_user_id END)
   ) AS open_to_success_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'Collection_screen', 'Global_catalogue_screen', 'collection_bottom_nav'
+      'Collection_screen', 'Global_catalogue_screen', 'Global_catalogue',
+      'private_collection_bottom_nav'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END)
   ) AS catalogue_open_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (
-      'marketplace_screen', 'marketplace_bottom_nav', 'Marketplace_bottom_nav',
+      'marketplace_screen', 'Marketplace_bottom_nav', 'marketplace_bottom_nav',
       'market_item_expolre'
     ) THEN resolved_user_id END),
     COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END)
   ) AS marketplace_engagement_rate,
-  COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'subs_confirm', 'subs_confirm_discount',
-    'paid_purchase', 'trial_purchase'
-  ) THEN resolved_user_id END) AS paying_users,
+  COUNT(DISTINCT CASE WHEN event_name_base = 'Subs_confirm'
+    THEN resolved_user_id END) AS paying_users,
   COUNTIF(event_name_base IN (
     'Subs_page', 'Subs_page_discount', 'Subscription_screen'
   )) AS paywall_impressions,
-  COUNTIF(event_name_base IN (
-    'subs_confirm', 'subs_confirm_discount',
-    'paid_purchase', 'trial_purchase'
-  )) AS purchase_confirms
+  COUNTIF(event_name_base = 'Subs_confirm') AS purchase_confirms
 FROM base
 GROUP BY event_date
 ORDER BY event_date;

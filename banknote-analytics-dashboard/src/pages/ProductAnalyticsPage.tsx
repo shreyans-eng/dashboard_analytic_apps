@@ -63,9 +63,9 @@ const AREAS = [
     label: 'Monetization',
     title: 'Paywall → Pro',
     icon: PiggyBank,
-    to: '/mvp/paywall',
+    to: '/packs',
     why: 'Separates traffic from conversion. Pack mix and fails/cancels diagnose pricing vs store friction.',
-    metrics: 'Paywall → purchase · Pack mix · Cohort LTV-30/90/180',
+    metrics: 'Paywall → purchase · Subscriptions → Packs taken · Pack mix · Cohort LTV-30/90/180',
   },
   {
     id: 'retention',

@@ -53,17 +53,15 @@ daily AS (
     country,
     app_version,
 
-    -- Funnel top
+    -- Funnel top (in-app paywall only; onboarding is Funnels → Onboarding → subs)
     COUNT(DISTINCT CASE
       WHEN event_name_base IN (
-        'Subs_page', 'Subs_page_discount', 'Subscription_screen',
-        'Subs_page_onboarding', 'subscription_shown'
+        'Subs_page', 'Subs_page_discount', 'Subscription_screen'
       )
       THEN resolved_user_id END) AS users_saw_paywall,
 
     COUNTIF(event_name_base IN (
-      'Subs_page', 'Subs_page_discount', 'Subscription_screen',
-      'Subs_page_onboarding', 'subscription_shown'
+      'Subs_page', 'Subs_page_discount', 'Subscription_screen'
     )) AS paywall_impressions,
     COUNTIF(event_name_base = 'Subs_page')                          AS paywall_standard_impressions,
     COUNTIF(event_name_base = 'Subs_page_discount')                 AS paywall_discount_impressions,
@@ -100,8 +98,8 @@ daily AS (
 
 SELECT
   *,
-  SAFE_DIVIDE(purchase_confirms, paywall_impressions)     AS paywall_to_confirm_rate,
-  SAFE_DIVIDE(pack_clicks, paywall_impressions)           AS paywall_to_pack_click_rate,
-  SAFE_DIVIDE(purchase_confirms, pack_clicks)             AS pack_click_to_confirm_rate,
+  SAFE_DIVIDE(paying_users, users_saw_paywall)            AS paywall_to_confirm_rate,
+  SAFE_DIVIDE(users_clicked_pack, users_saw_paywall)      AS paywall_to_pack_click_rate,
+  SAFE_DIVIDE(paying_users, users_clicked_pack)           AS pack_click_to_confirm_rate,
   SAFE_DIVIDE(purchase_failures, purchase_failures + purchase_confirms) AS purchase_failure_rate
 FROM daily;
