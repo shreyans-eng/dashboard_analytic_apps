@@ -3114,6 +3114,16 @@ p.muted.small {
   background: color-mix(in srgb, var(--pack-yearly) 10%, var(--bg-card));
 }
 
+.packs-kpi[data-tone='monthly'] {
+  --packs-tone: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+}
+
+.packs-kpi[data-tone='lifetime'] {
+  --packs-tone: #a78bfa;
+  background: color-mix(in srgb, #a78bfa 10%, var(--bg-card));
+}
+
 .packs-kpi[data-tone='money'] {
   --packs-tone: var(--success);
   background: color-mix(in srgb, var(--success) 8%, var(--bg-card));
@@ -3170,6 +3180,8 @@ p.muted.small {
 }
 
 .packs-share-yearly,
+.packs-share-monthly,
+.packs-share-lifetime,
 .packs-share-other {
   display: block;
   height: 100%;
@@ -3177,7 +3189,9 @@ p.muted.small {
 }
 
 .packs-share-yearly { background: var(--pack-yearly, var(--brand-banknote-gold)); }
-.packs-share-other { background: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.packs-share-monthly { background: var(--accent); }
+.packs-share-lifetime { background: #a78bfa; }
+.packs-share-other { background: color-mix(in srgb, var(--text-muted) 45%, var(--border)); }
 
 .packs-share-legend {
   display: flex;
@@ -3196,7 +3210,9 @@ p.muted.small {
 }
 
 .packs-dot.yearly { background: var(--pack-yearly, var(--brand-banknote-gold)); }
-.packs-dot.other { background: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.packs-dot.monthly { background: var(--accent); }
+.packs-dot.lifetime { background: #a78bfa; }
+.packs-dot.other { background: color-mix(in srgb, var(--text-muted) 45%, var(--border)); }
 
 .packs-kinds {
   background: var(--bg-card);
@@ -3233,6 +3249,32 @@ p.muted.small {
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 12px;
+}
+
+.packs-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.packs-split-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.packs-split-in-grid {
+  min-width: 0;
+}
+
+.packs-panel[data-kind='yearly'] {
+  border-color: color-mix(in srgb, var(--pack-yearly, var(--brand-banknote-gold)) 35%, var(--border));
+}
+
+.packs-panel[data-kind='monthly'] {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.packs-panel[data-kind='lifetime'] {
+  border-color: color-mix(in srgb, #a78bfa 35%, var(--border));
 }
 
 .packs-rank {
@@ -3510,7 +3552,9 @@ p.muted.small {
 
 @media (max-width: 960px) {
   .packs-kpis,
-  .packs-mix-row {
+  .packs-mix-row,
+  .packs-split,
+  .packs-split-3 {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -3521,7 +3565,9 @@ p.muted.small {
 
 @media (max-width: 720px) {
   .packs-kpis,
-  .packs-mix-row {
+  .packs-mix-row,
+  .packs-split,
+  .packs-split-3 {
     grid-template-columns: 1fr;
   }
 

@@ -22,6 +22,9 @@ import { cacheKey, cached } from '../../cache/index.js';
 import { runQuery } from './bigquery-client.js';
 import {
   ALL_PACKS,
+  CLICKS_ROLLUP,
+  LIFETIME_ROLLUP,
+  MONTHLY_ROLLUP,
   YEARLY_LIST_PRICE,
   YEARLY_ROLLUP,
   summarizePackRows,
@@ -467,11 +470,15 @@ export class ProductAnalyticsFacade {
     }));
 
     const packs = rows
-      .filter((r) => r.grain === 'range' && r.pack_name !== ALL_PACKS && r.pack_name !== YEARLY_ROLLUP)
+      .filter((r) => r.grain === 'range' && r.pack_name !== ALL_PACKS
+        && r.pack_name !== YEARLY_ROLLUP && r.pack_name !== MONTHLY_ROLLUP
+        && r.pack_name !== LIFETIME_ROLLUP && r.pack_name !== CLICKS_ROLLUP)
       .sort((a, b) => Number(b.unique_users || 0) - Number(a.unique_users || 0));
 
     const daily = rows
-      .filter((r) => r.grain === 'day' && (r.pack_name === ALL_PACKS || r.pack_name === YEARLY_ROLLUP))
+      .filter((r) => r.grain === 'day' && (r.pack_name === ALL_PACKS
+        || r.pack_name === YEARLY_ROLLUP || r.pack_name === MONTHLY_ROLLUP
+        || r.pack_name === LIFETIME_ROLLUP || r.pack_name === CLICKS_ROLLUP))
       .sort((a, b) => String(a.event_date).localeCompare(String(b.event_date)));
 
     return {

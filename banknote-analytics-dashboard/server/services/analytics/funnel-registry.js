@@ -627,7 +627,7 @@ const BANKNOTE_PAYWALL = [
   {
     id: 'pack',
     label: 'Pack click',
-    events: ['Subs_pack', 'subs_pack'],
+    events: ['Subs_pack'],
     core: true,
   },
   {
@@ -779,7 +779,7 @@ const BANKNOTE_ONBOARDING_PAYWALL = [
   {
     id: 'pack',
     label: 'Pack click (from onboarding)',
-    events: ['Subs_pack', 'subs_pack'],
+    events: ['Subs_pack'],
     core: true,
   },
   {
@@ -1002,7 +1002,7 @@ const COINZY_ONBOARDING_PAYWALL = [
 ];
 
 const BANKNOTE_PACK_MIX = {
-  packEvents: ['Subs_pack', 'subs_pack'],
+  packEvents: ['Subs_pack'],
   confirmEvents: ['Subs_confirm'],
 };
 

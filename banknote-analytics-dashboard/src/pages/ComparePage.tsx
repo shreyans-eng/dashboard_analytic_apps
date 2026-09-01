@@ -11,7 +11,7 @@ import { useTheme } from '@/lib/theme';
 import { useDashboardMetric, useCompareLtv, useCompareSubscriptions } from '@/hooks/useAnalytics';
 import { fmtNumber, fmtPercent, fmtUsd, fmtDecimal, QueryParams, defaultDateRange } from '@/lib/api';
 import { useProduct } from '@/lib/product';
-import { ALL_PACKS, isRollupPack, n, packKind, yearlyListPrice, type PackRow } from '@/lib/packs';
+import { ALL_PACKS, isRollupPack, n, packDisplayName, packEventHint, packKind, splitPacksByKind, yearlyListPrice, type PackRow } from '@/lib/packs';
 
 type SummaryRow = {
   product: string;
@@ -79,6 +79,7 @@ type PackSummary = {
   unique_users?: number;
   takes?: number;
   yearly_users?: number;
+  monthly_users?: number;
   yearly_takes?: number;
   yearly_list_price?: number | null;
   yearly_revenue?: number | null;
@@ -341,6 +342,7 @@ export default function ComparePage() {
         .sort((a, b) => n(b.unique_users) - n(a.unique_users)),
     [subRows],
   );
+  const subByKind = splitPacksByKind(subPacks);
 
   const tipStyle = {
     background: chart.tooltipBg,
@@ -468,8 +470,9 @@ export default function ComparePage() {
           <div className="packs-compare-head">
             <h3>Packs taken</h3>
             <p>
-              Unique people who confirmed a pack, per day. Yearly estimate uses list price
-              (Banknote $20, Coinzy $15) — not in-app purchase USD.
+              Unique people who confirmed a pack, per day. Banknote: Subs_pack / Subs_confirm.
+              Coinzy: subs_pack / subs_confirm (and paid_purchase). Yearly estimate uses list price
+              (Banknote $20, Coinzy $15).
             </p>
           </div>
           {subsQ.error && (
@@ -479,16 +482,18 @@ export default function ComparePage() {
             {products.map((p) => {
               const row = subSummary.find((s) => matchProduct(s.product, p.shortName))
                 || subSummary.find((s) => String(s.product_id) === p.id);
-              const price = row?.yearly_list_price ?? yearlyListPrice(p.id);
               const unique = n(row?.unique_users);
               const yearly = n(row?.yearly_users);
-              const share = unique > 0 ? yearly / unique : 0;
+              const monthly = n(row?.monthly_users);
+              const other = Math.max(0, unique - yearly - monthly);
+              const yShare = unique > 0 ? yearly / unique : 0;
+              const mShare = unique > 0 ? monthly / unique : 0;
               return (
                 <div key={p.id} className="packs-compare-card" data-app={p.id}>
                   <AppMark product={p.id} size={32} />
                   <div className="packs-compare-card-copy">
                     <strong style={{ color: p.color }}>{p.shortName}</strong>
-                    <span>${price ?? '—'} yearly list price</span>
+                    <span>{packEventHint(p.id)}</span>
                   </div>
                   <dl>
                     <div>
@@ -498,6 +503,10 @@ export default function ComparePage() {
                     <div>
                       <dt>Yearly</dt>
                       <dd>{subsQ.isLoading ? '…' : fmtNumber(yearly)}</dd>
+                    </div>
+                    <div>
+                      <dt>Monthly</dt>
+                      <dd>{subsQ.isLoading ? '…' : fmtNumber(monthly)}</dd>
                     </div>
                     <div>
                       <dt>Est. yearly</dt>
@@ -512,12 +521,19 @@ export default function ComparePage() {
                   </dl>
                   <div className="packs-share">
                     <div className="packs-share-head">
-                      <span>Yearly vs other</span>
-                      <strong>{unique > 0 ? fmtPercent(share) : '—'} yearly</strong>
+                      <span>Yearly vs monthly</span>
+                      <strong>
+                        {unique > 0
+                          ? `${fmtPercent(yShare)} yearly · ${fmtPercent(mShare)} monthly`
+                          : '—'}
+                      </strong>
                     </div>
                     <div className="packs-share-track">
-                      <i className="packs-share-yearly" style={{ width: `${unique > 0 ? share * 100 : 0}%` }} />
-                      <i className="packs-share-other" style={{ width: `${unique > 0 ? (1 - share) * 100 : 0}%` }} />
+                      <i className="packs-share-yearly" style={{ width: `${unique > 0 ? yShare * 100 : 0}%` }} />
+                      <i className="packs-share-monthly" style={{ width: `${unique > 0 ? mShare * 100 : 0}%` }} />
+                      {other > 0 && (
+                        <i className="packs-share-other" style={{ width: `${unique > 0 ? (other / unique) * 100 : 0}%` }} />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -577,7 +593,7 @@ export default function ComparePage() {
                 {!subsQ.isLoading && subPacks.length === 0 && (
                   <tr><td colSpan={6} className="muted">No pack confirms in this range.</td></tr>
                 )}
-                {subPacks.map((p) => {
+                { [...subByKind.yearly, ...subByKind.monthly, ...subByKind.lifetime, ...subByKind.other].map((p) => {
                   const kind = packKind(p);
                   const productId = String(p.product_id || '');
                   const price = yearlyListPrice(productId);
@@ -588,7 +604,7 @@ export default function ComparePage() {
                       <td style={{ color: colorByLabel[String(p.product)] || undefined }}>
                         {String(p.product || '')}
                       </td>
-                      <td>{String(p.pack_name || '(unnamed pack)')}</td>
+                      <td>{packDisplayName(p.pack_name)}</td>
                       <td>
                         <span className={`pack-kind kind-${kind.toLowerCase()}`}>{kind}</span>
                       </td>
@@ -603,7 +619,7 @@ export default function ComparePage() {
           </div>
 
           <div className="packs-cards packs-cards-compare">
-            {subPacks.map((p) => {
+            { [...subByKind.yearly, ...subByKind.monthly, ...subByKind.lifetime, ...subByKind.other].map((p) => {
               const kind = packKind(p);
               const productId = String(p.product_id || '');
               const price = yearlyListPrice(productId);
@@ -612,7 +628,7 @@ export default function ComparePage() {
               return (
                 <article key={`${p.product}-${p.pack_name}`} className="packs-card">
                   <header>
-                    <strong>{String(p.pack_name || '(unnamed pack)')}</strong>
+                    <strong>{packDisplayName(p.pack_name)}</strong>
                     <span className={`pack-kind kind-${kind.toLowerCase()}`}>{kind}</span>
                   </header>
                   <p className="packs-card-app" style={{ color: colorByLabel[String(p.product)] }}>

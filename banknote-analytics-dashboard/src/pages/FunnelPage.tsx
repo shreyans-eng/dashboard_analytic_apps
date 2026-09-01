@@ -837,7 +837,7 @@ export default function FunnelPage({ funnelId, params, setParams, applyFilters }
             {isPaywall && packs.length > 0 && (
               <ChartCard title="Pack mix — unique people per pack">
                 <p className="funnel-note" style={{ marginTop: 0 }}>
-                  Each row is distinct people who tapped that pack ({funnelId === 'paywall-onboarding' ? 'among onboarding users only' : 'Banknote: Subs_pack with pack name + discounted/non-discounted'}).
+                  Each row is distinct people who tapped that pack ({funnelId === 'paywall-onboarding' ? 'among onboarding users only' : 'Banknote: Subs_pack. Coinzy: subs_pack / subs_pack_discount'}).
                   Confirmed = those same people also fired a purchase confirm in this date range.
                 </p>
                 <div className="funnel-recharts" style={{ height: Math.min(360, 80 + packs.length * 36) }}>

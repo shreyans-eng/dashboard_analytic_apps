@@ -42,6 +42,16 @@ export interface QueryResult {
   sources?: { product: string; source: string | null }[];
   yearly_list_price?: number | null;
   yearly_list_prices?: Record<string, number>;
+  unique_users?: number;
+  yearly_users?: number;
+  monthly_users?: number;
+  lifetime_users?: number;
+  clickers?: number;
+  click_to_confirm_rate?: number | null;
+  retries_per_user?: number | null;
+  full_users?: number;
+  half_users?: number;
+  trial_users?: number;
   packs?: Record<string, unknown>[];
 }
 

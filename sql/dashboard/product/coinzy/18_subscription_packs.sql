@@ -1,8 +1,18 @@
 -- =============================================================================
 -- Coinzy packs taken — unique people per day per pack
 -- Confirm: subs_confirm / discount / paid_purchase / trial_purchase
--- Pack name: confirm params, else last named subs_pack click that day
+-- Pack click: subs_pack / subs_pack_discount
+-- Pack name: confirm params, else last named pack click that day
 -- One row per person per day so payment retries do not inflate unique_users.
+--
+-- Store SKUs (paywall JSON):
+--   full_pack:    yearly_coin_pack (SUBS), monthly_coin_pack (SUBS), lifetime_coin (IAP)
+--   half_pack:    yearly_coin_half_pack (SUBS), lifetime_pack_half_price (IAP)
+--   full_pack1:   yearly_coinzy_pack_trial (SUBS), monthly_coin_pack (SUBS), lifetime_coin (IAP)
+--   half_pack1:   yearly_coinzy_pack_trial_half_price (SUBS), monthly_coin_pack (SUBS),
+--                 lifetime_pack_half_price (IAP)
+-- Group names (full_pack / half_pack) are not a SKU — yearly vs monthly needs the SKU
+-- in pack_name / product_id / item_id.
 -- =============================================================================
 
 WITH base AS (
@@ -42,30 +52,52 @@ pack_clicks AS (
   GROUP BY event_date, uid
 ),
 
+click_people AS (
+  SELECT DISTINCT event_date, uid
+  FROM base
+  WHERE uid IS NOT NULL
+    AND event_name_base IN ('subs_pack', 'subs_pack_discount')
+),
+
 confirms AS (
   SELECT
-    c.event_date,
-    c.event_timestamp,
-    c.uid,
-    COALESCE(
-      NULLIF(c.pack_name, '(unnamed pack)'),
-      p.pack_name,
-      '(unnamed pack)'
-    ) AS pack_name,
+    event_date,
+    event_timestamp,
+    uid,
+    pack_name,
     CASE
-      WHEN REGEXP_CONTAINS(LOWER(COALESCE(NULLIF(c.pack_name, '(unnamed pack)'), p.pack_name, '')), r'lifetime|life_time|life.?time') THEN 'Lifetime'
-      WHEN REGEXP_CONTAINS(LOWER(COALESCE(NULLIF(c.pack_name, '(unnamed pack)'), p.pack_name, '')), r'yearly|year|annual') THEN 'Yearly'
-      WHEN REGEXP_CONTAINS(LOWER(COALESCE(NULLIF(c.pack_name, '(unnamed pack)'), p.pack_name, '')), r'monthly|month') THEN 'Monthly'
+      WHEN REGEXP_CONTAINS(pk, r'lifetime_pack_half_price|lifetime_coin') THEN 'Lifetime'
+      WHEN REGEXP_CONTAINS(pk, r'yearly_coinzy_pack_trial_half_price|yearly_coinzy_pack_trial|yearly_coin_half_pack|yearly_coin_pack') THEN 'Yearly'
+      WHEN REGEXP_CONTAINS(pk, r'monthly_coin_pack') THEN 'Monthly'
+      WHEN REGEXP_CONTAINS(pk, r'lifetime|life_time|life.?time') THEN 'Lifetime'
+      WHEN REGEXP_CONTAINS(pk, r'yearly|year|annual') THEN 'Yearly'
+      WHEN REGEXP_CONTAINS(pk, r'monthly|month') THEN 'Monthly'
       ELSE 'Other'
     END AS pack_kind
-  FROM base c
-  LEFT JOIN pack_clicks p
-    ON p.event_date = c.event_date AND p.uid = c.uid
-  WHERE c.uid IS NOT NULL
-    AND c.event_name_base IN (
-      'subs_confirm', 'subs_confirm_discount',
-      'paid_purchase', 'trial_purchase'
-    )
+  FROM (
+    SELECT
+      c.event_date,
+      c.event_timestamp,
+      c.uid,
+      COALESCE(
+        NULLIF(c.pack_name, '(unnamed pack)'),
+        p.pack_name,
+        '(unnamed pack)'
+      ) AS pack_name,
+      LOWER(COALESCE(
+        NULLIF(c.pack_name, '(unnamed pack)'),
+        p.pack_name,
+        ''
+      )) AS pk
+    FROM base c
+    LEFT JOIN pack_clicks p
+      ON p.event_date = c.event_date AND p.uid = c.uid
+    WHERE c.uid IS NOT NULL
+      AND c.event_name_base IN (
+        'subs_confirm', 'subs_confirm_discount',
+        'paid_purchase', 'trial_purchase'
+      )
+  )
 ),
 taken AS (
   SELECT
@@ -116,6 +148,44 @@ GROUP BY grain, event_date, pack_name, pack_kind
 UNION ALL
 
 SELECT
+  'day' AS grain,
+  event_date,
+  '(monthly)' AS pack_name,
+  'Monthly' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Monthly'
+GROUP BY grain, event_date, pack_name, pack_kind
+
+UNION ALL
+
+SELECT
+  'day' AS grain,
+  event_date,
+  '(lifetime)' AS pack_name,
+  'Lifetime' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Lifetime'
+GROUP BY grain, event_date, pack_name, pack_kind
+
+UNION ALL
+
+SELECT
+  'day' AS grain,
+  event_date,
+  '(pack clicks)' AS pack_name,
+  'Clicks' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  0 AS takes
+FROM click_people
+GROUP BY grain, event_date, pack_name, pack_kind
+
+UNION ALL
+
+SELECT
   'range' AS grain,
   CAST(NULL AS DATE) AS event_date,
   pack_name,
@@ -147,5 +217,40 @@ SELECT
   SUM(confirm_taps) AS takes
 FROM taken
 WHERE pack_kind = 'Yearly'
+
+UNION ALL
+
+SELECT
+  'range' AS grain,
+  CAST(NULL AS DATE) AS event_date,
+  '(monthly)' AS pack_name,
+  'Monthly' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Monthly'
+
+UNION ALL
+
+SELECT
+  'range' AS grain,
+  CAST(NULL AS DATE) AS event_date,
+  '(lifetime)' AS pack_name,
+  'Lifetime' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Lifetime'
+
+UNION ALL
+
+SELECT
+  'range' AS grain,
+  CAST(NULL AS DATE) AS event_date,
+  '(pack clicks)' AS pack_name,
+  'Clicks' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  0 AS takes
+FROM click_people
 
 ORDER BY grain, event_date, unique_users DESC;

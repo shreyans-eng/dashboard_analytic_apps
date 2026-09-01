@@ -19,7 +19,7 @@ import {
   requestedRangeHasIncompleteDates,
   shouldUseSummaryForDau,
 } from './dau-definition.js';
-import { yearlyListPrice } from './subscription-packs.js';
+import { summarizePackRows, yearlyListPrice } from './subscription-packs.js';
 import {
   cohortLtvMongoReady,
   countCohortLtv,
@@ -516,7 +516,7 @@ export class AnalyticsRepository {
 
   async getSubscriptionPacks(params) {
     const sqlPath = this._resolveProductSql('dashboard/raw/18_subscription_packs.sql');
-    const key = cacheKey(`${this.productId}:dashboard:subscription-packs:v3`, params);
+    const key = cacheKey(`${this.productId}:dashboard:subscription-packs:v6`, params);
     const result = await cached('subscription-packs', key, () =>
       this._executeSql(sqlPath, params, 'raw'),
     );
@@ -524,6 +524,7 @@ export class AnalyticsRepository {
     return {
       ...clipped,
       yearly_list_price: yearlyListPrice(this.productId),
+      ...summarizePackRows(clipped.rows, this.productId),
     };
   }
 

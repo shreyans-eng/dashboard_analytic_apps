@@ -73,7 +73,7 @@ const METRICS = [
     to: '/packs',
     icon: Package,
     title: 'Packs taken',
-    description: 'Unique people per pack per day (Subscriptions tab). Yearly estimate: Banknote $20, Coinzy $15.',
+    description: 'Yearly vs monthly unique people per pack. Banknote: Subs_pack / Subs_confirm. Coinzy: subs_pack / subs_confirm.',
   },
   {
     to: '/scan-limits',

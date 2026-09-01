@@ -44,6 +44,13 @@ pack_clicks AS (
   GROUP BY event_date, uid
 ),
 
+click_people AS (
+  SELECT DISTINCT event_date, uid
+  FROM base
+  WHERE uid IS NOT NULL
+    AND event_name_base IN ('Subs_pack', 'subs_pack', 'subs_pack_discount')
+),
+
 confirms AS (
   SELECT
     c.event_date,
@@ -118,6 +125,44 @@ GROUP BY grain, event_date, pack_name, pack_kind
 UNION ALL
 
 SELECT
+  'day' AS grain,
+  event_date,
+  '(monthly)' AS pack_name,
+  'Monthly' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Monthly'
+GROUP BY grain, event_date, pack_name, pack_kind
+
+UNION ALL
+
+SELECT
+  'day' AS grain,
+  event_date,
+  '(lifetime)' AS pack_name,
+  'Lifetime' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Lifetime'
+GROUP BY grain, event_date, pack_name, pack_kind
+
+UNION ALL
+
+SELECT
+  'day' AS grain,
+  event_date,
+  '(pack clicks)' AS pack_name,
+  'Clicks' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  0 AS takes
+FROM click_people
+GROUP BY grain, event_date, pack_name, pack_kind
+
+UNION ALL
+
+SELECT
   'range' AS grain,
   CAST(NULL AS DATE) AS event_date,
   pack_name,
@@ -149,5 +194,40 @@ SELECT
   SUM(confirm_taps) AS takes
 FROM taken
 WHERE pack_kind = 'Yearly'
+
+UNION ALL
+
+SELECT
+  'range' AS grain,
+  CAST(NULL AS DATE) AS event_date,
+  '(monthly)' AS pack_name,
+  'Monthly' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Monthly'
+
+UNION ALL
+
+SELECT
+  'range' AS grain,
+  CAST(NULL AS DATE) AS event_date,
+  '(lifetime)' AS pack_name,
+  'Lifetime' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Lifetime'
+
+UNION ALL
+
+SELECT
+  'range' AS grain,
+  CAST(NULL AS DATE) AS event_date,
+  '(pack clicks)' AS pack_name,
+  'Clicks' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  0 AS takes
+FROM click_people
 
 ORDER BY grain, event_date, unique_users DESC;

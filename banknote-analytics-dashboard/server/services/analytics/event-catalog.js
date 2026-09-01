@@ -232,7 +232,7 @@ function collectKpiRows(rows, seen) {
   });
   addEvents(rows, seen, {
     products: ['banknote'],
-    events: ['Subs_pack', 'subs_pack'],
+    events: ['Subs_pack'],
     surface: 'Subscriptions · Packs taken',
     tab: 'explorer.packs',
     step: 'Pack click',

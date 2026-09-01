@@ -340,12 +340,13 @@ test('Banknote paywall is pack → button → native Google sheet → confirm', 
   const { steps, packMix } = getFunnelSteps('paywall', 'banknote');
   const core = steps.filter((s) => s.core).map((s) => s.id);
   assert.deepEqual(core, ['paywall', 'pack', 'button', 'native', 'confirm']);
-  assert.deepEqual(steps.find((s) => s.id === 'pack').events, ['Subs_pack', 'subs_pack']);
+  assert.deepEqual(steps.find((s) => s.id === 'pack').events, ['Subs_pack']);
   assert.deepEqual(steps.find((s) => s.id === 'button').events, ['subs_button']);
   assert.deepEqual(steps.find((s) => s.id === 'native').events, ['subs_native']);
   assert.deepEqual(steps.find((s) => s.id === 'confirm').events, ['Subs_confirm']);
   assert.ok(!steps.find((s) => s.id === 'paywall').events.includes('Subs_page_onboarding'));
   assert.ok(packMix.packEvents.includes('Subs_pack'));
+  assert.ok(!packMix.packEvents.includes('subs_pack'));
 });
 
 test('Coinzy paywall excludes onboarding pages and counts unique pack people', () => {

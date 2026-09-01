@@ -2,9 +2,8 @@
 -- Banknote packs taken — unique people per day per pack
 --
 -- Confirm is Subs_confirm only (not Coinzy paid_purchase / trial_purchase).
--- Pack name is on Subs_pack (pack_name + discounted/non-discounted), not on
--- Subs_confirm. Attribute each person to that day's last named pack click
--- when the confirm event has no pack_name.
+-- Pack name is on Subs_pack only (not Coinzy subs_pack). Attribute each person
+-- to that day's last named pack click when the confirm event has no pack_name.
 -- One row per person per day: payment retries / double-taps do not inflate
 -- unique_users. takes is still raw Subs_confirm taps.
 -- =============================================================================
@@ -42,8 +41,15 @@ pack_clicks AS (
     )[SAFE_OFFSET(0)] AS pack_name
   FROM base
   WHERE uid IS NOT NULL
-    AND event_name_base IN ('Subs_pack', 'subs_pack')
+    AND event_name_base = 'Subs_pack'
   GROUP BY event_date, uid
+),
+
+click_people AS (
+  SELECT DISTINCT event_date, uid
+  FROM base
+  WHERE uid IS NOT NULL
+    AND event_name_base = 'Subs_pack'
 ),
 
 confirms AS (
@@ -117,6 +123,44 @@ GROUP BY grain, event_date, pack_name, pack_kind
 UNION ALL
 
 SELECT
+  'day' AS grain,
+  event_date,
+  '(monthly)' AS pack_name,
+  'Monthly' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Monthly'
+GROUP BY grain, event_date, pack_name, pack_kind
+
+UNION ALL
+
+SELECT
+  'day' AS grain,
+  event_date,
+  '(lifetime)' AS pack_name,
+  'Lifetime' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Lifetime'
+GROUP BY grain, event_date, pack_name, pack_kind
+
+UNION ALL
+
+SELECT
+  'day' AS grain,
+  event_date,
+  '(pack clicks)' AS pack_name,
+  'Clicks' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  0 AS takes
+FROM click_people
+GROUP BY grain, event_date, pack_name, pack_kind
+
+UNION ALL
+
+SELECT
   'range' AS grain,
   CAST(NULL AS DATE) AS event_date,
   pack_name,
@@ -148,5 +192,40 @@ SELECT
   SUM(confirm_taps) AS takes
 FROM taken
 WHERE pack_kind = 'Yearly'
+
+UNION ALL
+
+SELECT
+  'range' AS grain,
+  CAST(NULL AS DATE) AS event_date,
+  '(monthly)' AS pack_name,
+  'Monthly' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Monthly'
+
+UNION ALL
+
+SELECT
+  'range' AS grain,
+  CAST(NULL AS DATE) AS event_date,
+  '(lifetime)' AS pack_name,
+  'Lifetime' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  SUM(confirm_taps) AS takes
+FROM taken
+WHERE pack_kind = 'Lifetime'
+
+UNION ALL
+
+SELECT
+  'range' AS grain,
+  CAST(NULL AS DATE) AS event_date,
+  '(pack clicks)' AS pack_name,
+  'Clicks' AS pack_kind,
+  COUNT(DISTINCT uid) AS unique_users,
+  0 AS takes
+FROM click_people
 
 ORDER BY grain, event_date, unique_users DESC;
