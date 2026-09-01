@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { NavLink } from 'react-router-dom';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -12,6 +11,7 @@ import { useTheme } from '@/lib/theme';
 import { useDashboardMetric, useCompareLtv, useCompareSubscriptions } from '@/hooks/useAnalytics';
 import { fmtNumber, fmtPercent, fmtUsd, fmtDecimal, QueryParams, defaultDateRange } from '@/lib/api';
 import { useProduct } from '@/lib/product';
+import { ALL_PACKS, isRollupPack, n, packKind, yearlyListPrice, type PackRow } from '@/lib/packs';
 
 type SummaryRow = {
   product: string;
@@ -73,15 +73,16 @@ const COMPARE_METRICS: {
   { key: 'ltv_180', label: 'LTV-180', format: 'usd', why: 'USD in days 0–179 after install ÷ installs', higherIsBetter: true, source: 'ltv' },
 ];
 
-type SubTierRow = {
+type PackSummary = {
   product: string;
-  subscription_tier: string;
-  purchases?: number;
-  paying_users?: number;
-  revenue_usd?: number;
+  product_id?: string;
+  unique_users?: number;
+  takes?: number;
+  yearly_users?: number;
+  yearly_takes?: number;
+  yearly_list_price?: number | null;
+  yearly_revenue?: number | null;
 };
-
-const SUBSCRIPTION_TIERS = ['Monthly', 'Yearly', 'Lifetime'] as const;
 
 type LtvCompareRow = {
   product: string;
@@ -314,16 +315,32 @@ export default function ComparePage() {
   const ltv90Series = useMemo(() => pivotLtv(ltvRows, 90, labels), [ltvRows, labels]);
   const ltv180Series = useMemo(() => pivotLtv(ltvRows, 180, labels), [ltvRows, labels]);
 
-  const subTierRows = (subsQ.data?.rows ?? []) as SubTierRow[];
-  const subByProductTier = useMemo(() => {
-    const map: Record<string, Record<string, SubTierRow>> = {};
-    for (const row of subTierRows) {
-      const product = String(row.product || '');
-      if (!map[product]) map[product] = {};
-      map[product][row.subscription_tier] = row;
+  const subRows = (subsQ.data?.rows ?? []) as PackRow[];
+  const subSummary = (subsQ.data?.summary ?? []) as PackSummary[];
+  const subDaily = useMemo(() => {
+    const byDate = new Map<string, Record<string, unknown>>();
+    for (const r of subRows) {
+      if (r.grain !== 'day' || r.pack_name !== ALL_PACKS) continue;
+      const date = String(r.event_date || '').slice(0, 10);
+      if (!date) continue;
+      const label = labels.find((l) => matchProduct(String(r.product || ''), l));
+      if (!label) continue;
+      const cur = byDate.get(date) || { event_date: date };
+      cur[label] = n(r.unique_users);
+      byDate.set(date, cur);
     }
-    return map;
-  }, [subTierRows]);
+    return Array.from(byDate.values()).sort((a, b) =>
+      String(a.event_date).localeCompare(String(b.event_date)),
+    );
+  }, [subRows, labels]);
+
+  const subPacks = useMemo(
+    () =>
+      subRows
+        .filter((r) => r.grain === 'range' && !isRollupPack(r.pack_name))
+        .sort((a, b) => n(b.unique_users) - n(a.unique_users)),
+    [subRows],
+  );
 
   const tipStyle = {
     background: chart.tooltipBg,
@@ -355,13 +372,8 @@ export default function ComparePage() {
             Compare Apps
           </h2>
           <p>
-            Side-by-side on the same MVP signals plus cohort LTV for {labels.join(' · ')}.
-            DAU is people who <strong>opened the app</strong> (<code>session_start</code> /{' '}
-            <code>App_open</code> / <code>first_open</code>). Notification display is a separate
-            series — it is not mixed into DAU. Default range is <strong>210 days</strong> so
-            LTV-30 / 90 / 180 can fill. Immature cohorts stay empty until they age.
-            For a written Combined / Banknote / Coinzy report, open{' '}
-            <NavLink to="/report">Health report</NavLink>.
+            {labels.join(' vs ')} on the same date range. DAU is people who opened the app.
+            Yearly pack estimate is $20 (Banknote) and $15 (Coinzy) per unique person.
           </p>
         </div>
         <FilterBar
@@ -392,22 +404,8 @@ export default function ComparePage() {
         )}
         {!ltvQ.isLoading && !ltvQ.error && ltvRows.length === 0 && (
           <div className="empty-state" style={{ marginBottom: 12 }}>
-            No cohort LTV rows yet for this range. Widen the install-date range and Apply.
-            Data is served from MongoDB (`cohort_ltv`) after the daily refresh.
+            No cohort LTV for this range yet. Widen the dates and apply.
           </div>
-        )}
-        {!ltvQ.isLoading && !ltvQ.error && ltvRows.length > 0 && (
-          <p className="muted small" style={{ marginBottom: 12 }}>
-            Cohort LTV: {ltvRows.length.toLocaleString()} rows
-            {ltvQ.data?.source ? ` · source: ${ltvQ.data.source}` : ''}
-            {Array.isArray(ltvQ.data?.sources) && ltvQ.data.sources.length
-              ? ` (${ltvQ.data.sources.map((s) => `${s.product}=${s.source ?? 'unknown'}`).join(', ')})`
-              : ''}
-            {labels.some((l) => ltvByProduct[l]?.ltv_30 != null)
-              ? ' · LTV-30 ready'
-              : ' · widen date range if LTV cells are empty (need mature cohorts)'}
-            . $0.00 means mature cohort with no IAP revenue yet.
-          </p>
         )}
 
         <div className="compare-table-wrap">
@@ -419,7 +417,7 @@ export default function ComparePage() {
                   <th key={l} style={{ color: colorByLabel[l] }}>{l}</th>
                 ))}
                 <th>Leader</th>
-                <th>Why it matters</th>
+                <th className="compare-why">Why it matters</th>
               </tr>
             </thead>
             <tbody>
@@ -458,7 +456,7 @@ export default function ComparePage() {
                     <td className={lead === 'tie' || lead === '—' ? 'muted' : ''}>
                       {m.source === 'ltv' && ltvQ.isLoading ? '…' : lead}
                     </td>
-                    <td className="muted">{m.why}</td>
+                    <td className="muted compare-why">{m.why}</td>
                   </tr>
                 );
               })}
@@ -466,67 +464,178 @@ export default function ComparePage() {
           </table>
         </div>
 
-        <div style={{ marginTop: 28 }}>
-          <h3 style={{ marginBottom: 8 }}>Subscriptions by tier</h3>
-          <p className="muted small" style={{ marginBottom: 12 }}>
-            Monthly, Yearly, and Lifetime IAP purchases in the selected calendar range (all apps).
-            Revenue uses Firebase <code>in_app_purchase</code> / <code>purchase</code> USD only,
-            same rule as cohort LTV. Classified from <code>product_id</code> / <code>pack_name</code>.
-          </p>
+        <div className="packs-compare">
+          <div className="packs-compare-head">
+            <h3>Packs taken</h3>
+            <p>
+              Unique people who confirmed a pack, per day. Yearly estimate uses list price
+              (Banknote $20, Coinzy $15) — not in-app purchase USD.
+            </p>
+          </div>
           {subsQ.error && (
-            <div className="empty-state error" style={{ marginBottom: 12 }}>
-              Subscription tiers failed: {subsQ.error.message}
-            </div>
+            <div className="empty-state error">{subsQ.error.message}</div>
           )}
-          <div className="compare-table-wrap">
-            <table className="compare-table">
+          <div className="packs-compare-kpis">
+            {products.map((p) => {
+              const row = subSummary.find((s) => matchProduct(s.product, p.shortName))
+                || subSummary.find((s) => String(s.product_id) === p.id);
+              const price = row?.yearly_list_price ?? yearlyListPrice(p.id);
+              const unique = n(row?.unique_users);
+              const yearly = n(row?.yearly_users);
+              const share = unique > 0 ? yearly / unique : 0;
+              return (
+                <div key={p.id} className="packs-compare-card" data-app={p.id}>
+                  <AppMark product={p.id} size={32} />
+                  <div className="packs-compare-card-copy">
+                    <strong style={{ color: p.color }}>{p.shortName}</strong>
+                    <span>${price ?? '—'} yearly list price</span>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Unique people</dt>
+                      <dd>{subsQ.isLoading ? '…' : fmtNumber(unique)}</dd>
+                    </div>
+                    <div>
+                      <dt>Yearly</dt>
+                      <dd>{subsQ.isLoading ? '…' : fmtNumber(yearly)}</dd>
+                    </div>
+                    <div>
+                      <dt>Est. yearly</dt>
+                      <dd>
+                        {subsQ.isLoading
+                          ? '…'
+                          : row?.yearly_revenue == null
+                            ? '—'
+                            : fmtUsd(row.yearly_revenue)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="packs-share">
+                    <div className="packs-share-head">
+                      <span>Yearly vs other</span>
+                      <strong>{unique > 0 ? fmtPercent(share) : '—'} yearly</strong>
+                    </div>
+                    <div className="packs-share-track">
+                      <i className="packs-share-yearly" style={{ width: `${unique > 0 ? share * 100 : 0}%` }} />
+                      <i className="packs-share-other" style={{ width: `${unique > 0 ? (1 - share) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="chart-grid">
+            <ChartCard
+              title="Unique people who took a pack, per day"
+              loading={subsQ.isLoading}
+              error={subsQ.error?.message}
+            >
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={subDaily}>
+                  <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="event_date"
+                    tick={{ fill: chart.tick, fontSize: 11 }}
+                    tickFormatter={(v) => String(v).slice(5)}
+                  />
+                  <YAxis tick={{ fill: chart.tick, fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip contentStyle={tipStyle} />
+                  <Legend />
+                  {labels.map((l) => (
+                    <Line
+                      key={l}
+                      type="monotone"
+                      dataKey={l}
+                      stroke={colorByLabel[l]}
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          <div className="packs-table-wrap">
+            <table className="packs-table">
               <thead>
                 <tr>
-                  <th>Tier</th>
-                  {labels.map((l) => (
-                    <th key={`${l}-p`} colSpan={3} style={{ color: colorByLabel[l], textAlign: 'center' }}>
-                      {l}
-                    </th>
-                  ))}
-                </tr>
-                <tr>
-                  <th />
-                  {labels.flatMap((l) => [
-                    <th key={`${l}-purchases`} className="muted">Purchases</th>,
-                    <th key={`${l}-payers`} className="muted">Payers</th>,
-                    <th key={`${l}-rev`} className="muted">Revenue</th>,
-                  ])}
+                  <th>App</th>
+                  <th>Pack</th>
+                  <th>Kind</th>
+                  <th>Unique people</th>
+                  <th>Confirms</th>
+                  <th>Est. yearly</th>
                 </tr>
               </thead>
               <tbody>
-                {SUBSCRIPTION_TIERS.map((tier) => (
-                  <tr key={tier}>
-                    <td><strong>{tier}</strong></td>
-                    {labels.flatMap((l) => {
-                      const row = subByProductTier[l]?.[tier]
-                        ?? Object.entries(subByProductTier).find(([k]) => matchProduct(k, l))?.[1]?.[tier];
-                      return [
-                        <td key={`${l}-${tier}-p`}>
-                          {subsQ.isLoading ? '…' : fmtNumber(Number(row?.purchases || 0))}
-                        </td>,
-                        <td key={`${l}-${tier}-u`}>
-                          {subsQ.isLoading ? '…' : fmtNumber(Number(row?.paying_users || 0))}
-                        </td>,
-                        <td key={`${l}-${tier}-r`}>
-                          {subsQ.isLoading ? '…' : fmtUsd(Number(row?.revenue_usd || 0))}
-                        </td>,
-                      ];
-                    })}
-                  </tr>
-                ))}
+                {subsQ.isLoading && (
+                  <tr><td colSpan={6} className="muted">Loading packs…</td></tr>
+                )}
+                {!subsQ.isLoading && subPacks.length === 0 && (
+                  <tr><td colSpan={6} className="muted">No pack confirms in this range.</td></tr>
+                )}
+                {subPacks.map((p) => {
+                  const kind = packKind(p);
+                  const productId = String(p.product_id || '');
+                  const price = yearlyListPrice(productId);
+                  const users = n(p.unique_users);
+                  const est = kind === 'Yearly' && price != null ? users * price : null;
+                  return (
+                    <tr key={`${p.product}-${p.pack_name}`}>
+                      <td style={{ color: colorByLabel[String(p.product)] || undefined }}>
+                        {String(p.product || '')}
+                      </td>
+                      <td>{String(p.pack_name || '(unnamed pack)')}</td>
+                      <td>
+                        <span className={`pack-kind kind-${kind.toLowerCase()}`}>{kind}</span>
+                      </td>
+                      <td>{fmtNumber(users)}</td>
+                      <td>{fmtNumber(n(p.takes))}</td>
+                      <td>{est == null ? '—' : fmtUsd(est)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-          {!subsQ.isLoading && !subsQ.error && subTierRows.length === 0 && (
-            <p className="muted small" style={{ marginTop: 8 }}>
-              No classified subscription purchases in this range.
-            </p>
-          )}
+
+          <div className="packs-cards packs-cards-compare">
+            {subPacks.map((p) => {
+              const kind = packKind(p);
+              const productId = String(p.product_id || '');
+              const price = yearlyListPrice(productId);
+              const users = n(p.unique_users);
+              const est = kind === 'Yearly' && price != null ? users * price : null;
+              return (
+                <article key={`${p.product}-${p.pack_name}`} className="packs-card">
+                  <header>
+                    <strong>{String(p.pack_name || '(unnamed pack)')}</strong>
+                    <span className={`pack-kind kind-${kind.toLowerCase()}`}>{kind}</span>
+                  </header>
+                  <p className="packs-card-app" style={{ color: colorByLabel[String(p.product)] }}>
+                    {String(p.product || '')}
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>Unique people</dt>
+                      <dd>{fmtNumber(users)}</dd>
+                    </div>
+                    <div>
+                      <dt>Confirms</dt>
+                      <dd>{fmtNumber(n(p.takes))}</dd>
+                    </div>
+                    <div>
+                      <dt>Est. yearly</dt>
+                      <dd>{est == null ? '—' : fmtUsd(est)}</dd>
+                    </div>
+                  </dl>
+                </article>
+              );
+            })}
+          </div>
         </div>
 
         <div className="chart-grid" style={{ marginTop: 24 }}>
@@ -586,17 +695,6 @@ export default function ComparePage() {
             </ChartCard>
           ))}
         </div>
-
-        <ul style={{ marginTop: 16, color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6 }}>
-          <li>
-            DAU = opened the app. Notification DAU = received/displayed a push.
-            Any Firebase event includes both plus background analytics events.
-          </li>
-          <li>Same date range, country, and platform filters apply to all apps.</li>
-          <li>Subscription tiers are calendar-period IAP counts, not cohort LTV.</li>
-          <li>Funnel / catalogue / marketplace need matching Firebase events or rates stay near zero.</li>
-          <li>Add another app via <code>PRODUCTS=...</code> in <code>.env</code> — see <code>docs/PROJECT.md</code>.</li>
-        </ul>
       </div>
     </>
   );

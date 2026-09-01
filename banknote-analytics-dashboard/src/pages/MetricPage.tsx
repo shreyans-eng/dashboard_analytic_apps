@@ -560,7 +560,7 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
     yKey: 'paywall_to_confirm_rate',
     color: '#a78bfa',
     percent: true,
-    guide: 'Counts views and confirms (not unique people). Standard and discount screens are included. For unique people and pack mix open Funnels → Paywall. First-run screens are Funnels → Onboarding. Purchase from that group is Funnels → Onboarding → subs.',
+    guide: 'In-app paywall only (`Subs_page` / discount / `Subscription_screen`). Banknote confirm is `Subs_confirm`. Coinzy confirm is `subs_confirm` / `paid_purchase`. Onboarding purchase is Funnels → Onboarding → subs. Unique people and pack mix are Subscriptions → Packs taken.',
   },
   'mvp-retention': {
     id: 'mvp-retention',

@@ -43,6 +43,7 @@ import {
   ShieldAlert,
   Percent,
   FileSpreadsheet,
+  Package,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchConfig, AppConfig } from '@/lib/api';
@@ -76,6 +77,8 @@ const NAV = [
   { to: '/funnels/expert', pageId: 'funnels.expert', label: 'Expert evaluation', icon: Award, products: ['coinzy'] },
   { to: '/events-catalog', pageId: 'events-catalog', label: 'Event catalog', icon: FileSpreadsheet },
   { to: '/events-explorer', pageId: 'events-explorer', label: 'Event inventory', icon: ListTree },
+  { section: 'Subscriptions' },
+  { to: '/packs', pageId: 'explorer.packs', label: 'Packs taken', icon: Package },
   { section: 'MVP KPIs (10)' },
   { to: '/mvp/dau', pageId: 'mvp.dau', label: '1. DAU (opened app)', icon: Activity },
   { to: '/mvp/time-to-first-scan', pageId: 'mvp.time-to-first-scan', label: '2. Install → first scan', icon: Timer },

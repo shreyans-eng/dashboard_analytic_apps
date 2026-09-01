@@ -14,6 +14,7 @@ import {
   Gauge,
   ShieldAlert,
   Percent,
+  Package,
 } from 'lucide-react';
 import { useProduct } from '@/lib/product';
 import { useAuth } from '@/lib/auth';
@@ -67,6 +68,12 @@ const METRICS = [
     icon: Percent,
     title: 'D0 / D1 percentiles',
     description: 'Install cohort: time, scans per day, and retain on D0 vs D1 (P10–P99).',
+  },
+  {
+    to: '/packs',
+    icon: Package,
+    title: 'Packs taken',
+    description: 'Unique people per pack per day (Subscriptions tab). Yearly estimate: Banknote $20, Coinzy $15.',
   },
   {
     to: '/scan-limits',

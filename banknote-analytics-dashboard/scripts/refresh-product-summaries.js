@@ -165,6 +165,12 @@ function substituteSql(raw, { project, dataset, summaryDataset, startSuffix, end
   return sql;
 }
 
+function resolveScheduledFile(productId, file) {
+  const productSpecific = path.join(SQL_SCHEDULED, productId, file);
+  if (fs.existsSync(productSpecific)) return productSpecific;
+  return path.join(SQL_SCHEDULED, file);
+}
+
 async function runSql(bq, sql, label) {
   console.log(`→ ${label}`);
   const [job] = await bq.createQueryJob({ query: sql, location: 'US' });
@@ -231,7 +237,7 @@ async function refreshProduct(productId, opts) {
 
   let totalBytes = 0;
   for (const file of files) {
-    const full = path.join(SQL_SCHEDULED, file);
+    const full = resolveScheduledFile(productId, file);
     if (!fs.existsSync(full)) {
       console.warn(`  skip missing ${file}`);
       continue;

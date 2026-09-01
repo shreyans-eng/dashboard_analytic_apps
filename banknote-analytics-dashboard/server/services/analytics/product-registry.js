@@ -20,6 +20,12 @@ import { listEventCatalog } from './event-catalog.js';
 import { daysAgo, today } from './sql-utils.js';
 import { cacheKey, cached } from '../../cache/index.js';
 import { runQuery } from './bigquery-client.js';
+import {
+  ALL_PACKS,
+  YEARLY_LIST_PRICE,
+  YEARLY_ROLLUP,
+  summarizePackRows,
+} from './subscription-packs.js';
 
 const DEFAULT_COLORS = [
   '#4f8cff',
@@ -257,6 +263,7 @@ export class ProductAnalyticsFacade {
     if (
       name === 'compare-subscriptions'
       || (name === 'subscription-tiers' && product === 'compare')
+      || (name === 'subscription-packs' && product === 'compare')
     ) {
       return this.compareSubscriptions(params);
     }
@@ -406,26 +413,28 @@ export class ProductAnalyticsFacade {
   }
 
   /**
-   * Monthly / Yearly / Lifetime subscription mix per registered product.
+   * Packs taken (unique people per day per pack) per registered product.
+   * Yearly revenue uses list price: Banknote $20, Coinzy $15 — not IAP USD.
    */
   async compareSubscriptions(params = {}) {
     const results = await Promise.all(
       this.registry.productIds.map(async (id) => {
         const cfg = this.registry.configs[id];
         try {
-          const result = await this.registry.repos[id].runDashboardQuery('subscription-tiers', {
+          const result = await this.registry.repos[id].runDashboardQuery('subscription-packs', {
             ...params,
             product: id,
           });
-          return { label: cfg.label, result, error: null };
+          return { id, label: cfg.label, result, error: null };
         } catch (e) {
           const msg = String(e?.message || e);
-          console.error(`[compare] ${id} subscription-tiers failed: ${msg}`);
+          console.error(`[compare] ${id} subscription-packs failed: ${msg}`);
           return {
+            id,
             label: cfg.label,
             result: {
               rows: [],
-              sql: `-- ${cfg.label} subscription tiers failed: ${msg.replace(/\n/g, ' ')}`,
+              sql: `-- ${cfg.label} subscription packs failed: ${msg.replace(/\n/g, ' ')}`,
               bytesProcessed: 0,
             },
             error: msg,
@@ -434,43 +443,44 @@ export class ProductAnalyticsFacade {
       }),
     );
 
-    const rows = results.flatMap(({ label, result }) =>
+    const rows = results.flatMap(({ id, label, result }) =>
       (result.rows || []).map((r) => ({
         ...r,
         product: label,
+        product_id: id,
       })),
     );
     const sql = results
-      .map(({ label, result }) => `-- ===== ${label} subscription tiers =====\n${result.sql || ''}`)
+      .map(({ label, result }) => `-- ===== ${label} packs taken =====\n${result.sql || ''}`)
       .join('\n\n');
     const bytesProcessed = results.reduce((s, x) => s + (x.result.bytesProcessed || 0), 0);
     const errors = results.filter((r) => r.error).map((r) => `${r.label}: ${r.error}`);
 
     if (errors.length && !rows.length) {
-      throw new Error(`Subscription tier compare failed — ${errors.join(' · ')}`);
+      throw new Error(`Pack compare failed — ${errors.join(' · ')}`);
     }
 
-    const tiers = ['Monthly', 'Yearly', 'Lifetime'];
-    const summary = results.map(({ label, result }) => {
-      const byTier = Object.fromEntries(
-        (result.rows || []).map((r) => [r.subscription_tier, r]),
-      );
-      return {
-        product: label,
-        tiers: tiers.map((tier) => ({
-          subscription_tier: tier,
-          purchases: Number(byTier[tier]?.purchases || 0),
-          paying_users: Number(byTier[tier]?.paying_users || 0),
-          revenue_usd: Number(byTier[tier]?.revenue_usd || 0),
-        })),
-        source: result.source || 'raw',
-      };
-    });
+    const summary = results.map(({ id, label, result }) => ({
+      product: label,
+      product_id: id,
+      ...summarizePackRows(result.rows, id),
+    }));
+
+    const packs = rows
+      .filter((r) => r.grain === 'range' && r.pack_name !== ALL_PACKS && r.pack_name !== YEARLY_ROLLUP)
+      .sort((a, b) => Number(b.unique_users || 0) - Number(a.unique_users || 0));
+
+    const daily = rows
+      .filter((r) => r.grain === 'day' && (r.pack_name === ALL_PACKS || r.pack_name === YEARLY_ROLLUP))
+      .sort((a, b) => String(a.event_date).localeCompare(String(b.event_date)));
 
     return {
       sql,
       rows,
+      packs,
+      daily,
       summary,
+      yearly_list_prices: YEARLY_LIST_PRICE,
       count: rows.length,
       bytesProcessed,
       products: results.map((r) => r.label),

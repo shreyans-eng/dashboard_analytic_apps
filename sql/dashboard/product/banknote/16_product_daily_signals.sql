@@ -1,8 +1,8 @@
 -- =============================================================================
--- Raw-events daily product signals (Banknote-shaped fallback)
--- Coinzy uses dashboard/product/coinzy/16_product_daily_signals.sql
--- Banknote uses dashboard/product/banknote/16_product_daily_signals.sql
--- dau = app_open_dau (session_start / App_open / first_open).
+-- Banknote daily product signals (raw events) — Compare + MVP rollup
+-- Confirm is Subs_confirm only. Identify open is nav ∪ home.
+-- In-app paywall only (not onboarding subscription_shown).
+-- Cheap identity: GA4 user_id then user_pseudo_id — no event_params UNNEST.
 -- =============================================================================
 
 WITH base AS (
@@ -14,6 +14,7 @@ WITH base AS (
   WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', {{start_date}})
                           AND FORMAT_DATE('%Y%m%d', {{end_date}})
     AND _TABLE_SUFFIX NOT LIKE 'intraday_%'
+    AND REGEXP_CONTAINS(_TABLE_SUFFIX, r'^\d{8}$')
     [[AND event_country = {{country}}]]
     [[AND event_platform = {{platform}}]]
 )

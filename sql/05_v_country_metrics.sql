@@ -42,7 +42,7 @@ daily_events AS (
       'Subs_confirm', 'subs_confirm', 'subs_confirm_discount', 'paid_purchase'
     )) AS subscription_confirms,
     COUNTIF(event_name_base IN (
-      'Subs_page', 'Subs_page_discount', 'Subscription_screen', 'Subs_page_onboarding'
+      'Subs_page', 'Subs_page_discount', 'Subscription_screen'
     )) AS subs_page_views,
     COUNTIF(event_name_base = 'Registration')              AS registrations,
     COUNTIF(event_name_base = 'Login')                       AS logins

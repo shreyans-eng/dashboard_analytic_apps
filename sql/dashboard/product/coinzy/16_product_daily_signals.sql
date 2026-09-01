@@ -65,12 +65,11 @@ SELECT
   ) AS free_quota_hit_rate,
   SAFE_DIVIDE(
     COUNTIF(event_name_base IN (
-      'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
+      'subs_confirm', 'subs_confirm_discount',
       'paid_purchase', 'trial_purchase'
     )),
     COUNTIF(event_name_base IN (
-      'Subs_page', 'Subs_page_discount', 'Subscription_screen',
-      'Subs_page_onboarding', 'subscription_shown'
+      'Subs_page', 'Subs_page_discount', 'Subscription_screen'
     ))
   ) AS paywall_to_confirm_rate,
   SAFE_DIVIDE(
@@ -95,15 +94,14 @@ SELECT
     COUNT(DISTINCT CASE WHEN {{dau_event_predicate_base}} THEN resolved_user_id END)
   ) AS marketplace_engagement_rate,
   COUNT(DISTINCT CASE WHEN event_name_base IN (
-    'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
+    'subs_confirm', 'subs_confirm_discount',
     'paid_purchase', 'trial_purchase'
   ) THEN resolved_user_id END) AS paying_users,
   COUNTIF(event_name_base IN (
-    'Subs_page', 'Subs_page_discount', 'Subscription_screen',
-    'Subs_page_onboarding', 'subscription_shown'
+    'Subs_page', 'Subs_page_discount', 'Subscription_screen'
   )) AS paywall_impressions,
   COUNTIF(event_name_base IN (
-    'subs_confirm', 'subs_confirm_discount', 'Subs_confirm',
+    'subs_confirm', 'subs_confirm_discount',
     'paid_purchase', 'trial_purchase'
   )) AS purchase_confirms
 FROM base

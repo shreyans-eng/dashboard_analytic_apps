@@ -39,6 +39,9 @@ export const PAGE_CATALOG = [
     { id: 'mvp.catalogue', label: '9. Collection vs catalogue', path: '/mvp/catalogue' },
     { id: 'mvp.marketplace', label: '10. Marketplace', path: '/mvp/marketplace' },
   ]},
+  { section: 'Subscriptions', items: [
+    { id: 'explorer.packs', label: 'Packs taken', path: '/packs' },
+  ]},
   { section: 'Explorer', items: [
     { id: 'explorer.ltv', label: 'Cohort LTV', path: '/ltv' },
     { id: 'explorer.user-mix', label: 'Unique vs repeat', path: '/user-mix' },
@@ -133,6 +136,14 @@ export function canAccessPage(user, pageId) {
       || pages.includes('mvp.scans-per-user')
       || pages.includes('mvp.retention')
       || pages.includes('explorer.d1'))
+  ) {
+    return true;
+  }
+  if (
+    pageId === 'explorer.packs'
+    && (pages.includes('compare')
+      || pages.includes('mvp.paywall')
+      || pages.includes('funnels.paywall'))
   ) {
     return true;
   }

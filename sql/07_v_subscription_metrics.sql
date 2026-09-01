@@ -53,17 +53,15 @@ daily AS (
     country,
     app_version,
 
-    -- Funnel top
+    -- Funnel top (in-app paywall only; onboarding is Funnels → Onboarding → subs)
     COUNT(DISTINCT CASE
       WHEN event_name_base IN (
-        'Subs_page', 'Subs_page_discount', 'Subscription_screen',
-        'Subs_page_onboarding', 'subscription_shown'
+        'Subs_page', 'Subs_page_discount', 'Subscription_screen'
       )
       THEN resolved_user_id END) AS users_saw_paywall,
 
     COUNTIF(event_name_base IN (
-      'Subs_page', 'Subs_page_discount', 'Subscription_screen',
-      'Subs_page_onboarding', 'subscription_shown'
+      'Subs_page', 'Subs_page_discount', 'Subscription_screen'
     )) AS paywall_impressions,
     COUNTIF(event_name_base = 'Subs_page')                          AS paywall_standard_impressions,
     COUNTIF(event_name_base = 'Subs_page_discount')                 AS paywall_discount_impressions,

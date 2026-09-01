@@ -39,6 +39,9 @@ export const PAGE_CATALOG = [
     { id: 'mvp.catalogue', label: '9. Collection vs catalogue', path: '/mvp/catalogue' },
     { id: 'mvp.marketplace', label: '10. Marketplace', path: '/mvp/marketplace' },
   ]},
+  { section: 'Subscriptions', items: [
+    { id: 'explorer.packs', label: 'Packs taken', path: '/packs' },
+  ]},
   { section: 'Explorer', items: [
     { id: 'explorer.ltv', label: 'Cohort LTV', path: '/ltv' },
     { id: 'explorer.user-mix', label: 'Unique vs repeat', path: '/user-mix' },
@@ -127,6 +130,7 @@ const PATH_TO_PAGE: Record<string, PageId> = {
   '/install-day-usage': 'explorer.install-day-usage',
   '/percentiles': 'explorer.percentiles',
   '/scan-limits': 'explorer.scan-limits',
+  '/packs': 'explorer.packs',
   '/free-scan-quota': 'explorer.free-scan-quota',
   '/d1-retention': 'mvp.retention',
   '/d7-retention': 'mvp.retention',
@@ -202,6 +206,14 @@ export function canAccessPage(user: AuthUser | null | undefined, pageId: string)
       || pages.includes('mvp.scans-per-user')
       || pages.includes('mvp.retention')
       || pages.includes('explorer.d1'))
+  ) {
+    return true;
+  }
+  if (
+    pageId === 'explorer.packs'
+    && (pages.includes('compare')
+      || pages.includes('mvp.paywall')
+      || pages.includes('funnels.paywall'))
   ) {
     return true;
   }
