@@ -125,6 +125,9 @@ counts AS (
       'market_item_expolre'
     ) THEN resolved_user_id END) AS marketplace_users,
     COUNT(DISTINCT CASE WHEN event_name_base IN (
+      'Subs_page', 'Subs_page_discount', 'Subscription_screen'
+    ) THEN resolved_user_id END) AS paywall_users,
+    COUNT(DISTINCT CASE WHEN event_name_base IN (
       'subs_confirm', 'subs_confirm_discount',
       'paid_purchase', 'trial_purchase'
     ) THEN resolved_user_id END) AS paying_users

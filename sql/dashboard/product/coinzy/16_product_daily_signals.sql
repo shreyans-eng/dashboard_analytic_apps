@@ -64,13 +64,13 @@ SELECT
     ) THEN resolved_user_id END)
   ) AS free_quota_hit_rate,
   SAFE_DIVIDE(
-    COUNTIF(event_name_base IN (
+    COUNT(DISTINCT CASE WHEN event_name_base IN (
       'subs_confirm', 'subs_confirm_discount',
       'paid_purchase', 'trial_purchase'
-    )),
-    COUNTIF(event_name_base IN (
+    ) THEN resolved_user_id END),
+    COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Subs_page', 'Subs_page_discount', 'Subscription_screen'
-    ))
+    ) THEN resolved_user_id END)
   ) AS paywall_to_confirm_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (

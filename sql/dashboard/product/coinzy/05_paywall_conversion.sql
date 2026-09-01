@@ -1,6 +1,7 @@
 -- =============================================================================
 -- Coinzy MVP #5 — Paywall → purchase (raw events)
 -- Confirm is lowercase subs_confirm (BillingViewModel.kt) — NOT Subs_confirm
+-- Conversion is unique people / unique people — retry taps must not inflate the rate.
 -- =============================================================================
 
 WITH bounds AS (
@@ -40,13 +41,13 @@ SELECT
     'paid_purchase', 'trial_purchase'
   ) THEN resolved_user_id END) AS paying_users,
   SAFE_DIVIDE(
-    COUNTIF(event_name_base IN (
+    COUNT(DISTINCT CASE WHEN event_name_base IN (
       'subs_confirm', 'subs_confirm_discount',
       'paid_purchase', 'trial_purchase'
-    )),
-    COUNTIF(event_name_base IN (
+    ) THEN resolved_user_id END),
+    COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Subs_page', 'Subs_page_discount', 'Subscription_screen'
-    ))
+    ) THEN resolved_user_id END)
   ) AS paywall_to_confirm_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE WHEN event_name_base IN (

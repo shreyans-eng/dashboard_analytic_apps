@@ -4,6 +4,7 @@
 -- Confirm events (not Firebase in_app_purchase Monthly/Yearly/Lifetime buckets).
 -- Pack name: confirm params first; else last named pack click that day
 -- (Banknote pack_name lives on Subs_pack, not Subs_confirm).
+-- One row per person per day so payment retries do not inflate unique_users.
 -- =============================================================================
 
 WITH base AS (
@@ -43,9 +44,10 @@ pack_clicks AS (
   GROUP BY event_date, uid
 ),
 
-taken AS (
+confirms AS (
   SELECT
     c.event_date,
+    c.event_timestamp,
     c.uid,
     COALESCE(
       NULLIF(c.pack_name, '(unnamed pack)'),
@@ -66,6 +68,16 @@ taken AS (
       'Subs_confirm', 'subs_confirm', 'subs_confirm_discount',
       'paid_purchase', 'trial_purchase'
     )
+),
+taken AS (
+  SELECT
+    event_date,
+    uid,
+    ARRAY_AGG(pack_name ORDER BY event_timestamp DESC LIMIT 1)[SAFE_OFFSET(0)] AS pack_name,
+    ARRAY_AGG(pack_kind ORDER BY event_timestamp DESC LIMIT 1)[SAFE_OFFSET(0)] AS pack_kind,
+    COUNT(*) AS confirm_taps
+  FROM confirms
+  GROUP BY event_date, uid
 )
 
 SELECT

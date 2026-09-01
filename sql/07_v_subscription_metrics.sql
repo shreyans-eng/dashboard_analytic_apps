@@ -98,8 +98,8 @@ daily AS (
 
 SELECT
   *,
-  SAFE_DIVIDE(purchase_confirms, paywall_impressions)     AS paywall_to_confirm_rate,
-  SAFE_DIVIDE(pack_clicks, paywall_impressions)           AS paywall_to_pack_click_rate,
-  SAFE_DIVIDE(purchase_confirms, pack_clicks)             AS pack_click_to_confirm_rate,
+  SAFE_DIVIDE(paying_users, users_saw_paywall)            AS paywall_to_confirm_rate,
+  SAFE_DIVIDE(users_clicked_pack, users_saw_paywall)      AS paywall_to_pack_click_rate,
+  SAFE_DIVIDE(paying_users, users_clicked_pack)           AS pack_click_to_confirm_rate,
   SAFE_DIVIDE(purchase_failures, purchase_failures + purchase_confirms) AS purchase_failure_rate
 FROM daily;

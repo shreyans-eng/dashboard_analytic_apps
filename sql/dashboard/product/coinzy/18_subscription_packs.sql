@@ -2,6 +2,7 @@
 -- Coinzy packs taken — unique people per day per pack
 -- Confirm: subs_confirm / discount / paid_purchase / trial_purchase
 -- Pack name: confirm params, else last named subs_pack click that day
+-- One row per person per day so payment retries do not inflate unique_users.
 -- =============================================================================
 
 WITH base AS (
@@ -41,9 +42,10 @@ pack_clicks AS (
   GROUP BY event_date, uid
 ),
 
-taken AS (
+confirms AS (
   SELECT
     c.event_date,
+    c.event_timestamp,
     c.uid,
     COALESCE(
       NULLIF(c.pack_name, '(unnamed pack)'),
@@ -64,6 +66,16 @@ taken AS (
       'subs_confirm', 'subs_confirm_discount',
       'paid_purchase', 'trial_purchase'
     )
+),
+taken AS (
+  SELECT
+    event_date,
+    uid,
+    ARRAY_AGG(pack_name ORDER BY event_timestamp DESC LIMIT 1)[SAFE_OFFSET(0)] AS pack_name,
+    ARRAY_AGG(pack_kind ORDER BY event_timestamp DESC LIMIT 1)[SAFE_OFFSET(0)] AS pack_kind,
+    COUNT(*) AS confirm_taps
+  FROM confirms
+  GROUP BY event_date, uid
 )
 
 SELECT
@@ -72,7 +84,7 @@ SELECT
   pack_name,
   pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 GROUP BY grain, event_date, pack_name, pack_kind
 
@@ -84,7 +96,7 @@ SELECT
   '(all packs)' AS pack_name,
   'All' AS pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 GROUP BY grain, event_date, pack_name, pack_kind
 
@@ -96,7 +108,7 @@ SELECT
   '(yearly)' AS pack_name,
   'Yearly' AS pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 WHERE pack_kind = 'Yearly'
 GROUP BY grain, event_date, pack_name, pack_kind
@@ -109,7 +121,7 @@ SELECT
   pack_name,
   pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 GROUP BY grain, event_date, pack_name, pack_kind
 
@@ -121,7 +133,7 @@ SELECT
   '(all packs)' AS pack_name,
   'All' AS pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 
 UNION ALL
@@ -132,7 +144,7 @@ SELECT
   '(yearly)' AS pack_name,
   'Yearly' AS pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 WHERE pack_kind = 'Yearly'
 

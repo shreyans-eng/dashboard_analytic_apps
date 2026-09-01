@@ -3,6 +3,7 @@
 -- In-app only: Subs_page / Subs_page_discount / Subscription_screen
 -- Confirm is Subs_confirm only.
 -- Do not mix onboarding subscription_shown (that is Funnels → Onboarding → subs).
+-- Conversion is unique people / unique people — retry taps must not inflate the rate.
 -- =============================================================================
 
 WITH bounds AS (
@@ -34,10 +35,12 @@ SELECT
     WHEN event_name_base = 'Subs_confirm'
     THEN resolved_user_id END) AS paying_users,
   SAFE_DIVIDE(
-    COUNTIF(event_name_base = 'Subs_confirm'),
-    COUNTIF(event_name_base IN (
+    COUNT(DISTINCT CASE
+      WHEN event_name_base = 'Subs_confirm'
+      THEN resolved_user_id END),
+    COUNT(DISTINCT CASE WHEN event_name_base IN (
       'Subs_page', 'Subs_page_discount', 'Subscription_screen'
-    ))
+    ) THEN resolved_user_id END)
   ) AS paywall_to_confirm_rate,
   SAFE_DIVIDE(
     COUNT(DISTINCT CASE
