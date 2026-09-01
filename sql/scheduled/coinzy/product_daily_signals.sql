@@ -146,7 +146,7 @@ SELECT
   SAFE_DIVIDE(success_scans, identify_outcomes) AS identification_success_rate,
   SAFE_DIVIDE(success_scans, app_open_dau) AS scans_per_dau,
   SAFE_DIVIDE(quota_hit_users, identify_users) AS free_quota_hit_rate,
-  SAFE_DIVIDE(purchase_confirms, paywall_impressions) AS paywall_to_confirm_rate,
+  SAFE_DIVIDE(paying_users, paywall_users) AS paywall_to_confirm_rate,
   SAFE_DIVIDE(success_users, identify_open_users) AS open_to_success_rate,
   SAFE_DIVIDE(catalogue_users, app_open_dau) AS catalogue_open_rate,
   SAFE_DIVIDE(marketplace_users, app_open_dau) AS marketplace_engagement_rate,

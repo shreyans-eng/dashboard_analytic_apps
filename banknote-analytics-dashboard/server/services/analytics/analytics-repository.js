@@ -445,7 +445,7 @@ export class AnalyticsRepository {
   }
 
   async getProductDailySignals(params) {
-    const key = cacheKey(`${this.productId}:daily-signals:v10`, params);
+    const key = cacheKey(`${this.productId}:daily-signals:v11`, params);
     return cached('compare', key, async () => {
       const rawPath = this._resolveProductSql('dashboard/raw/16_product_daily_signals.sql');
       const rawSource = rawPath === 'dashboard/raw/16_product_daily_signals.sql' ? 'raw' : 'product';
@@ -516,7 +516,7 @@ export class AnalyticsRepository {
 
   async getSubscriptionPacks(params) {
     const sqlPath = this._resolveProductSql('dashboard/raw/18_subscription_packs.sql');
-    const key = cacheKey(`${this.productId}:dashboard:subscription-packs:v2`, params);
+    const key = cacheKey(`${this.productId}:dashboard:subscription-packs:v3`, params);
     const result = await cached('subscription-packs', key, () =>
       this._executeSql(sqlPath, params, 'raw'),
     );
@@ -812,7 +812,7 @@ export class AnalyticsRepository {
     const spec = MVP_KPI_MAP[name];
     if (!spec) throw new Error(`Unknown MVP metric: ${name}`);
 
-    const key = cacheKey(`${this.productId}:mvp:v15:${name}`, params);
+    const key = cacheKey(`${this.productId}:mvp:v16:${name}`, params);
     const result = await cached('kpi', key, async () => {
       if (spec.useRetention) {
         return this.getRetention(params);

@@ -86,7 +86,7 @@ SELECT
   pack_name,
   pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 GROUP BY grain, event_date, pack_name, pack_kind
 
@@ -98,7 +98,7 @@ SELECT
   '(all packs)' AS pack_name,
   'All' AS pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 GROUP BY grain, event_date, pack_name, pack_kind
 
@@ -110,7 +110,7 @@ SELECT
   '(yearly)' AS pack_name,
   'Yearly' AS pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 WHERE pack_kind = 'Yearly'
 GROUP BY grain, event_date, pack_name, pack_kind
@@ -123,7 +123,7 @@ SELECT
   pack_name,
   pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 GROUP BY grain, event_date, pack_name, pack_kind
 
@@ -135,7 +135,7 @@ SELECT
   '(all packs)' AS pack_name,
   'All' AS pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 
 UNION ALL
@@ -146,7 +146,7 @@ SELECT
   '(yearly)' AS pack_name,
   'Yearly' AS pack_kind,
   COUNT(DISTINCT uid) AS unique_users,
-  COUNT(*) AS takes
+  SUM(confirm_taps) AS takes
 FROM taken
 WHERE pack_kind = 'Yearly'
 

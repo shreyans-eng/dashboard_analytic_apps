@@ -553,14 +553,14 @@ export const METRIC_CONFIGS: Record<string, MetricConfig> = {
   'mvp-paywall': {
     id: 'mvp-paywall',
     title: '5. Paywall to purchase',
-    subtitle: 'Of paywall views, how often someone confirms a purchase',
-    chartTitle: 'Paywall views that turned into a purchase',
+    subtitle: 'Of people who saw the in-app paywall, how many confirmed (unique people per day)',
+    chartTitle: 'People who saw the paywall and confirmed',
     type: 'line',
     xKey: 'event_date',
     yKey: 'paywall_to_confirm_rate',
     color: '#a78bfa',
     percent: true,
-    guide: 'In-app paywall only (`Subs_page` / discount / `Subscription_screen`). Banknote confirm is `Subs_confirm`. Coinzy confirm is `subs_confirm` / `paid_purchase`. Onboarding purchase is Funnels → Onboarding → subs. Unique people and pack mix are Subscriptions → Packs taken.',
+    guide: 'In-app paywall only (`Subs_page` / discount / `Subscription_screen`). Banknote confirm is `Subs_confirm`. Coinzy confirm is `subs_confirm` / `paid_purchase`. Rate is unique confirmers ÷ unique paywall viewers that day — payment retries do not inflate it. Onboarding purchase is Funnels → Onboarding → subs. Pack mix is Subscriptions → Packs taken.',
   },
   'mvp-retention': {
     id: 'mvp-retention',

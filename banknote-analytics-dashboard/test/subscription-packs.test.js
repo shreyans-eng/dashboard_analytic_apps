@@ -167,3 +167,32 @@ test('scheduled Banknote signals confirm Subs_confirm only', () => {
   assert.doesNotMatch(body, /paid_purchase/);
   assert.doesNotMatch(body, /free_scan_limit_exceeded/);
 });
+
+test('pack SQL keeps one person per day so confirm retries do not inflate unique_users', () => {
+  for (const rel of [
+    'dashboard/raw/18_subscription_packs.sql',
+    'dashboard/product/banknote/18_subscription_packs.sql',
+    'dashboard/product/coinzy/18_subscription_packs.sql',
+  ]) {
+    const body = sqlBody(rel);
+    assert.match(body, /GROUP BY event_date, uid/);
+    assert.match(body, /confirm_taps/);
+    assert.match(body, /COUNT\(DISTINCT uid\) AS unique_users/);
+    assert.match(body, /SUM\(confirm_taps\) AS takes/);
+  }
+});
+
+test('paywall conversion rate uses unique confirmers, not raw Subs_confirm taps', () => {
+  for (const rel of [
+    'dashboard/product/banknote/05_paywall_conversion.sql',
+    'dashboard/product/coinzy/05_paywall_conversion.sql',
+    'dashboard/product/banknote/16_product_daily_signals.sql',
+    'dashboard/product/coinzy/16_product_daily_signals.sql',
+  ]) {
+    const body = sqlBody(rel);
+    const rate = body.split('AS paywall_to_confirm_rate')[0].split('SAFE_DIVIDE').pop();
+    assert.ok(rate, rel);
+    assert.match(rate, /COUNT\(DISTINCT/);
+    assert.doesNotMatch(rate, /COUNTIF/);
+  }
+});
