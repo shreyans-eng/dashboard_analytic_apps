@@ -11,7 +11,7 @@ import { useTheme } from '@/lib/theme';
 import { useDashboardMetric, useCompareLtv, useCompareSubscriptions } from '@/hooks/useAnalytics';
 import { fmtNumber, fmtPercent, fmtUsd, fmtDecimal, QueryParams, defaultDateRange } from '@/lib/api';
 import { useProduct } from '@/lib/product';
-import { ALL_PACKS, YEARLY_LIST_PRICE, YEARLY_NET_SHARE, YEARLY_OFFER_LIST_PRICE, isRollupPack, n, packDisplayName, packEventHint, packKind, packKindLabel, splitPacksByKind, yearlyNetUsd, type PackRow } from '@/lib/packs';
+import { ALL_PACKS, YEARLY_LIST_PRICE, YEARLY_NET_SHARE_BY_PRODUCT, YEARLY_OFFER_LIST_PRICE, isRollupPack, n, packDisplayName, packEventHint, packEstimateUsd, packKindLabel, splitPacksByKind, yearlyNetUsd, type PackRow } from '@/lib/packs';
 
 type SummaryRow = {
   product: string;
@@ -378,8 +378,10 @@ export default function ComparePage() {
           </h2>
           <p>
             {labels.join(' vs ')} on the same date range. DAU is people who opened the app.
-            Yearly estimate is unique people × {YEARLY_NET_SHARE * 100}% × Play US list
-            (Banknote full ${YEARLY_LIST_PRICE.banknote}, discounted ${YEARLY_OFFER_LIST_PRICE.banknote}; Coinzy ${YEARLY_LIST_PRICE.coinzy}).
+            Yearly estimate is unique people × share × Play US list
+            (Banknote {YEARLY_NET_SHARE_BY_PRODUCT.banknote * 100}% of ${YEARLY_LIST_PRICE.banknote} / offer ${YEARLY_OFFER_LIST_PRICE.banknote};
+            Coinzy {YEARLY_NET_SHARE_BY_PRODUCT.coinzy * 100}% of ${YEARLY_LIST_PRICE.coinzy} / half ${YEARLY_OFFER_LIST_PRICE.coinzy}).
+            Monthly and lifetime are not estimated.
           </p>
         </div>
         <FilterBar
@@ -474,10 +476,11 @@ export default function ComparePage() {
           <div className="packs-compare-head">
             <h3>Packs taken</h3>
             <p>
-              Unique people who took a pack, per day. Banknote: store in_app_purchase
-              product ID (same as GA4). Coinzy: subs_pack / subs_confirm (and paid_purchase).
-              Yearly $ is unique people × {YEARLY_NET_SHARE * 100}% × Play US list
-              (Banknote full ${YEARLY_LIST_PRICE.banknote}, discounted ${YEARLY_OFFER_LIST_PRICE.banknote}; Coinzy ${YEARLY_LIST_PRICE.coinzy}).
+              Unique people who took a pack, per day. Both apps: store in_app_purchase
+              product ID (same as GA4). Yearly estimated $ is unique people × share × Play US list
+              (Banknote {YEARLY_NET_SHARE_BY_PRODUCT.banknote * 100}% of ${YEARLY_LIST_PRICE.banknote} / offer ${YEARLY_OFFER_LIST_PRICE.banknote};
+              Coinzy {YEARLY_NET_SHARE_BY_PRODUCT.coinzy * 100}% of ${YEARLY_LIST_PRICE.coinzy} / half ${YEARLY_OFFER_LIST_PRICE.coinzy}).
+              Monthly and lifetime are not estimated.
             </p>
           </div>
           {subsQ.error && (
@@ -603,7 +606,7 @@ export default function ComparePage() {
                   <th>Kind</th>
                   <th>Unique people</th>
                   <th>Confirms</th>
-                  <th>Est. yearly</th>
+                  <th>Estimated $</th>
                 </tr>
               </thead>
               <tbody>
@@ -614,10 +617,9 @@ export default function ComparePage() {
                   <tr><td colSpan={6} className="muted">No pack confirms in this range.</td></tr>
                 )}
                 { [...subByKind.yearly, ...subByKind.yearlyHalf, ...subByKind.monthly, ...subByKind.lifetime, ...subByKind.other].map((p) => {
-                  const kind = packKind(p);
                   const label = packKindLabel(p);
                   const users = n(p.unique_users);
-                  const est = kind === 'Yearly' ? yearlyNetUsd(users, p.product_id, p.pack_name) : null;
+                  const est = packEstimateUsd(users, p.product_id, p.pack_name);
                   return (
                     <tr key={`${p.product}-${p.pack_name}`}>
                       <td style={{ color: colorByLabel[String(p.product)] || undefined }}>
@@ -639,10 +641,9 @@ export default function ComparePage() {
 
           <div className="packs-cards packs-cards-compare">
             { [...subByKind.yearly, ...subByKind.yearlyHalf, ...subByKind.monthly, ...subByKind.lifetime, ...subByKind.other].map((p) => {
-              const kind = packKind(p);
               const label = packKindLabel(p);
               const users = n(p.unique_users);
-              const est = kind === 'Yearly' ? yearlyNetUsd(users, p.product_id, p.pack_name) : null;
+              const est = packEstimateUsd(users, p.product_id, p.pack_name);
               return (
                 <article key={`${p.product}-${p.pack_name}`} className="packs-card">
                   <header>
@@ -662,7 +663,7 @@ export default function ComparePage() {
                       <dd>{fmtNumber(n(p.takes))}</dd>
                     </div>
                     <div>
-                      <dt>Est. yearly</dt>
+                      <dt>Estimated $</dt>
                       <dd>{est == null ? '—' : fmtUsd(est)}</dd>
                     </div>
                   </dl>

@@ -25,18 +25,19 @@ import {
   LIFETIME_ROLLUP,
   MONTHLY_ROLLUP,
   YEARLY_FACE_PRICE,
-  YEARLY_NET_SHARE,
   YEARLY_ROLLUP,
   isHalfYearlyPack,
   isRollupPack,
   n,
   packEventHint,
   packDisplayName,
+  packEstimateUsd,
   packKind,
   packKindLabel,
   splitPacksByKind,
   yearlyListPrice,
   yearlyFacePrice,
+  yearlyNetShare,
   yearlyNetUsd,
   type PackRow,
 } from '@/lib/packs';
@@ -195,12 +196,11 @@ function RankedPacks({
   return (
     <ol className="packs-rank">
       {packs.map((p) => {
-        const kind = packKind(p);
         const label = packKindLabel(p);
         const users = n(p.unique_users);
         const share = pct(users, total || maxUsers);
         const bar = pct(users, maxUsers);
-        const est = kind === 'Yearly' ? yearlyNetUsd(users, p.product_id || productId, p.pack_name) : null;
+        const est = packEstimateUsd(users, p.product_id || productId, p.pack_name);
         return (
           <li key={`${p.product || ''}-${p.pack_name}`}>
             <div className="packs-rank-meta">
@@ -294,6 +294,7 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
   const yearlyHalfUsers = yearlyHalfPacks.reduce((s, p) => s + n(p.unique_users), 0);
   const yearlyUsers = yearlyFromPacks + Math.max(0, yearlyUsersAll - yearlyFromPacks - yearlyHalfUsers);
   const otherUsers = Math.max(0, uniqueUsers - yearlyUsers - yearlyHalfUsers - monthlyUsers - lifetimeUsers);
+  const netSharePct = yearlyNetShare(productId) * 100;
   const yearlyRevenue = yearlyNetUsd(yearlyUsers, productId);
   const yearlyHalfRevenue = yearlyNetUsd(yearlyHalfUsers, productId, 'yearly_offer');
   const facePrice = yearlyListPrice(productId) ?? YEARLY_FACE_PRICE;
@@ -413,8 +414,8 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
           </h2>
           <p>
             {isCompare
-              ? 'Unique people who took a pack. Banknote uses store in_app_purchase product IDs (same as GA4). Coinzy uses subs_pack / subs_confirm (and paid_purchase).'
-              : `Unique people who confirmed a pack in ${product.shortName}. ${packEventHint(productId)}. Yearly $ is unique people × ${YEARLY_NET_SHARE * 100}% × $${facePrice} (full) or $${offerPrice} (discounted offer).`}
+              ? 'Unique people who took a pack. Both apps use store in_app_purchase product IDs (same as GA4).'
+              : `Unique people who bought a pack in ${product.shortName}. ${packEventHint(productId)}. Yearly estimated $ is unique people × ${netSharePct}% × Play US list (yearly $${facePrice} · half/offer $${offerPrice}). Monthly and lifetime are not estimated.`}
           </p>
         </div>
         <FilterBar params={params} onChange={setParams} onApply={applyFilters} />
@@ -579,14 +580,14 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
         {!isCompare && q.isLoading && <div className="empty-state">Loading packs…</div>}
         {!isCompare && q.error && <div className="empty-state error">{q.error.message}</div>}
         {!isCompare && !q.isLoading && !q.error && rows.length === 0 && (
-          <div className="empty-state">No pack confirms in this range.</div>
+          <div className="empty-state">No pack purchases in this range.</div>
         )}
 
         {showData && (
           <div className="packs-flow">
             <div className="packs-story">
               <p>
-                <strong>{fmtNumber(uniqueUsers)}</strong> unique people confirmed a pack.
+                <strong>{fmtNumber(uniqueUsers)}</strong> unique people bought a pack.
                 {' '}
                 Yearly <strong>{fmtNumber(yearlyUsers)}</strong>
                 {uniqueUsers > 0 ? ` (${fmtPercent(yearlyShare)})` : ''}
@@ -609,7 +610,7 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                 <div className="packs-kpi-icon"><Users size={16} /></div>
                 <div className="label">Unique people</div>
                 <div className="value">{fmtNumber(uniqueUsers)}</div>
-                <div className="why">Confirmed a pack — one person per day</div>
+                <div className="why">Store purchase — one person per day</div>
               </div>
               <div className="kpi-card packs-kpi" data-tone="yearly">
                 <div className="packs-kpi-icon"><Calendar size={16} /></div>
@@ -639,13 +640,13 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                 <div className="packs-kpi-icon"><CircleDollarSign size={16} /></div>
                 <div className="label">Yearly estimated</div>
                 <div className="value">{fmtUsd(yearlyRevenue)}</div>
-                <div className="why">{`${fmtNumber(yearlyUsers)} × ${YEARLY_NET_SHARE * 100}% × $${facePrice} — Play US list, not GA4 USD`}</div>
+                <div className="why">{`${fmtNumber(yearlyUsers)} × ${netSharePct}% × $${facePrice} — Play US list, not GA4 USD`}</div>
               </div>
               <div className="kpi-card packs-kpi" data-tone="half">
                 <div className="packs-kpi-icon"><CircleDollarSign size={16} /></div>
                 <div className="label">Half-yearly estimated</div>
                 <div className="value">{fmtUsd(yearlyHalfRevenue)}</div>
-                <div className="why">{`${fmtNumber(yearlyHalfUsers)} × ${YEARLY_NET_SHARE * 100}% × $${offerPrice} — Play US discounted list`}</div>
+                <div className="why">{`${fmtNumber(yearlyHalfUsers)} × ${netSharePct}% × $${offerPrice} — Play US discounted list`}</div>
               </div>
               <div className="kpi-card packs-kpi" data-tone="people">
                 <div className="packs-kpi-icon"><MousePointerClick size={16} /></div>
@@ -736,16 +737,15 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
                     <th>Unique people</th>
                     <th>Share</th>
                     <th>Confirms</th>
-                    <th>Est. yearly</th>
+                    <th>Estimated $</th>
                   </tr>
                 </thead>
                 <tbody>
                   { [...yearlyPacks, ...yearlyHalfPacks, ...monthlyPacks, ...lifetimePacks, ...otherPacks].map((p) => {
-                    const kind = packKind(p);
                     const label = packKindLabel(p);
                     const users = n(p.unique_users);
                     const share = pct(users, uniqueUsers);
-                    const est = kind === 'Yearly' ? yearlyNetUsd(users, productId, p.pack_name) : null;
+                    const est = packEstimateUsd(users, productId, p.pack_name);
                     return (
                       <tr key={String(p.pack_name)}>
                         <td>{packDisplayName(p.pack_name)}</td>
@@ -772,11 +772,10 @@ export default function PacksPage({ params, setParams, applyFilters }: Props) {
 
             <div className="packs-cards">
               {[...yearlyPacks, ...yearlyHalfPacks, ...monthlyPacks, ...lifetimePacks, ...otherPacks].map((p) => {
-                const kind = packKind(p);
                 const label = packKindLabel(p);
                 const users = n(p.unique_users);
                 const share = pct(users, uniqueUsers);
-                const est = kind === 'Yearly' ? yearlyNetUsd(users, productId, p.pack_name) : null;
+                const est = packEstimateUsd(users, productId, p.pack_name);
                 return (
                   <article key={String(p.pack_name)} className="packs-card">
                     <header>

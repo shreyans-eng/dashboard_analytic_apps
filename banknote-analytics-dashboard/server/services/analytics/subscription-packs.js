@@ -1,7 +1,8 @@
 /**
  * Packs taken: unique people per day per pack.
- * Yearly $ is unique people × 20% × Play US list
- * (Banknote full $22.99, offer $11.99; Coinzy $23.99) — not Firebase in_app_purchase USD.
+ * Yearly $ is unique people × share × Play US list
+ * (Banknote 20% of $22.99 / offer $11.99; Coinzy 15% of $29.99 / half $14.99).
+ * Monthly and lifetime are not estimated.
  */
 export const ALL_PACKS = '(all packs)';
 export const YEARLY_ROLLUP = '(yearly)';
@@ -25,13 +26,13 @@ export const BANKNOTE_PACK_SKUS = Object.freeze({
 });
 
 export const COINZY_PACK_SKUS = Object.freeze({
-  yearly_coin_pack: { kind: 'Yearly', offer: 'full_pack', billing: 'SUBS' },
-  monthly_coin_pack: { kind: 'Monthly', offer: 'full_pack', billing: 'SUBS' },
-  lifetime_coin: { kind: 'Lifetime', offer: 'full_pack', billing: 'IAP' },
-  yearly_coin_half_pack: { kind: 'Yearly', offer: 'half_pack', billing: 'SUBS' },
-  lifetime_pack_half_price: { kind: 'Lifetime', offer: 'half_pack', billing: 'IAP' },
-  yearly_coinzy_pack_trial: { kind: 'Yearly', offer: 'full_pack1', billing: 'SUBS' },
-  yearly_coinzy_pack_trial_half_price: { kind: 'Yearly', offer: 'half_pack1', billing: 'SUBS' },
+  yearly_coin_pack: { kind: 'Yearly', offer: 'full_pack', billing: 'SUBS', listUsd: 29.99 },
+  monthly_coin_pack: { kind: 'Monthly', offer: 'full_pack', billing: 'SUBS', listUsd: 4.49 },
+  lifetime_coin: { kind: 'Lifetime', offer: 'full_pack', billing: 'IAP', listUsd: 54.99 },
+  yearly_coin_half_pack: { kind: 'Yearly', offer: 'half_pack', billing: 'SUBS', listUsd: 14.99 },
+  lifetime_pack_half_price: { kind: 'Lifetime', offer: 'half_pack', billing: 'IAP', listUsd: 26.99 },
+  yearly_coinzy_pack_trial: { kind: 'Yearly', offer: 'full_pack1', billing: 'SUBS', listUsd: 29.99 },
+  yearly_coinzy_pack_trial_half_price: { kind: 'Yearly', offer: 'half_pack1', billing: 'SUBS', listUsd: 14.99 },
 });
 
 export function classifyBanknotePack(packName) {
@@ -74,15 +75,40 @@ export function classifyCoinzyPack(packName) {
 /** Play Console US: yearly_banknote_pack $22.99 · yearly_banknote_pack_offer $11.99. */
 export const BANKNOTE_YEARLY_FACE_PRICE = 22.99;
 export const BANKNOTE_YEARLY_OFFER_FACE_PRICE = 11.99;
-export const COINZY_YEARLY_FACE_PRICE = 23.99;
+export const COINZY_YEARLY_FACE_PRICE = 29.99;
+export const COINZY_YEARLY_HALF_FACE_PRICE = 14.99;
+export const COINZY_MONTHLY_FACE_PRICE = 4.49;
+export const COINZY_LIFETIME_FACE_PRICE = 54.99;
+export const COINZY_LIFETIME_HALF_FACE_PRICE = 26.99;
 export const YEARLY_FACE_PRICE = BANKNOTE_YEARLY_FACE_PRICE;
+/** Banknote default. Coinzy yearly is 15%. Monthly / lifetime have no estimated $. */
 export const YEARLY_NET_SHARE = 0.20;
+export const YEARLY_NET_SHARE_BY_PRODUCT = Object.freeze({
+  banknote: 0.20,
+  coinzy: 0.15,
+});
 export const YEARLY_LIST_PRICE = Object.freeze({
   banknote: BANKNOTE_YEARLY_FACE_PRICE,
   coinzy: COINZY_YEARLY_FACE_PRICE,
 });
 export const YEARLY_OFFER_LIST_PRICE = Object.freeze({
   banknote: BANKNOTE_YEARLY_OFFER_FACE_PRICE,
+  coinzy: COINZY_YEARLY_HALF_FACE_PRICE,
+});
+export const PACK_SKU_PRICES = Object.freeze({
+  banknote: Object.freeze({
+    yearly_banknote_pack: BANKNOTE_YEARLY_FACE_PRICE,
+    yearly_banknote_pack_offer: BANKNOTE_YEARLY_OFFER_FACE_PRICE,
+  }),
+  coinzy: Object.freeze({
+    yearly_coinzy_pack_trial_half_price: COINZY_YEARLY_HALF_FACE_PRICE,
+    yearly_coinzy_pack_trial: COINZY_YEARLY_FACE_PRICE,
+    yearly_coin_half_pack: COINZY_YEARLY_HALF_FACE_PRICE,
+    yearly_coin_pack: COINZY_YEARLY_FACE_PRICE,
+    monthly_coin_pack: COINZY_MONTHLY_FACE_PRICE,
+    lifetime_pack_half_price: COINZY_LIFETIME_HALF_FACE_PRICE,
+    lifetime_coin: COINZY_LIFETIME_FACE_PRICE,
+  }),
 });
 
 export function yearlyListPrice(productId) {
@@ -99,18 +125,55 @@ export function yearlyOfferListPrice(productId) {
     : null;
 }
 
-export function yearlyFacePrice(productId, packName) {
-  if (isHalfYearlyPack(packName)) {
-    return yearlyOfferListPrice(productId) ?? yearlyListPrice(productId) ?? YEARLY_FACE_PRICE;
+export function packListPrice(productId, packName) {
+  const id = String(productId || '').toLowerCase();
+  const key = String(packName || '').toLowerCase();
+  const map = PACK_SKU_PRICES[id];
+  if (map && key) {
+    const skus = Object.keys(map).sort((a, b) => b.length - a.length);
+    for (const sku of skus) {
+      if (key === sku || key.includes(sku)) return map[sku];
+    }
   }
-  return yearlyListPrice(productId) ?? YEARLY_FACE_PRICE;
+  if (!key) return yearlyListPrice(productId);
+  if (isHalfYearlyPack(packName)) return yearlyOfferListPrice(productId);
+  if (/year|annual/.test(key)) return yearlyListPrice(productId);
+  if (id === 'coinzy' && /month/.test(key)) return COINZY_MONTHLY_FACE_PRICE;
+  if (id === 'coinzy' && /lifetime|life_time|life.?time/.test(key)) {
+    return /half/.test(key) ? COINZY_LIFETIME_HALF_FACE_PRICE : COINZY_LIFETIME_FACE_PRICE;
+  }
+  return null;
 }
 
-/** unique people × 0.20 × Play US list. Banknote offer SKUs use $11.99. */
+export function yearlyNetShare(productId) {
+  const id = String(productId || '').toLowerCase();
+  return Object.prototype.hasOwnProperty.call(YEARLY_NET_SHARE_BY_PRODUCT, id)
+    ? YEARLY_NET_SHARE_BY_PRODUCT[id]
+    : YEARLY_NET_SHARE;
+}
+
+/** Estimated $ applies to yearly / half-yearly only — not monthly or lifetime. */
+export function isYearlyEstimatePack(packName) {
+  if (packName == null || packName === '') return true;
+  if (isRollupPack(packName)) return packName === YEARLY_ROLLUP;
+  return /year|annual/.test(String(packName).toLowerCase());
+}
+
+export function yearlyFacePrice(productId, packName) {
+  return packListPrice(productId, packName) ?? YEARLY_FACE_PRICE;
+}
+
+/** unique people × yearly share × Play US list. Banknote 20%, Coinzy 15%. Yearly only. */
 export function yearlyNetUsd(uniqueUsers, productId, packName) {
   const users = Number(uniqueUsers || 0);
   if (!Number.isFinite(users) || users <= 0) return 0;
-  return users * YEARLY_NET_SHARE * yearlyFacePrice(productId, packName);
+  if (!isYearlyEstimatePack(packName)) return 0;
+  return users * yearlyNetShare(productId) * yearlyFacePrice(productId, packName);
+}
+
+export function packEstimateUsd(uniqueUsers, productId, packName) {
+  if (!isYearlyEstimatePack(packName)) return null;
+  return yearlyNetUsd(uniqueUsers, productId, packName);
 }
 
 export function isHalfYearlyPack(packName) {
@@ -193,7 +256,7 @@ export function summarizePackRows(rows, productId) {
     iap_users: lifetimeUsers,
     yearly_list_price: price,
     yearly_face_price: price ?? YEARLY_FACE_PRICE,
-    yearly_net_share: YEARLY_NET_SHARE,
+    yearly_net_share: yearlyNetShare(productId),
     yearly_revenue: yearlyFullRevenue,
     yearly_half_revenue: yearlyHalfRevenue,
   };

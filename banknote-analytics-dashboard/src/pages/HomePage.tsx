@@ -73,7 +73,7 @@ const METRICS = [
     to: '/packs',
     icon: Package,
     title: 'Packs taken',
-    description: 'Yearly vs monthly unique people per pack. Banknote: store product ID. Coinzy: subs_pack / subs_confirm.',
+    description: 'Yearly vs monthly unique people per pack. Both apps: store in_app_purchase product ID.',
   },
   {
     to: '/scan-limits',

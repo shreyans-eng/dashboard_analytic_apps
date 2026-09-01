@@ -1,18 +1,18 @@
 -- =============================================================================
--- Coinzy packs taken — unique people per day per pack
--- Confirm: subs_confirm / discount / paid_purchase / trial_purchase
--- Pack click: subs_pack / subs_pack_discount
--- Pack name: confirm params, else last named pack click that day
--- One row per person per day so payment retries do not inflate unique_users.
+-- Coinzy packs taken — unique people per day per store product ID
 --
--- Store SKUs (paywall JSON):
---   full_pack:    yearly_coin_pack (SUBS), monthly_coin_pack (SUBS), lifetime_coin (IAP)
---   half_pack:    yearly_coin_half_pack (SUBS), lifetime_pack_half_price (IAP)
---   full_pack1:   yearly_coinzy_pack_trial (SUBS), monthly_coin_pack (SUBS), lifetime_coin (IAP)
---   half_pack1:   yearly_coinzy_pack_trial_half_price (SUBS), monthly_coin_pack (SUBS),
---                 lifetime_pack_half_price (IAP)
--- Group names (full_pack / half_pack) are not a SKU — yearly vs monthly needs the SKU
--- in pack_name / product_id / item_id.
+-- Taken = Firebase in_app_purchase / purchase (GA Product ID = items.item_id).
+-- SKUs (Play US list):
+--   yearly_coin_pack / yearly_coinzy_pack_trial          $29.99
+--   yearly_coin_half_pack / yearly_coinzy_pack_trial_half_price  $14.99
+--   monthly_coin_pack                                    $4.49
+--   lifetime_coin                                        $54.99
+--   lifetime_pack_half_price                             $26.99
+-- Expert tokens (coinzy_expert_token) are not subscription packs.
+--
+-- subs_confirm / paid_purchase are NOT counted: they inflate takes vs store
+-- quantity. Pack click stays subs_pack / subs_pack_discount (click → confirm).
+-- One row per person per day per SKU.
 -- =============================================================================
 
 WITH base AS (
@@ -21,13 +21,25 @@ WITH base AS (
     event_timestamp,
     {{resolved_user_id_cheap}} AS uid,
     REGEXP_REPLACE(event_name, r'_(android|ios)$', '') AS event_name_base,
-    COALESCE(
-      NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'pack_name'), ''),
-      NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'product_id'), ''),
-      NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'item_id'), ''),
-      NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'item_name'), ''),
-      '(unnamed pack)'
-    ) AS pack_name
+    CASE
+      WHEN REGEXP_REPLACE(event_name, r'_(android|ios)$', '') IN ('in_app_purchase', 'purchase') THEN
+        COALESCE(
+          NULLIF((SELECT item.item_id FROM UNNEST(items) item WHERE NULLIF(item.item_id, '') IS NOT NULL LIMIT 1), ''),
+          NULLIF((SELECT item.item_name FROM UNNEST(items) item WHERE NULLIF(item.item_name, '') IS NOT NULL LIMIT 1), ''),
+          NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'item_id'), ''),
+          NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'product_id'), ''),
+          NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'item_name'), ''),
+          '(unnamed pack)'
+        )
+      ELSE
+        COALESCE(
+          NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'pack_name'), ''),
+          NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'product_id'), ''),
+          NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'item_id'), ''),
+          NULLIF((SELECT ep.value.string_value FROM UNNEST(event_params) ep WHERE ep.key = 'item_name'), ''),
+          '(unnamed pack)'
+        )
+    END AS pack_name
   FROM `{PROJECT}.{DATASET}.events_*`
   WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', {{start_date}})
                           AND FORMAT_DATE('%Y%m%d', {{end_date}})
@@ -37,21 +49,6 @@ WITH base AS (
     [[AND event_platform = {{platform}}]]
 ),
 
-pack_clicks AS (
-  SELECT
-    event_date,
-    uid,
-    ARRAY_AGG(
-      IF(pack_name = '(unnamed pack)', NULL, pack_name) IGNORE NULLS
-      ORDER BY event_timestamp DESC
-      LIMIT 1
-    )[SAFE_OFFSET(0)] AS pack_name
-  FROM base
-  WHERE uid IS NOT NULL
-    AND event_name_base IN ('subs_pack', 'subs_pack_discount')
-  GROUP BY event_date, uid
-),
-
 click_people AS (
   SELECT DISTINCT event_date, uid
   FROM base
@@ -59,10 +56,9 @@ click_people AS (
     AND event_name_base IN ('subs_pack', 'subs_pack_discount')
 ),
 
-confirms AS (
+purchases AS (
   SELECT
     event_date,
-    event_timestamp,
     uid,
     pack_name,
     CASE
@@ -76,38 +72,27 @@ confirms AS (
     END AS pack_kind
   FROM (
     SELECT
-      c.event_date,
-      c.event_timestamp,
-      c.uid,
-      COALESCE(
-        NULLIF(c.pack_name, '(unnamed pack)'),
-        p.pack_name,
-        '(unnamed pack)'
-      ) AS pack_name,
-      LOWER(COALESCE(
-        NULLIF(c.pack_name, '(unnamed pack)'),
-        p.pack_name,
-        ''
-      )) AS pk
-    FROM base c
-    LEFT JOIN pack_clicks p
-      ON p.event_date = c.event_date AND p.uid = c.uid
-    WHERE c.uid IS NOT NULL
-      AND c.event_name_base IN (
-        'subs_confirm', 'subs_confirm_discount',
-        'paid_purchase', 'trial_purchase'
-      )
+      event_date,
+      uid,
+      pack_name,
+      LOWER(pack_name) AS pk
+    FROM base
+    WHERE uid IS NOT NULL
+      AND event_name_base IN ('in_app_purchase', 'purchase')
+      AND pack_name != '(unnamed pack)'
+      AND REGEXP_CONTAINS(LOWER(pack_name), r'yearly_coinzy_pack_trial|yearly_coin_half_pack|yearly_coin_pack|monthly_coin_pack|lifetime_pack_half_price|lifetime_coin')
   )
 ),
+
 taken AS (
   SELECT
     event_date,
     uid,
-    ARRAY_AGG(pack_name ORDER BY event_timestamp DESC LIMIT 1)[SAFE_OFFSET(0)] AS pack_name,
-    ARRAY_AGG(pack_kind ORDER BY event_timestamp DESC LIMIT 1)[SAFE_OFFSET(0)] AS pack_kind,
+    pack_name,
+    pack_kind,
     COUNT(*) AS confirm_taps
-  FROM confirms
-  GROUP BY event_date, uid
+  FROM purchases
+  GROUP BY event_date, uid, pack_name, pack_kind
 )
 
 SELECT

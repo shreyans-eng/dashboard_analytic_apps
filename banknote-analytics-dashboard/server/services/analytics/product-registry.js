@@ -417,7 +417,8 @@ export class ProductAnalyticsFacade {
 
   /**
    * Packs taken (unique people per day per pack) per registered product.
-   * Yearly $ is unique people × 20% × Play US list (Banknote $22.99 / offer $11.99).
+   * Yearly $ is unique people × share × Play US list
+   * (Banknote 20% of $22.99 / offer $11.99; Coinzy 15% of $29.99 / half $14.99).
    */
   async compareSubscriptions(params = {}) {
     const results = await Promise.all(
